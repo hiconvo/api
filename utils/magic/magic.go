@@ -6,14 +6,15 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
 	"cloud.google.com/go/datastore"
+
+	"github.com/hiconvo/api/utils/secrets"
 )
 
-var secret = os.Getenv("APP_SECRET")
+var secret = secrets.Get("APP_SECRET")
 
 func NewLink(k *datastore.Key, salt, action string) string {
 	// Get time and convert to epoc string

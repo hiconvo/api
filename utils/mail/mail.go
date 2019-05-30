@@ -9,6 +9,8 @@ import (
 	"github.com/sendgrid/rest"
 	"github.com/sendgrid/sendgrid-go"
 	smail "github.com/sendgrid/sendgrid-go/helpers/mail"
+
+	"github.com/hiconvo/api/utils/secrets"
 )
 
 var client sender
@@ -31,7 +33,7 @@ func init() {
 	if strings.Contains(os.Args[0], "/_test/") {
 		client = &testClient{}
 	} else {
-		client = sendgrid.NewSendClient(os.Getenv("SENDGRID_API_KEY"))
+		client = sendgrid.NewSendClient(secrets.Get("SENDGRID_API_KEY"))
 	}
 }
 

@@ -17,7 +17,7 @@ func CreateTestContext() (context.Context, func()) {
 }
 
 func CreateTestDatastoreClient(ctx context.Context) *datastore.Client {
-	client, err := datastore.NewClient(ctx, "")
+	client, err := datastore.NewClient(ctx, "convo-api")
 	if err != nil {
 		panic(err)
 	}

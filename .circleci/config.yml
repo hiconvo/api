@@ -1,0 +1,96 @@
+version: 2
+jobs:
+  test:
+    docker:
+      - image: google/cloud-sdk:latest
+      - image: circleci/golang:1.11.6-stretch
+    steps:
+
+      - run:
+          name: authenticate gcloud sdk
+          command: |
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+            gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+
+      - checkout
+
+      - restore_cache:
+          keys:
+            - pkg-cache
+      - run: 
+          name: retrieve go dependencies
+          command: go get
+      - save_cache:
+          key: pkg-cache
+          paths:
+            - "/go/pkg"
+
+      - run:
+          name: starting datastore emulator
+          command: gcloud beta emulators datastore start
+          background: true
+
+      - run:
+          name: set datastore environment variables
+          command: |
+            IFS=''
+            for line in $(gcloud beta emulators datastore env-init); do
+              echo $line >> $BASH_ENV
+            done
+
+      - run:
+          name: run tests
+          command: cd tests && go test
+
+  deploy:
+    docker:
+      - image: google/cloud-sdk:latest
+      - image: circleci/golang:1.11.6-stretch
+      - image: circleci/node:lts-stretch
+    steps:
+
+      - run:
+          name: authenticate gcloud sdk
+          command: |
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+            gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+
+      - run:
+          name: install redoc-cli
+          command: npm i -g redoc-cli
+
+      - checkout
+        
+      - restore_cache:
+          keys:
+            - pkg-cache
+      - run: 
+          name: retrieve go dependencies
+          command: go get
+      - save_cache:
+          key: pkg-cache
+          paths:
+            - "/go/pkg"
+
+      - run:
+          name: generate docs
+          command: |
+            mkdir -p main/static
+            redoc-cli bundle swagger.yaml
+            mv redoc-static.html main/static/index.html
+
+      - deploy:
+          command: gcloud app deploy main/app.yaml
+
+workflows:
+  version: 2
+  test_deploy:
+    jobs:
+      - test
+      - deploy:
+          requires:
+            - test
+          filters:
+            branches:
+              only: master
+

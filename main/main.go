@@ -6,10 +6,14 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/handlers"
+	"github.com/hiconvo/api/utils/secrets"
 )
 
 func main() {
+	cp := db.Client
+	secrets.Init(cp)
 	http.Handle("/", handlers.CreateRouter())
 
 	port := os.Getenv("PORT")
