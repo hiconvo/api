@@ -2,9 +2,17 @@ version: 2
 jobs:
   test:
     docker:
-      - image: google/cloud-sdk:latest
       - image: circleci/golang:1.11.6-stretch
+
     steps:
+
+      - run:
+          name: install gcloud sdk
+          command: |
+            CLOUD_SDK_REPO="cloud-sdk-$(grep VERSION_CODENAME /etc/os-release | cut -d '=' -f 2)"
+            echo "deb http://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+            sudo apt-get update && sudo apt-get install google-cloud-sdk
 
       - run:
           name: authenticate gcloud sdk
@@ -16,12 +24,12 @@ jobs:
 
       - restore_cache:
           keys:
-            - pkg-cache
+            - pkg-cache-{{ checksum "go.sum" }}
       - run: 
           name: retrieve go dependencies
           command: go get
       - save_cache:
-          key: pkg-cache
+          key: pkg-cache-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg"
 
@@ -44,10 +52,17 @@ jobs:
 
   deploy:
     docker:
-      - image: google/cloud-sdk:latest
       - image: circleci/golang:1.11.6-stretch
-      - image: circleci/node:lts-stretch
+
     steps:
+
+      - run:
+          name: install gcloud sdk
+          command: |
+            CLOUD_SDK_REPO="cloud-sdk-$(grep VERSION_CODENAME /etc/os-release | cut -d '=' -f 2)"
+            echo "deb http://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+            sudo apt-get update && sudo apt-get install google-cloud-sdk
 
       - run:
           name: authenticate gcloud sdk
