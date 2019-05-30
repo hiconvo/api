@@ -9,7 +9,7 @@ jobs:
       - run:
           name: authenticate gcloud sdk
           command: |
-            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account circleci --key-file=-
             gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
 
       - checkout
@@ -52,7 +52,7 @@ jobs:
       - run:
           name: authenticate gcloud sdk
           command: |
-            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account circleci --key-file=-
             gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
 
       - run:
