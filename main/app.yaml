@@ -1,0 +1,12 @@
+runtime: go111
+
+handlers:
+  - url: /docs
+    static_files: static/index.html
+    upload: static/.*
+
+  - url: /.*
+    script: auto
+
+includes:
+  - env_variables.yaml

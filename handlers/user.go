@@ -1,0 +1,381 @@
+package handlers
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/middleware"
+	"github.com/hiconvo/api/models"
+	"github.com/hiconvo/api/utils/bjson"
+	"github.com/hiconvo/api/utils/magic"
+	"github.com/hiconvo/api/utils/oauth"
+	"github.com/hiconvo/api/utils/validate"
+)
+
+var (
+	errMsgCreate = map[string]string{"message": "Could not create user"}
+	errMsgSave   = map[string]string{"message": "Could not save user"}
+	errMsgGet    = map[string]string{"message": "Could not get user"}
+	errMsgReg    = map[string]string{"message": "This email has already been registered"}
+	errMsgCreds  = map[string]string{"message": "Invalid credentials"}
+	errMsgMagic  = map[string]string{"message": "This link is not valid anymore"}
+	errMsgSend   = map[string]string{"message": "Could not send email"}
+)
+
+// CreateUser Endpoint: POST /users
+//
+// Request payload:
+type createUserPayload struct {
+	Email     string `validate:"regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4}$"`
+	FirstName string `validate:"nonzero"`
+	LastName  string
+	Password  string `validate:"min=8"`
+}
+
+// CreateUser is an endpoint that creates a user with password based
+// authentication.
+func CreateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+
+	var payload createUserPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	// Make sure the user is not already registered
+	_, found, err := models.GetUserByEmail(ctx, payload.Email)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgCreate)
+		return
+	} else if found {
+		bjson.WriteJSON(w, errMsgReg, http.StatusBadRequest)
+		return
+	}
+
+	// Create the user object
+	user, uerr := models.NewUserWithPassword(
+		payload.Email,
+		payload.FirstName,
+		payload.LastName,
+		payload.Password)
+	if uerr != nil {
+		bjson.HandleInternalServerError(w, uerr, errMsgCreate)
+		return
+	}
+
+	// Save the user object
+	key, err := db.Client.Put(ctx, user.Key, &user)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
+		return
+	}
+
+	user.DeriveFullName()
+
+	user.SendVerifyEmail()
+
+	// Extract the new key and put it in the response
+	user.ID = key.Encode()
+	bjson.WriteJSON(w, user, http.StatusCreated)
+}
+
+// GetUser Endpoint: GET /users
+
+// GetUser is an endpoint that returns the current user.
+func GetUser(w http.ResponseWriter, r *http.Request) {
+	u := middleware.UserFromContext(r.Context())
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// AuthenticateUser Endpoint: POST /users/auth
+//
+// Request payload:
+type authenticateUserPayload struct {
+	Email    string `validate:"regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4}$"`
+	Password string `validate:"nonzero"`
+}
+
+// AuthenticateUser is an endpoint that authenticates a user with a password.
+func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+
+	var payload authenticateUserPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	u, found, err := models.GetUserByEmail(ctx, payload.Email)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgGet)
+		return
+	} else if !found {
+		bjson.WriteJSON(w, errMsgCreds, http.StatusBadRequest)
+		return
+	}
+
+	if u.CheckPassword(payload.Password) {
+		bjson.WriteJSON(w, u, http.StatusOK)
+		return
+	}
+
+	bjson.WriteJSON(w, errMsgCreds, http.StatusBadRequest)
+}
+
+// OAuth Endpoint: POST /users/oauth
+//
+// Request payload: oauth.UserPayload
+
+// OAuth is an endpoint that can do three things. It can
+//   1. create a user with oauth based authentication
+//   2. associate an existing user with an oauth token
+//   3. authenticate a user via oauth
+//
+func OAuth(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+
+	var payload oauth.UserPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	oauthPayload, oerr := oauth.Verify(ctx, payload)
+	if oerr != nil {
+		bjson.WriteJSON(w, errMsgCreds, http.StatusBadRequest)
+		return
+	}
+
+	// Get the user and return if found
+	u, found, err := models.GetUserByOAuthID(ctx, oauthPayload.ID, oauthPayload.Provider)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgGet)
+		return
+	} else if found {
+		bjson.WriteJSON(w, u, http.StatusOK)
+		return
+	}
+
+	// Try to find the user by email. If found, associate the new token
+	// with the existing user.
+	u, found, err = models.GetUserByEmail(ctx, payload.Email)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgGet)
+		return
+	} else if found {
+		if oauthPayload.Provider == "google" {
+			u.OAuthGoogleID = oauthPayload.ID
+		} else {
+			u.OAuthFacebookID = oauthPayload.ID
+		}
+
+		_, err := db.Client.Put(ctx, u.Key, &u)
+		if err != nil {
+			bjson.HandleInternalServerError(w, err, errMsgSave)
+			return
+		}
+
+		bjson.WriteJSON(w, u, http.StatusOK)
+		return
+	}
+
+	// Finally create a new user
+	u, err = models.NewUserWithOAuth(
+		oauthPayload.Email,
+		oauthPayload.FirstName,
+		oauthPayload.LastName,
+		oauthPayload.Provider,
+		oauthPayload.ID)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgCreate)
+		return
+	}
+
+	// Save the user
+	key, kerr := db.Client.Put(ctx, u.Key, &u)
+	if kerr != nil {
+		bjson.HandleInternalServerError(w, kerr, errMsgSave)
+		return
+	}
+
+	// Extract the new key and put it in the response
+	u.ID = key.Encode()
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// UpdateUser Endpoint: PATCH /users
+//
+// Request payload:
+type updateUserPayload struct {
+	Email     string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+	FirstName string
+	LastName  string
+	Password  bool
+}
+
+// UpdateUser is an endpoint that can do three things. It can
+//   - update FirstName and LastName fields on a user
+//   - initiate an email update which requires email based validation
+//   - initiate a password update which requires email based validation
+//
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	body := bjson.BodyFromContext(ctx)
+
+	var payload updateUserPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	if payload.Password {
+		u.SendPasswordResetEmail()
+	}
+
+	if payload.Email != "" && payload.Email != u.Email {
+		// Make sure the user is not already registered
+		_, found, err := models.GetUserByEmail(ctx, payload.Email)
+		if err != nil {
+			bjson.HandleInternalServerError(w, err, errMsgCreate)
+			return
+		} else if found {
+			bjson.WriteJSON(w, errMsgReg, http.StatusBadRequest)
+			return
+		}
+
+		// Update email and send verification email
+		u.Email = payload.Email
+		u.SendVerifyEmail()
+	}
+
+	// TODO: Come up with something better than this.
+	if payload.FirstName != "" && payload.FirstName != u.FirstName {
+		u.FirstName = payload.FirstName
+	}
+
+	if payload.LastName != "" && payload.LastName != u.LastName {
+		u.LastName = payload.LastName
+	}
+
+	_, kerr := db.Client.Put(ctx, u.Key, &u)
+	if kerr != nil {
+		bjson.HandleInternalServerError(w, kerr, errMsgSave)
+		return
+	}
+
+	u.DeriveFullName()
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// UpdatePassword Endpoint: POST /users/password
+//
+// Request payload:
+type updatePasswordPayload struct {
+	Signature string `validate:"nonzero"`
+	Timestamp string `validate:"nonzero"`
+	UserID    string `validate:"nonzero"`
+	Password  string `validate:"min=8"`
+}
+
+// UpdatePassword updates a user's password.
+func UpdatePassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+
+	var payload updatePasswordPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	u, err := models.GetUserByID(ctx, payload.UserID)
+	if err != nil {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		return
+	}
+
+	if !magic.Verify(
+		payload.UserID,
+		payload.Timestamp,
+		u.PasswordDigest,
+		payload.Signature,
+	) {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
+		return
+	}
+
+	u.ChangePassword(payload.Password)
+	_, kerr := db.Client.Put(ctx, u.Key, &u)
+	if kerr != nil {
+		bjson.HandleInternalServerError(w, kerr, errMsgSave)
+		return
+	}
+
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// VerifyEmail Endpoint: POST /users/verify
+//
+// Request payload:
+type verifyEmailPayload struct {
+	Signature string `validate:"nonzero"`
+	Timestamp string `validate:"nonzero"`
+	UserID    string `validate:"nonzero"`
+}
+
+// VerifyEmail verifies that the user's email is really hers. It is secured
+// with a signature.
+func VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+
+	var payload verifyEmailPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	u, err := models.GetUserByID(ctx, payload.UserID)
+	if err != nil {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		return
+	}
+
+	if !magic.Verify(
+		payload.UserID,
+		payload.Timestamp,
+		strconv.FormatBool(u.Verified),
+		payload.Signature,
+	) {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
+		return
+	}
+
+	u.Verified = true
+	_, kerr := db.Client.Put(ctx, u.Key, &u)
+	if kerr != nil {
+		bjson.HandleInternalServerError(w, kerr, errMsgSave)
+		return
+	}
+
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// SendVerifyEmail Endpoint: POST /users/resend
+
+// SendVerifyEmail resends the email verification email.
+func SendVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	u := middleware.UserFromContext(r.Context())
+	err := u.SendVerifyEmail()
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSend)
+		return
+	}
+	bjson.WriteJSON(w, u, http.StatusOK)
+}

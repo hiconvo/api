@@ -1,0 +1,55 @@
+{{ define "message" }} {{if eq (.FromID) (.ToID)}}
+<table role="presentation" class="message blue">
+  {{- else}}
+  <table role="presentation" class="message">
+    {{- end}}
+    <!-- START MESSAGE CONTENT AREA -->
+    <tr>
+      <td class="wrapper">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td>
+              <!-- START PROFILE -->
+              <table
+                role="presentation"
+                border="0"
+                cellpadding="0"
+                cellspacing="0"
+                class="profile"
+              >
+                <tbody>
+                  <tr>
+                    <td align="left">
+                      <table
+                        role="presentation"
+                        border="0"
+                        cellpadding="0"
+                        cellspacing="0"
+                      >
+                        <tbody>
+                          <tr>
+                            <td>
+                              <strong>{{ .Name }}</strong>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- END PROFILE -->
+
+              {{ .Body }}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- END MESSAGE CONTENT AREA -->
+  </table>
+
+  {{ end }}
+</table>
