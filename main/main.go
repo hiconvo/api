@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/getsentry/raven-go"
+
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/handlers"
 	"github.com/hiconvo/api/utils/secrets"
@@ -14,6 +16,10 @@ import (
 func main() {
 	cp := db.Client
 	secrets.Init(cp)
+
+	raven.SetDSN(secrets.Get("SENTRY_DSN"))
+	raven.SetRelease(os.Getenv("GAE_VERSION"))
+
 	http.Handle("/", handlers.CreateRouter())
 
 	port := os.Getenv("PORT")
