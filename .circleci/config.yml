@@ -27,7 +27,7 @@ jobs:
 
       - run:
           name: starting datastore emulator
-          command: gcloud beta emulators datastore start
+          command: gcloud beta emulators datastore start --consistency=1.0
           background: true
 
       - run:

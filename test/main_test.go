@@ -23,7 +23,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	ctx, done := thelpers.CreateTestContext()
+	ctx := thelpers.CreateTestContext()
 	client := thelpers.CreateTestDatastoreClient(ctx)
 
 	// Set globals to be used by tests below
@@ -34,8 +34,6 @@ func TestMain(m *testing.M) {
 	result := m.Run()
 
 	thelpers.ClearDatastore(ctx, client)
-	// Close the context to shut down the db
-	done()
 
 	os.Exit(result)
 }

@@ -4,16 +4,10 @@ import (
 	"context"
 
 	"cloud.google.com/go/datastore"
-	"google.golang.org/appengine/aetest"
 )
 
-func CreateTestContext() (context.Context, func()) {
-	ctx, done, err := aetest.NewContext()
-	if err != nil {
-		panic(err)
-	}
-
-	return ctx, done
+func CreateTestContext() context.Context {
+	return context.Background()
 }
 
 func CreateTestDatastoreClient(ctx context.Context) *datastore.Client {
