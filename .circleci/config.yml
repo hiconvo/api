@@ -71,7 +71,7 @@ jobs:
       - save_cache:
           key: pkg-cache-{{ checksum "go.sum" }}
           paths:
-            - "/go/src"
+            - "/usr/local/go/src"
 
       - run:
           name: generate docs
