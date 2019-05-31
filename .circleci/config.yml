@@ -23,7 +23,7 @@ jobs:
       - save_cache:
           key: pkg-cache-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg"
+            - "/usr/local/go/src"
 
       - run:
           name: starting datastore emulator
@@ -71,7 +71,7 @@ jobs:
       - save_cache:
           key: pkg-cache-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg"
+            - "/go/src"
 
       - run:
           name: generate docs
@@ -81,7 +81,7 @@ jobs:
             mv redoc-static.html main/static/index.html
 
       - deploy:
-          command: gcloud app deploy main/app.yaml
+          command: gcloud -q app deploy main/app.yaml
 
 workflows:
   version: 2
