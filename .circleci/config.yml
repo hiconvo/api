@@ -33,6 +33,7 @@ jobs:
       - run:
           name: set datastore environment variables
           command: |
+            sleep 5
             IFS=''
             for line in $(gcloud beta emulators datastore env-init); do
               echo $line >> $BASH_ENV
@@ -41,7 +42,6 @@ jobs:
       - run:
           name: run tests
           command: |
-            sleep 5
             cd test && go test
 
   deploy:
@@ -61,15 +61,15 @@ jobs:
           command: npm i -g redoc-cli
 
       - checkout
-        
+
       - restore_cache:
           keys:
-            - pkg-cache
+            - pkg-cache-{{ checksum "go.sum" }}
       - run: 
           name: retrieve go dependencies
           command: go get
       - save_cache:
-          key: pkg-cache
+          key: pkg-cache-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg"
 
