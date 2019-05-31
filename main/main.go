@@ -8,15 +8,11 @@ import (
 
 	"github.com/getsentry/raven-go"
 
-	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/handlers"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
 func main() {
-	cp := db.Client
-	secrets.Init(cp)
-
 	raven.SetDSN(secrets.Get("SENTRY_DSN"))
 	raven.SetRelease(os.Getenv("GAE_VERSION"))
 

@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"cloud.google.com/go/datastore"
+
+	"github.com/hiconvo/api/db"
 )
 
 type secret struct {
@@ -13,19 +15,13 @@ type secret struct {
 	Value string
 }
 
-var isInitialized = false
 var secrets map[string]string
 
-func Init(client *datastore.Client) {
-	if isInitialized {
-		return
-	}
-	isInitialized = true
-
+func init() {
 	ctx := context.Background()
 	var s []secret
 	q := datastore.NewQuery("Secret")
-	client.GetAll(ctx, q, &s)
+	db.Client.GetAll(ctx, q, &s)
 
 	secretMap := make(map[string]string, len(s))
 	for i := range s {
