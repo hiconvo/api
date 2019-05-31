@@ -42,7 +42,7 @@ jobs:
           name: run tests
           command: |
             sleep 5
-            cd tests && go test
+            cd test && go test
 
   deploy:
     docker:
