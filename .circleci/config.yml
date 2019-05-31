@@ -2,17 +2,9 @@ version: 2
 jobs:
   test:
     docker:
-      - image: circleci/golang:1.11.6-stretch
+      - image: hiconvo/docker:ci
 
     steps:
-
-      - run:
-          name: install gcloud sdk
-          command: |
-            CLOUD_SDK_REPO="cloud-sdk-$(grep VERSION_CODENAME /etc/os-release | cut -d '=' -f 2)"
-            echo "deb http://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-            sudo apt-get update && sudo apt-get install google-cloud-sdk
 
       - run:
           name: authenticate gcloud sdk
@@ -48,21 +40,15 @@ jobs:
 
       - run:
           name: run tests
-          command: cd tests && go test
+          command: |
+            sleep 5
+            cd tests && go test
 
   deploy:
     docker:
-      - image: circleci/golang:1.11.6-stretch
+      - image: hiconvo/docker:ci
 
     steps:
-
-      - run:
-          name: install gcloud sdk
-          command: |
-            CLOUD_SDK_REPO="cloud-sdk-$(grep VERSION_CODENAME /etc/os-release | cut -d '=' -f 2)"
-            echo "deb http://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-            sudo apt-get update && sudo apt-get install google-cloud-sdk
 
       - run:
           name: authenticate gcloud sdk
