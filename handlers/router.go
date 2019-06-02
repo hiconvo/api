@@ -14,7 +14,7 @@ import (
 // that it can be used in tests.
 func CreateRouter() http.Handler {
 	router := mux.NewRouter()
-	router.Use(raven.Recoverer, middleware.WithCORS)
+	router.Use(raven.Recoverer)
 
 	router.NotFoundHandler = http.HandlerFunc(notFound)
 	router.MethodNotAllowedHandler = http.HandlerFunc(methodNotAllowed)
@@ -49,7 +49,7 @@ func CreateRouter() http.Handler {
 	authSubrouter.HandleFunc("/threads/{id}/messages", GetMessagesByThread).Methods("GET")
 	authSubrouter.HandleFunc("/threads/{id}/messages", AddMessageToThread).Methods("POST")
 
-	return middleware.WithLogging(router)
+	return middleware.WithLogging(middleware.WithCORS(router))
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {
