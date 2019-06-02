@@ -2,8 +2,8 @@ runtime: go111
 
 handlers:
   - url: /docs
-    static_files: static/index.html
-    upload: static/.*
+    static_dir: static
 
   - url: /.*
     script: auto
+    secure: always

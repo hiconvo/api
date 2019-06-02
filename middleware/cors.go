@@ -9,7 +9,7 @@ import (
 var corsHandler = handlers.CORS(
 	handlers.AllowedOrigins([]string{"*"}),
 	handlers.AllowedMethods([]string{"GET", "PATCH", "POST", "DELETE"}),
-	handlers.AllowedHeaders([]string{"Content-Type"}),
+	handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
 )
 
 func WithCORS(next http.Handler) http.Handler {

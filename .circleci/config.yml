@@ -20,10 +20,6 @@ jobs:
       - run: 
           name: retrieve go dependencies
           command: go get
-      - save_cache:
-          key: pkg-cache-{{ checksum "go.sum" }}
-          paths:
-            - "/usr/local/go/src"
 
       - run:
           name: starting datastore emulator
@@ -43,6 +39,11 @@ jobs:
           name: run tests
           command: |
             cd test && go test
+
+      - save_cache:
+          key: pkg-cache-{{ checksum "go.sum" }}
+          paths:
+            - "/usr/local/go/src"
 
   deploy:
     docker:
