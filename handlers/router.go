@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/getsentry/raven-go"
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/middleware"
@@ -14,7 +13,7 @@ import (
 // that it can be used in tests.
 func CreateRouter() http.Handler {
 	router := mux.NewRouter()
-	router.Use(raven.Recoverer)
+	router.Use(middleware.WithErrorReporting)
 
 	router.NotFoundHandler = http.HandlerFunc(notFound)
 	router.MethodNotAllowedHandler = http.HandlerFunc(methodNotAllowed)

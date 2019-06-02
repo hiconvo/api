@@ -24,7 +24,7 @@ require (
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
-	google.golang.org/appengine v1.6.0
+	google.golang.org/appengine v1.6.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/russross/blackfriday.v2 v2.0.1
 	gopkg.in/validator.v2 v2.0.0-20180514200540-135c24b11c19
