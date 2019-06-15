@@ -18,8 +18,10 @@ func CreateRouter() http.Handler {
 	router.NotFoundHandler = http.HandlerFunc(notFound)
 	router.MethodNotAllowedHandler = http.HandlerFunc(methodNotAllowed)
 
+	// Inbound email webhook
 	router.HandleFunc("/inbound", Inbound).Methods("POST")
 
+	// JSON endpoints
 	jsonSubrouter := router.NewRoute().Subrouter()
 	jsonSubrouter.Use(bjson.WithJSON, bjson.WithJSONReqBody)
 
@@ -29,6 +31,7 @@ func CreateRouter() http.Handler {
 	jsonSubrouter.HandleFunc("/users/password", UpdatePassword).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/verify", VerifyEmail).Methods("POST")
 
+	// JSON + Auth endpoints
 	authSubrouter := jsonSubrouter.NewRoute().Subrouter()
 	authSubrouter.Use(middleware.WithUser)
 
@@ -36,17 +39,22 @@ func CreateRouter() http.Handler {
 	authSubrouter.HandleFunc("/users", UpdateUser).Methods("PATCH")
 	authSubrouter.HandleFunc("/users/resend", SendVerifyEmail).Methods("POST")
 
-	authSubrouter.HandleFunc("/threads", GetThreads).Methods("GET")
 	authSubrouter.HandleFunc("/threads", CreateThread).Methods("POST")
-	authSubrouter.HandleFunc("/threads/{id}", GetThread).Methods("GET")
-	authSubrouter.HandleFunc("/threads/{id}", UpdateThread).Methods("PATCH")
-	authSubrouter.HandleFunc("/threads/{id}", DeleteThread).Methods("DELETE")
+	authSubrouter.HandleFunc("/threads", GetThreads).Methods("GET")
 
-	authSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", AddUserToThread).Methods("POST")
-	authSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", RemoveUserFromThread).Methods("DELETE")
+	// JSON + Auth + Thread endpoints
+	threadSubrouter := authSubrouter.NewRoute().Subrouter()
+	threadSubrouter.Use(middleware.WithThread)
 
-	authSubrouter.HandleFunc("/threads/{id}/messages", GetMessagesByThread).Methods("GET")
-	authSubrouter.HandleFunc("/threads/{id}/messages", AddMessageToThread).Methods("POST")
+	threadSubrouter.HandleFunc("/threads/{threadID}", GetThread).Methods("GET")
+	threadSubrouter.HandleFunc("/threads/{threadID}", UpdateThread).Methods("PATCH")
+	threadSubrouter.HandleFunc("/threads/{threadID}", DeleteThread).Methods("DELETE")
+
+	threadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", AddUserToThread).Methods("POST")
+	threadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", RemoveUserFromThread).Methods("DELETE")
+
+	threadSubrouter.HandleFunc("/threads/{threadID}/messages", GetMessagesByThread).Methods("GET")
+	threadSubrouter.HandleFunc("/threads/{threadID}/messages", AddMessageToThread).Methods("POST")
 
 	return middleware.WithLogging(middleware.WithCORS(router))
 }

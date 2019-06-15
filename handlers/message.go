@@ -3,8 +3,6 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
-
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
@@ -25,14 +23,7 @@ var (
 func GetMessagesByThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	thread, err := models.GetThreadByID(ctx, id)
-	if err != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
-		return
-	}
+	thread := middleware.ThreadFromContext(ctx)
 
 	if !(thread.OwnerIs(&u) || thread.HasUser(&u)) {
 		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
@@ -60,20 +51,13 @@ type createMessagePayload struct {
 func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
-	vars := mux.Vars(r)
-	id := vars["id"]
+	thread := middleware.ThreadFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 
 	// Validate raw data
 	var payload createMessagePayload
 	if err := validate.Do(&payload, body); err != nil {
 		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
-		return
-	}
-
-	thread, err := models.GetThreadByID(ctx, id)
-	if err != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
 		return
 	}
 

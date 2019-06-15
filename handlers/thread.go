@@ -164,14 +164,7 @@ func GetThreads(w http.ResponseWriter, r *http.Request) {
 func GetThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	thread, err := models.GetThreadByID(ctx, id)
-	if err != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
-		return
-	}
+	thread := middleware.ThreadFromContext(ctx)
 
 	if thread.OwnerIs(&u) || thread.HasUser(&u) {
 		bjson.WriteJSON(w, thread, http.StatusOK)
@@ -194,14 +187,7 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	thread, err := models.GetThreadByID(ctx, id)
-	if err != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
-		return
-	}
+	thread := middleware.ThreadFromContext(ctx)
 
 	// If the requestor is not the owner, throw an error
 	if !thread.OwnerIs(&u) {
@@ -232,14 +218,7 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 func DeleteThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	thread, err := models.GetThreadByID(ctx, id)
-	if err != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
-		return
-	}
+	thread := middleware.ThreadFromContext(ctx)
 
 	// If the requestor is not the owner, throw an error
 	if !thread.OwnerIs(&u) {
@@ -261,15 +240,9 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
+	thread := middleware.ThreadFromContext(ctx)
 	vars := mux.Vars(r)
-	threadID := vars["threadID"]
 	userID := vars["userID"]
-
-	thread, tErr := models.GetThreadByID(ctx, threadID)
-	if tErr != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
-		return
-	}
 
 	// If the requestor is not the owner, throw an error.
 	if !thread.OwnerIs(&u) {
@@ -308,15 +281,10 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
-	vars := mux.Vars(r)
-	threadID := vars["threadID"]
-	userID := vars["userID"]
+	thread := middleware.ThreadFromContext(ctx)
 
-	thread, tErr := models.GetThreadByID(ctx, threadID)
-	if tErr != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
-		return
-	}
+	vars := mux.Vars(r)
+	userID := vars["userID"]
 
 	user, uErr := models.GetUserByID(ctx, userID)
 	if uErr != nil {

@@ -12,6 +12,7 @@ var corsHandler = handlers.CORS(
 	handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
 )
 
+// WithCORS adds OPTIONS endpoints and validates CORS permissions and validation
 func WithCORS(next http.Handler) http.Handler {
 	return corsHandler(next)
 }
