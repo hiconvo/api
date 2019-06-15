@@ -113,15 +113,11 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 		bjson.HandleInternalServerError(w, tErr, errMsgCreateThread)
 		return
 	}
-	// Save the thread object and put the key and encoded key on the original
-	// thread object.
-	key, kErr := db.Client.Put(ctx, thread.Key, &thread)
-	if kErr != nil {
-		bjson.HandleInternalServerError(w, kErr, errMsgSaveThread)
+
+	if err := thread.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
-	thread.ID = key.Encode()
-	thread.Key = key
 
 	// Save the thread to the corresponding users.
 	//
@@ -203,9 +199,8 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 
 	thread.Subject = payload.Subject
 
-	_, pErr := db.Client.Put(ctx, thread.Key, &thread)
-	if pErr != nil {
-		bjson.HandleInternalServerError(w, pErr, errMsgSaveThread)
+	if err := thread.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
 
@@ -226,7 +221,15 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.Client.Delete(ctx, thread.Key); err != nil {
+	// 	for i := range thread.Users {
+	// 		thread.Users[i].RemoveThread(&thread)
+	// 	}
+
+	// 	if _, err := db.Client.PutMulti(ctx, thread.UserKeys, thread.Users); err != nil {
+	// 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+	// 	}
+
+	if err := thread.Delete(ctx); err != nil {
 		bjson.WriteJSON(w, errMsgDeleteThread, http.StatusNotFound)
 		return
 	}
@@ -260,13 +263,13 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 	user.AddThread(&thread)
 
 	// Save the user.
-	if _, err := db.Client.Put(ctx, user.Key, &user); err != nil {
+	if err := user.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
 
 	// Save the thread.
-	if _, err := db.Client.Put(ctx, thread.Key, &thread); err != nil {
+	if err := thread.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
@@ -303,13 +306,13 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the user.
-	if _, err := db.Client.Put(ctx, user.Key, &user); err != nil {
+	if err := user.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
 
 	// Save the thread.
-	if _, err := db.Client.Put(ctx, thread.Key, &thread); err != nil {
+	if err := thread.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}

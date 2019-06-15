@@ -52,6 +52,16 @@ func (u *User) Load(ps []datastore.Property) error {
 	return nil
 }
 
+func (u *User) Commit(ctx context.Context) error {
+	key, kErr := db.Client.Put(ctx, u.Key, u)
+	if kErr != nil {
+		return kErr
+	}
+	u.ID = key.Encode()
+	u.Key = key
+	return nil
+}
+
 func (u *User) CheckPassword(password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(u.PasswordDigest), []byte(password))
 	return err == nil

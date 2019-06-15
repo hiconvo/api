@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
@@ -67,18 +66,14 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the user object
-	key, err := db.Client.Put(ctx, user.Key, &user)
-	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+	if err := user.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgCreate)
 		return
 	}
 
 	user.DeriveFullName()
-
 	user.SendVerifyEmail()
 
-	// Extract the new key and put it in the response
-	user.ID = key.Encode()
 	bjson.WriteJSON(w, user, http.StatusCreated)
 }
 
@@ -174,8 +169,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 			u.OAuthFacebookID = oauthPayload.ID
 		}
 
-		_, err := db.Client.Put(ctx, u.Key, &u)
-		if err != nil {
+		if err := u.Commit(ctx); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSave)
 			return
 		}
@@ -197,14 +191,11 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the user
-	key, kerr := db.Client.Put(ctx, u.Key, &u)
-	if kerr != nil {
-		bjson.HandleInternalServerError(w, kerr, errMsgSave)
+	if err := u.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
 	}
 
-	// Extract the new key and put it in the response
-	u.ID = key.Encode()
 	bjson.WriteJSON(w, u, http.StatusOK)
 }
 
@@ -263,9 +254,8 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 		u.LastName = payload.LastName
 	}
 
-	_, kerr := db.Client.Put(ctx, u.Key, &u)
-	if kerr != nil {
-		bjson.HandleInternalServerError(w, kerr, errMsgSave)
+	if err := u.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
 	}
 
@@ -311,9 +301,8 @@ func UpdatePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u.ChangePassword(payload.Password)
-	_, kerr := db.Client.Put(ctx, u.Key, &u)
-	if kerr != nil {
-		bjson.HandleInternalServerError(w, kerr, errMsgSave)
+	if err := u.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
 	}
 
@@ -358,9 +347,8 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u.Verified = true
-	_, kerr := db.Client.Put(ctx, u.Key, &u)
-	if kerr != nil {
-		bjson.HandleInternalServerError(w, kerr, errMsgSave)
+	if err := u.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
 	}
 

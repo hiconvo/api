@@ -9,7 +9,6 @@ import (
 
 	"github.com/getsentry/raven-go"
 
-	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/pluck"
 	"github.com/hiconvo/api/utils/validate"
@@ -86,9 +85,8 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, kErr := db.Client.Put(ctx, message.Key, &message)
-	if kErr != nil {
-		handleServerErrorResponse(w, kErr)
+	if err := message.Commit(ctx); err != nil {
+		handleServerErrorResponse(w, err)
 		return
 	}
 

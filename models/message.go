@@ -50,6 +50,16 @@ func (m *Message) Load(ps []datastore.Property) error {
 	return nil
 }
 
+func (m *Message) Commit(ctx context.Context) error {
+	key, kErr := db.Client.Put(ctx, m.Key, m)
+	if kErr != nil {
+		return kErr
+	}
+	m.ID = key.Encode()
+	m.Key = key
+	return nil
+}
+
 func NewMessage(u *User, t *Thread, body string) (Message, error) {
 	return Message{
 		Key:       datastore.IncompleteKey("Message", nil),

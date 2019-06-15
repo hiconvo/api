@@ -41,6 +41,23 @@ func (t *Thread) Load(ps []datastore.Property) error {
 	return nil
 }
 
+func (t *Thread) Commit(ctx context.Context) error {
+	key, kErr := db.Client.Put(ctx, t.Key, t)
+	if kErr != nil {
+		return kErr
+	}
+	t.ID = key.Encode()
+	t.Key = key
+	return nil
+}
+
+func (t *Thread) Delete(ctx context.Context) error {
+	if err := db.Client.Delete(ctx, t.Key); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (t *Thread) GetEmail() string {
 	slugified := slug.Make(t.Subject)
 	if len(slugified) > 20 {

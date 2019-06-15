@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
@@ -61,24 +60,22 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check permissions
 	if !(thread.OwnerIs(&u) || thread.HasUser(&u)) {
 		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
 		return
 	}
 
-	message, merr := models.NewMessage(&u, &thread, payload.Body)
-	if merr != nil {
-		bjson.HandleInternalServerError(w, merr, errMsgCreateMessage)
+	message, err := models.NewMessage(&u, &thread, payload.Body)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
 		return
 	}
 
-	key, kErr := db.Client.Put(ctx, message.Key, &message)
-	if kErr != nil {
-		bjson.HandleInternalServerError(w, kErr, errMsgSaveMessage)
+	if err := message.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
 		return
 	}
-	message.ID = key.Encode()
-	message.Key = key
 
 	if err := thread.Send(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSendMessage)
