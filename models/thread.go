@@ -16,7 +16,8 @@ type Thread struct {
 	OwnerKey *datastore.Key   `json:"-"`
 	Owner    *Contact         `json:"owner"    datastore:"-"`
 	UserKeys []*datastore.Key `json:"-"        datastore:",noindex"`
-	Users    []*Contact       `json:"users"    datastore:"-"`
+	Users    []*User          `json:"-"    datastore:"-"`
+	Contacts []*Contact       `json:"users"    datastore:"-"`
 	Subject  string           `json:"subject"`
 }
 
@@ -88,7 +89,8 @@ func (t *Thread) AddUser(u *User) {
 	}
 
 	t.UserKeys = append(t.UserKeys, u.Key)
-	t.Users = append(t.Users, MapUserToContact(u))
+	t.Users = append(t.Users, u)
+	t.Contacts = append(t.Contacts, MapUserToContact(u))
 }
 
 func (t *Thread) RemoveUser(u *User) {
@@ -105,6 +107,14 @@ func (t *Thread) RemoveUser(u *User) {
 		if c.ID == u.ID {
 			t.Users[i] = t.Users[len(t.Users)-1]
 			t.Users = t.Users[:len(t.Users)-1]
+			break
+		}
+	}
+	// Remove from contacts.
+	for i, c := range t.Contacts {
+		if c.ID == u.ID {
+			t.Contacts[i] = t.Contacts[len(t.Contacts)-1]
+			t.Contacts = t.Contacts[:len(t.Contacts)-1]
 			break
 		}
 	}
@@ -143,12 +153,14 @@ func NewThread(subject string, owner *User, users []*User) (Thread, error) {
 			}
 		}
 	}
+
 	return Thread{
 		Key:      datastore.IncompleteKey("Thread", nil),
 		OwnerKey: owner.Key,
 		Owner:    MapUserToContact(owner),
 		UserKeys: userKeys,
-		Users:    MapUsersToContacs(users),
+		Users:    users,
+		Contacts: MapUsersToContacs(users),
 		Subject:  subject,
 	}, nil
 }
@@ -213,7 +225,7 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 	// In order to satisfy MapUsersToContacs() and other functions, we map
 	// user objects to pointers to them.
 	uptrs := make([]*User, len(us))
-	for i, _ := range us {
+	for i := range us {
 		uptrs[i] = &us[i]
 	}
 
@@ -225,9 +237,10 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 	// return.
 	start := 0
 	tptrs := make([]*Thread, len(threads))
-	for i, _ := range threads {
+	for i := range threads {
+		threads[i].Users = uptrs[start : start+idx[i]]
 		threads[i].Owner = MapUserToContact(uptrs[start])
-		threads[i].Users = MapUsersToContacs(uptrs[start+1 : start+idx[i]])
+		threads[i].Contacts = MapUsersToContacs(uptrs[start+1 : start+idx[i]])
 		start += idx[i]
 		tptrs[i] = &threads[i]
 	}
@@ -257,7 +270,8 @@ func handleGetThread(ctx context.Context, key *datastore.Key, t Thread) (Thread,
 	if offset < 0 {
 		offset = 0
 	}
-	t.Users = MapUsersToContacs(userPointers[:offset])
+	t.Users = userPointers
+	t.Contacts = MapUsersToContacs(userPointers[:offset])
 	t.Owner = MapUserToContact(userPointers[len(userPointers)-1])
 
 	return t, nil

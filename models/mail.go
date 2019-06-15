@@ -20,6 +20,7 @@ const (
 func sendPasswordResetEmail(u *User, magicLink string) error {
 	return sendAdministrativeEmail(u, passwordReset, "[convo] Password Reset", magicLink)
 }
+
 func sendVerifyEmail(u *User, magicLink string) error {
 	return sendAdministrativeEmail(u, verifyEmail, "[convo] Verify Email", magicLink)
 }

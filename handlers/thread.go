@@ -221,13 +221,20 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 	for i := range thread.Users {
-	// 		thread.Users[i].RemoveThread(&thread)
-	// 	}
+	// Remove the thread from all of the thread's users
+	for i := range thread.Users {
+		thread.Users[i].RemoveThread(&thread)
+	}
 
-	// 	if _, err := db.Client.PutMulti(ctx, thread.UserKeys, thread.Users); err != nil {
-	// 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
-	// 	}
+	userKeys := make([]*datastore.Key, len(thread.Users))
+	for i := range thread.Users {
+		userKeys[i] = thread.Users[i].Key
+	}
+
+	// Save the updated users
+	if _, err := db.Client.PutMulti(ctx, userKeys, thread.Users); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+	}
 
 	if err := thread.Delete(ctx); err != nil {
 		bjson.WriteJSON(w, errMsgDeleteThread, http.StatusNotFound)
