@@ -88,6 +88,8 @@ func TestGetThreadsSucceeds(t *testing.T) {
 		for _, c := range gotThreadUsers {
 			typedC := c.(map[string]interface{})
 			switch typedC["id"] {
+			case u1.ID:
+				thelpers.AssertEqual(t, typedC["fullName"], u1.FullName)
 			case u2.ID:
 				thelpers.AssertEqual(t, typedC["fullName"], u2.FullName)
 			case u3.ID:
@@ -123,9 +125,8 @@ func TestGetThreadSucceeds(t *testing.T) {
 		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
 		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
 
-		gotThreadParticipant := respData["users"].([]interface{})[0].(map[string]interface{})
-		thelpers.AssertEqual(t, gotThreadParticipant["id"], u2.ID)
-		thelpers.AssertEqual(t, gotThreadParticipant["fullName"], u2.FullName)
+		gotThreadParticipants := respData["users"].([]interface{})
+		thelpers.AssertObjectsContainIDs(t, gotThreadParticipants, []string{u1.ID, u2.ID})
 	}
 }
 
@@ -207,9 +208,8 @@ func TestAddToThreadSucceeds(t *testing.T) {
 	thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
 	thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
 
-	gotThreadParticipant := respData["users"].([]interface{})[0].(map[string]interface{})
-	thelpers.AssertEqual(t, gotThreadParticipant["id"], u2.ID)
-	thelpers.AssertEqual(t, gotThreadParticipant["fullName"], u2.FullName)
+	gotThreadParticipants := respData["users"].([]interface{})
+	thelpers.AssertObjectsContainIDs(t, gotThreadParticipants, []string{u1.ID, u2.ID})
 }
 
 func TestAddToThreadFailsWithUnauthorizedUser(t *testing.T) {
@@ -247,7 +247,9 @@ func TestRemoveFromThreadSucceeds(t *testing.T) {
 		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
 		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
 
-		thelpers.AssertEqual(t, len(respData["users"].([]interface{})), 0)
+		gotThreadParticipants := respData["users"].([]interface{})
+		thelpers.AssertObjectsContainIDs(t, gotThreadParticipants, []string{u1.ID})
+		thelpers.AssertEqual(t, len(respData["users"].([]interface{})), 1)
 	}
 }
 

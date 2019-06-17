@@ -98,7 +98,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create the tread object.
+	// Create the thread object.
 	//
 	// Create another slice of pointers to the user structs to satisfy the
 	// thread functions below.
@@ -237,7 +237,7 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := thread.Delete(ctx); err != nil {
-		bjson.WriteJSON(w, errMsgDeleteThread, http.StatusNotFound)
+		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
 

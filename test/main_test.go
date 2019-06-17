@@ -83,19 +83,19 @@ func createTestThread(t *testing.T, owner *models.User, users []*models.User) mo
 	thread.Key = key
 
 	// Add the thread to the user objects.
-	for i := range users {
-		users[i].AddThread(&thread)
+	for i := range thread.Users {
+		thread.Users[i].AddThread(&thread)
 	}
 
 	// Create a slice of keys corresponding to users so that the
 	// users can be updated with their new thread membership in the db.
-	userKeys := make([]*datastore.Key, len(users))
-	for i := range users {
-		userKeys[i] = users[i].Key
+	userKeys := make([]*datastore.Key, len(thread.Users))
+	for i := range thread.Users {
+		userKeys[i] = thread.Users[i].Key
 	}
 
 	// Save the users.
-	_, uErr := tclient.PutMulti(tc, userKeys, users)
+	_, uErr := tclient.PutMulti(tc, userKeys, thread.Users)
 	if uErr != nil {
 		t.Fatal(uErr)
 	}
