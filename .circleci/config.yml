@@ -82,7 +82,7 @@ jobs:
             mv redoc-static.html main/static/index.html
 
       - deploy:
-          command: gcloud -q app deploy main/app.yaml
+          command: cd main && gcloud -q app deploy app.yaml
 
 workflows:
   version: 2

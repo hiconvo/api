@@ -220,17 +220,14 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 		return tptrs, err
 	}
 
-	// Now that we have the threads, we need to get the users - both owners and
-	// participants. So that we can do this in one query, we iterate over all
-	// of the retrieved threads and append both the owner key and the user
-	// keys to a slice. We keep track of where the users of one thread start
-	// and another begin by incrementing an index.
+	// Now that we have the threads, we need to get the users. We keep track of
+	// where the users of one thread start and another begin by incrementing
+	// an index.
 	var uKeys []*datastore.Key
 	var idxs []int
 	for _, t := range threads {
-		uKeys = append(uKeys, t.OwnerKey)
 		uKeys = append(uKeys, t.UserKeys...)
-		idxs = append(idxs, len(t.UserKeys)+1)
+		idxs = append(idxs, len(t.UserKeys))
 	}
 
 	// We get all of the users in one go.
@@ -248,17 +245,28 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 	}
 
 	// We add the just retrieved user objects to their corresponding threads by
-	// iterating through all of the threads and assigning their owners and
-	// users according to the index which we created above.
+	// iterating through all of the threads and assigning their users according
+	// to the index which we created above.
 	//
 	// We also create a new slice of pointers to threads which we'll finally
 	// return.
 	start := 0
 	tptrs := make([]*Thread, len(threads))
 	for i := range threads {
-		threads[i].Users = uptrs[start : start+idxs[i]]
-		threads[i].Owner = MapUserToContact(uptrs[start])
-		threads[i].Contacts = MapUsersToContacs(uptrs[start : start+idxs[i]])
+		threadUsers := uptrs[start : start+idxs[i]]
+
+		var owner *User
+		for j := range threadUsers {
+			if threads[i].OwnerKey.Equal(threadUsers[j].Key) {
+				owner = threadUsers[j]
+				break
+			}
+		}
+
+		threads[i].Users = threadUsers
+		threads[i].Owner = MapUserToContact(owner)
+		threads[i].Contacts = MapUsersToContacs(threadUsers)
+
 		start += idxs[i]
 		tptrs[i] = &threads[i]
 	}
@@ -277,13 +285,18 @@ func handleGetThread(ctx context.Context, key *datastore.Key, t Thread) (Thread,
 	}
 
 	userPointers := make([]*User, len(users))
+	var owner User
 	for i := range users {
 		userPointers[i] = &users[i]
+
+		if t.OwnerKey.Equal(users[i].Key) {
+			owner = users[i]
+		}
 	}
 
 	t.Users = userPointers
 	t.Contacts = MapUsersToContacs(userPointers)
-	t.Owner = MapUserToContact(userPointers[len(userPointers)-1])
+	t.Owner = MapUserToContact(&owner)
 
 	return t, nil
 }
