@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	htmltpl "html/template"
-	"os"
+	"path"
 	"path/filepath"
-	"strings"
+	"runtime"
 
 	"github.com/aymerick/douceur/inliner"
 	"gopkg.in/russross/blackfriday.v2"
@@ -65,23 +65,12 @@ func init() {
 }
 
 func getTemplatesDir() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		panic("Could not get filename")
 	}
-
-	sp := strings.Split(wd, "/")
-
-	// This monstrisity is to handle the fact that the working dir when
-	// running tests is different from the working dir when running the
-	// server
-	if sp[len(sp)-1] == "test" {
-		sp = sp[:len(sp)-1]
-		sp = append(sp, "main")
-	}
-
-	sp = append(sp, "templates")
-	return strings.Join(sp, "/")
+	dirpath := path.Join(path.Dir(filename), "../../main/templates")
+	return dirpath
 }
 
 func renderTemplate(name string, data Thread) (string, error) {
