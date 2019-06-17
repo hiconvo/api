@@ -1,9 +1,0 @@
-runtime: go111
-
-handlers:
-  - url: /docs
-    static_dir: static
-
-  - url: /.*
-    script: auto
-    secure: always

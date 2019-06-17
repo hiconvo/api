@@ -63,26 +63,15 @@ jobs:
 
       - checkout
 
-      - restore_cache:
-          keys:
-            - pkg-cache-{{ checksum "go.sum" }}
-      - run: 
-          name: retrieve go dependencies
-          command: go get
-      - save_cache:
-          key: pkg-cache-{{ checksum "go.sum" }}
-          paths:
-            - "/usr/local/go/src"
-
       - run:
           name: generate docs
           command: |
-            mkdir -p main/static
+            mkdir -p static
             redoc-cli bundle swagger.yaml
-            mv redoc-static.html main/static/index.html
+            mv redoc-static.html static/index.html
 
       - deploy:
-          command: cd main && gcloud -q app deploy app.yaml
+          command: gcloud -q app deploy app.yaml
 
 workflows:
   version: 2

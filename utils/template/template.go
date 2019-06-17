@@ -69,7 +69,7 @@ func getTemplatesDir() string {
 	if !ok {
 		panic("Could not get filename")
 	}
-	dirpath := path.Join(path.Dir(filename), "../../main/templates")
+	dirpath := path.Join(path.Dir(filename), "../../templates")
 	return dirpath
 }
 
