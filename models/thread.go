@@ -18,6 +18,7 @@ type Thread struct {
 	Users    []*User          `json:"-"        datastore:"-"`
 	Contacts []*Contact       `json:"users"    datastore:"-"`
 	Subject  string           `json:"subject"  datastore:",noindex"`
+	Preview  *Preview         `json:"preview"  datastore:",noindex"`
 }
 
 func (t *Thread) LoadKey(k *datastore.Key) error {
@@ -138,7 +139,7 @@ func NewThread(subject string, owner *User, users []*User) (Thread, error) {
 	// the owner was included in the users slice
 	userKeys := make([]*datastore.Key, 0)
 	seen := make(map[string]struct{})
-	var hasOwner bool
+	hasOwner := false
 	for _, u := range users {
 		if _, alreadySeen := seen[u.ID]; alreadySeen {
 			continue
@@ -153,6 +154,7 @@ func NewThread(subject string, owner *User, users []*User) (Thread, error) {
 	// Add the owner to the users if not already present
 	if !hasOwner {
 		userKeys = append(userKeys, owner.Key)
+		users = append(users, owner)
 	}
 
 	// If a subject wasn't given, create one that is a list of the participants'

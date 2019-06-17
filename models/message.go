@@ -61,15 +61,25 @@ func (m *Message) Commit(ctx context.Context) error {
 }
 
 func NewMessage(u *User, t *Thread, body string) (Message, error) {
-	return Message{
+	ts := time.Now()
+
+	message := Message{
 		Key:       datastore.IncompleteKey("Message", nil),
 		UserKey:   u.Key,
 		User:      MapUserToContact(u),
 		ThreadKey: t.Key,
 		ThreadID:  t.ID,
 		Body:      body,
-		Timestamp: time.Now(),
-	}, nil
+		Timestamp: ts,
+	}
+
+	t.Preview = &Preview{
+		Body:      body,
+		Sender:    MapUserToContact(u),
+		Timestamp: ts,
+	}
+
+	return message, nil
 }
 
 func GetMessagesByThread(ctx context.Context, t *Thread) ([]*Message, error) {

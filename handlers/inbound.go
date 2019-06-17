@@ -90,6 +90,11 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := thread.Commit(ctx); err != nil {
+		handleServerErrorResponse(w, err)
+		return
+	}
+
 	if senErr := thread.Send(ctx); senErr != nil {
 		handleServerErrorResponse(w, senErr)
 		return
