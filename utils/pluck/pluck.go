@@ -99,7 +99,7 @@ func removeRepliesAndSignature(text, sender string) (string, error) {
 	// Httpmock can't be used here because it doesn't support
 	// passthrough for other requests, which means that any
 	// database call fails when using it.
-	if strings.Contains(os.Args[0], "/_test/") {
+	if strings.HasSuffix(os.Args[0], ".test") {
 		return "Hello, does this work?", nil
 	}
 

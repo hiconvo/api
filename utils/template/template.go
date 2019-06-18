@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	htmltpl "html/template"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/aymerick/douceur/inliner"
 	"gopkg.in/russross/blackfriday.v2"
@@ -43,12 +45,19 @@ func init() {
 		templates = make(map[string]*htmltpl.Template)
 	}
 
-	layouts, err := filepath.Glob("./templates/layouts/*.html")
+	var basePath string
+	if strings.HasSuffix(os.Args[0], ".test") {
+		basePath = "../templates"
+	} else {
+		basePath = "./templates"
+	}
+
+	layouts, err := filepath.Glob(basePath + "/layouts/*.html")
 	if err != nil {
 		panic(err)
 	}
 
-	includes, err := filepath.Glob("./templates/includes/*.html")
+	includes, err := filepath.Glob(basePath + "/includes/*.html")
 	if err != nil {
 		panic(err)
 	}

@@ -38,7 +38,7 @@ jobs:
       - run:
           name: run tests
           command: |
-            cd test && go test
+            go test ./...
 
       - save_cache:
           key: pkg-cache-{{ checksum "go.sum" }}

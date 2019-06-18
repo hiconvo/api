@@ -30,7 +30,7 @@ type EmailMessage struct {
 }
 
 func init() {
-	if strings.Contains(os.Args[0], "/_test/") {
+	if strings.HasSuffix(os.Args[0], ".test") {
 		client = &testClient{}
 	} else {
 		client = sendgrid.NewSendClient(secrets.Get("SENDGRID_API_KEY"))

@@ -1,4 +1,4 @@
-package apitests
+package handlers_test
 
 import (
 	"context"
@@ -23,6 +23,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	os.Chdir("..")
 	ctx := thelpers.CreateTestContext()
 	client := thelpers.CreateTestDatastoreClient(ctx)
 

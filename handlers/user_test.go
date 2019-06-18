@@ -1,4 +1,4 @@
-package apitests
+package handlers_test
 
 import (
 	"fmt"
