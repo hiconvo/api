@@ -54,7 +54,8 @@ func sendAdministrativeEmail(u *User, strTpl, subject, magicLink string) error {
 	return mail.Send(email)
 }
 
-func sendThread(thread *Thread, messages []*Message, users []*User) error {
+func sendThread(thread *Thread, messages []*Message) error {
+	users := thread.Users
 	// From is the most recent message sender.
 	sender, serr := MapContactToUser(messages[0].User, users)
 	if serr != nil {

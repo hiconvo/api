@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	htmltpl "html/template"
-	"path"
 	"path/filepath"
-	"runtime"
 
 	"github.com/aymerick/douceur/inliner"
 	"gopkg.in/russross/blackfriday.v2"
@@ -45,14 +43,12 @@ func init() {
 		templates = make(map[string]*htmltpl.Template)
 	}
 
-	templatesDir := getTemplatesDir()
-
-	layouts, err := filepath.Glob(templatesDir + "/layouts/*.html")
+	layouts, err := filepath.Glob("./templates/layouts/*.html")
 	if err != nil {
 		panic(err)
 	}
 
-	includes, err := filepath.Glob(templatesDir + "/includes/*.html")
+	includes, err := filepath.Glob("./templates/includes/*.html")
 	if err != nil {
 		panic(err)
 	}
@@ -62,15 +58,6 @@ func init() {
 		files := append(includes, layout)
 		templates[filepath.Base(layout)] = htmltpl.Must(htmltpl.ParseFiles(files...))
 	}
-}
-
-func getTemplatesDir() string {
-	_, filename, _, ok := runtime.Caller(1)
-	if !ok {
-		panic("Could not get filename")
-	}
-	dirpath := path.Join(path.Dir(filename), "../../templates")
-	return dirpath
 }
 
 func renderTemplate(name string, data Thread) (string, error) {

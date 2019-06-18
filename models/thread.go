@@ -126,12 +126,7 @@ func (t *Thread) Send(ctx context.Context) error {
 		return merr
 	}
 
-	users, uerr := GetUsersByThread(ctx, t)
-	if uerr != nil {
-		return uerr
-	}
-
-	return sendThread(t, messages, users)
+	return sendThread(t, messages)
 }
 
 func NewThread(subject string, owner *User, users []*User) (Thread, error) {
