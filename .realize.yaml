@@ -1,0 +1,21 @@
+settings:
+  legacy:
+    force: false
+    interval: 0s
+schema:
+- name: main
+  path: ./main
+  commands:
+    run:
+      status: true
+  watcher:
+    extensions:
+    - go
+    paths:
+    - /
+    - ../
+    ignore:
+      paths:
+      - .git
+      - .realize
+      - vendor

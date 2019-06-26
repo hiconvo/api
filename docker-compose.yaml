@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DATASTORE_PROJECT_ID=convo-api
+      - DATASTORE_LISTEN_ADDRESS=datastore:8081
+      - DATASTORE_DATASET=convo-api
+      - DATASTORE_EMULATOR_HOST=datastore:8081
+      - DATASTORE_EMULATOR_HOST_PATH=datastore:8081/datastore
+      - DATASTORE_HOST=http://datastore:8081
+    volumes:
+      - .:/var/www
+    links:
+      - datastore
+      # - elasticsearch
+  datastore:
+    image: singularities/datastore-emulator
+    environment:
+      - DATASTORE_PROJECT_ID=convo-api
+      - DATASTORE_LISTEN_ADDRESS=0.0.0.0:8081
+    ports:
+      - "8081"
+  # elasticsearch:
+  #   image: elasticsearch:7.1.1
+  #   ports:
+  #     - "9200"
