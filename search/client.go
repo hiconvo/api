@@ -6,15 +6,23 @@ import (
 	"time"
 
 	"github.com/olivere/elastic/v7"
+
+	"github.com/hiconvo/api/utils/secrets"
 )
 
 var Client *elastic.Client
 
 func init() {
+	esHost := secrets.Get("ELASTICSEARCH_HOST")
+	if esHost == "" {
+		// Development mode
+		esHost = "elasticsearch"
+	}
+
 	var err error
 	for {
 		Client, err = elastic.NewClient(
-			elastic.SetURL("http://elasticsearch:9200"),
+			elastic.SetURL(fmt.Sprintf("http://%s:9200", esHost)),
 		)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to initialize elasticsearch; will retry in three seconds.\n%s\n", err)
