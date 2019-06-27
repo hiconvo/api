@@ -3,14 +3,28 @@ jobs:
   test:
     docker:
       - image: hiconvo/docker:ci
+        environment:
+          DATASTORE_PROJECT_ID: convo-api
+          DATASTORE_LISTEN_ADDRESS: localhost:8081
+          DATASTORE_DATASET: convo-api
+          DATASTORE_EMULATOR_HOST: localhost:8081
+          DATASTORE_EMULATOR_HOST_PATH: localhost:8081/datastore
+          DATASTORE_HOST: http://localhost:8081
+          ELASTICSEARCH_HOST: localhost
+
+      - image: singularities/datastore-emulator
+        environment:
+          DATASTORE_PROJECT_ID: convo-api
+          DATASTORE_LISTEN_ADDRESS: localhost:8081
+
+      - image: elasticsearch:7.1.1
+        environment:
+          cluster.name: docker-cluster
+          bootstrap.memory_lock: "true"
+          ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+          discovery.type: single-node
 
     steps:
-
-      - run:
-          name: authenticate gcloud sdk
-          command: |
-            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
-            gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
 
       - checkout
 
@@ -20,20 +34,6 @@ jobs:
       - run: 
           name: retrieve go dependencies
           command: go get
-
-      - run:
-          name: starting datastore emulator
-          command: gcloud beta emulators datastore start --consistency=1.0
-          background: true
-
-      - run:
-          name: set datastore environment variables
-          command: |
-            sleep 5
-            IFS=''
-            for line in $(gcloud beta emulators datastore env-init); do
-              echo $line >> $BASH_ENV
-            done
 
       - run:
           name: run tests
