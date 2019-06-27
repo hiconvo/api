@@ -13,6 +13,7 @@ jobs:
           ELASTICSEARCH_HOST: localhost
 
       - image: singularities/datastore-emulator
+        command: start-datastore --no-store-on-disk --consistency=1.0
         environment:
           DATASTORE_PROJECT_ID: convo-api
           DATASTORE_LISTEN_ADDRESS: localhost:8081
