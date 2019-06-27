@@ -2,6 +2,9 @@ runtime: go112
 
 main: ./main
 
+vpc_access_connector:
+  name: "projects/convo-api/locations/us-central1/connectors/convo-internal"
+
 handlers:
   - url: /docs
     static_files: static/index.html
