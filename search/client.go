@@ -15,6 +15,9 @@ var Client *elastic.Client
 func init() {
 	esHost := secrets.Get("ELASTICSEARCH_HOST")
 	if esHost == "" {
+		esHost = os.Getenv("ELASTICSEARCH_HOST")
+	}
+	if esHost == "" {
 		// Development mode
 		esHost = "elasticsearch"
 	}
