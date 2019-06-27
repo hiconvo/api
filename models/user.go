@@ -2,14 +2,18 @@ package models
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	"cloud.google.com/go/datastore"
+	"github.com/olivere/elastic/v7"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/search"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/random"
 )
@@ -57,8 +61,21 @@ func (u *User) Commit(ctx context.Context) error {
 	if kErr != nil {
 		return kErr
 	}
+
 	u.ID = key.Encode()
 	u.Key = key
+	u.DeriveFullName()
+
+	_, upsertErr := search.Client.Update().
+		Index("users").
+		Id(u.ID).
+		DocAsUpsert(true).
+		Doc(MapUserToContact(u)).
+		Do(ctx)
+	if upsertErr != nil {
+		fmt.Fprintf(os.Stderr, "Failed to index user in elasticsearch: %s", upsertErr)
+	}
+
 	return nil
 }
 
@@ -110,6 +127,39 @@ func (u *User) RemoveThread(t *Thread) error {
 	}
 
 	return nil
+}
+
+func UserSearch(ctx context.Context, query string) ([]Contact, error) {
+	skip := 0
+	take := 10
+
+	contacts := make([]Contact, 0)
+
+	esQuery := elastic.NewMultiMatchQuery(query, "fullName", "firstName", "lastName").
+		Fuzziness("3").
+		MinimumShouldMatch("0")
+	result, err := search.Client.Search().
+		Index("users").
+		Query(esQuery).
+		From(skip).Size(take).
+		Do(ctx)
+	if err != nil {
+		return contacts, err
+	}
+
+	fmt.Println(result.TotalHits())
+
+	for _, hit := range result.Hits.Hits {
+		var contact Contact
+		jsonErr := json.Unmarshal(hit.Source, &contact)
+		if jsonErr != nil {
+			return contacts, jsonErr
+		}
+
+		contacts = append(contacts, contact)
+	}
+
+	return contacts, nil
 }
 
 func NewUserWithPassword(email, firstname, lastname, password string) (User, error) {

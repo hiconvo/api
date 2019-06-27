@@ -38,6 +38,7 @@ func CreateRouter() http.Handler {
 	authSubrouter.HandleFunc("/users", GetUser).Methods("GET")
 	authSubrouter.HandleFunc("/users", UpdateUser).Methods("PATCH")
 	authSubrouter.HandleFunc("/users/resend", SendVerifyEmail).Methods("POST")
+	authSubrouter.HandleFunc("/users/search", UserSearch).Methods("GET")
 
 	authSubrouter.HandleFunc("/threads", CreateThread).Methods("POST")
 	authSubrouter.HandleFunc("/threads", GetThreads).Methods("GET")

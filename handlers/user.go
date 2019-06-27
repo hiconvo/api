@@ -71,7 +71,6 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.DeriveFullName()
 	user.SendVerifyEmail()
 
 	bjson.WriteJSON(w, user, http.StatusCreated)
@@ -259,7 +258,6 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u.DeriveFullName()
 	bjson.WriteJSON(w, u, http.StatusOK)
 }
 
@@ -366,4 +364,22 @@ func SendVerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+func UserSearch(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	query := r.URL.Query().Get("query")
+	if query == "" {
+		bjson.WriteJSON(w, map[string]string{"message": "query cannot be empty"}, http.StatusBadRequest)
+		return
+	}
+
+	contacts, err := models.UserSearch(ctx, query)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgGetUsers)
+		return
+	}
+
+	bjson.WriteJSON(w, map[string]interface{}{"users": contacts}, http.StatusOK)
 }

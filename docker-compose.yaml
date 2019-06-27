@@ -16,7 +16,7 @@ services:
       - .:/var/www
     links:
       - datastore
-      # - elasticsearch
+      - elasticsearch
   datastore:
     image: singularities/datastore-emulator
     environment:
@@ -24,7 +24,16 @@ services:
       - DATASTORE_LISTEN_ADDRESS=0.0.0.0:8081
     ports:
       - "8081"
-  # elasticsearch:
-  #   image: elasticsearch:7.1.1
-  #   ports:
-  #     - "9200"
+  elasticsearch:
+    image: elasticsearch:7.1.1
+    ports:
+      - "9200"
+    environment:
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
