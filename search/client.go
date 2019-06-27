@@ -25,6 +25,7 @@ func init() {
 	var err error
 	for {
 		Client, err = elastic.NewClient(
+			elastic.SetSniff(false),
 			elastic.SetURL(fmt.Sprintf("http://%s:9200", esHost)),
 		)
 		if err != nil {
