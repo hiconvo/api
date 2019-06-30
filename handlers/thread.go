@@ -122,7 +122,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 	// Save the thread to the corresponding users.
 	//
 	// Add the thread key to the userStructs.
-	for _, u := range userStructs {
+	for _, u := range userPointers {
 		u.AddThread(&thread)
 	}
 	// We can use userPointers here because they point to the user structs
