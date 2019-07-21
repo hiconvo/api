@@ -260,17 +260,24 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, uErr := models.GetUserByID(ctx, userID)
+	userToBeAdded, uErr := models.GetUserByID(ctx, userID)
 	if uErr != nil {
 		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
 		return
 	}
 
-	thread.AddUser(&user)
-	user.AddThread(&thread)
+	if thread.HasUser(&userToBeAdded) {
+		bjson.WriteJSON(w, map[string]string{
+			"message": "This user is already a member of this convo",
+		}, http.StatusBadRequest)
+		return
+	}
+
+	thread.AddUser(&userToBeAdded)
+	userToBeAdded.AddThread(&thread)
 
 	// Save the user.
-	if err := user.Commit(ctx); err != nil {
+	if err := userToBeAdded.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
