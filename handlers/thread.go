@@ -296,7 +296,7 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["userID"]
 
-	user, uErr := models.GetUserByID(ctx, userID)
+	userToBeRemoved, uErr := models.GetUserByID(ctx, userID)
 	if uErr != nil {
 		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
 		return
@@ -304,16 +304,24 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 
 	// If the requestor is the owner or the requestor is the user to be
 	// removed, then remove the user.
-	if thread.HasUser(&user) && (thread.OwnerIs(&u) || user.Key.Equal(u.Key)) {
-		thread.RemoveUser(&user)
-		user.RemoveThread(&thread)
+	if thread.HasUser(&userToBeRemoved) && (thread.OwnerIs(&u) || userToBeRemoved.Key.Equal(u.Key)) {
+		// The owner cannot remove herself
+		if userToBeRemoved.Key.Equal(thread.OwnerKey) {
+			bjson.WriteJSON(w, map[string]string{
+				"message": "The convo owner cannot be removed from the convo",
+			}, http.StatusBadRequest)
+			return
+		}
+
+		thread.RemoveUser(&userToBeRemoved)
+		userToBeRemoved.RemoveThread(&thread)
 	} else {
 		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
 		return
 	}
 
 	// Save the user.
-	if err := user.Commit(ctx); err != nil {
+	if err := userToBeRemoved.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
