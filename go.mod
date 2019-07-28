@@ -1,22 +1,21 @@
 module github.com/hiconvo/api
 
 require (
-	cloud.google.com/go v0.39.0
+	cloud.google.com/go v0.43.0
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/aymerick/douceur v0.2.0
 	github.com/certifi/gocertifi v0.0.0-20190506164543-d2eda7129713 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/fatih/color v1.7.0 // indirect
-	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-siris/siris v7.4.0+incompatible // indirect
+	github.com/gofrs/uuid v3.2.0+incompatible
+	github.com/gographics/imagick v3.2.0+incompatible
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/gorilla/handlers v1.4.0
 	github.com/gorilla/mux v1.7.2
 	github.com/gosimple/slug v1.5.0
 	github.com/imdario/mergo v0.3.7
 	github.com/jaytaylor/html2text v0.0.0-20190408195923-01ec452cbe43
-	github.com/kr/pretty v0.1.0 // indirect
 	github.com/labstack/echo v3.3.10+incompatible // indirect
 	github.com/labstack/gommon v0.2.9 // indirect
 	github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e // indirect
@@ -34,8 +33,9 @@ require (
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
-	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
-	google.golang.org/appengine v1.6.0 // indirect
+	gocloud.dev v0.15.0
+	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
+	gopkg.in/gographics/imagick.v3 v3.2.0 // indirect
 	gopkg.in/russross/blackfriday.v2 v2.0.1
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8 // indirect
 	gopkg.in/validator.v2 v2.0.0-20180514200540-135c24b11c19

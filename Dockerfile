@@ -1,6 +1,9 @@
 # This is to be used in development only
 FROM golang:1.12.6
 
+RUN apt-get update
+RUN apt-get install imagemagick -y
+
 WORKDIR /var/www
 
 COPY . .

@@ -31,6 +31,7 @@ type User struct {
 	OAuthFacebookID string           `json:"-"`
 	Verified        bool             `json:"verified"`
 	Threads         []*datastore.Key `json:"-"        datastore:",noindex"`
+	Avatar          string           `json:"avatar"`
 }
 
 func (u *User) LoadKey(k *datastore.Key) error {

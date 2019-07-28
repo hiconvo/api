@@ -1,11 +1,19 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
 	"net/http"
+	"os/exec"
 	"strconv"
+	"strings"
+
+	uuid "github.com/gofrs/uuid"
 
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
+	"github.com/hiconvo/api/storage"
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/oauth"
@@ -20,6 +28,7 @@ var (
 	errMsgCreds  = map[string]string{"message": "Invalid credentials"}
 	errMsgMagic  = map[string]string{"message": "This link is not valid anymore"}
 	errMsgSend   = map[string]string{"message": "Could not send email"}
+	errMsgUpload = map[string]string{"message": "Could not upload avatar"}
 )
 
 // CreateUser Endpoint: POST /users
@@ -383,4 +392,66 @@ func UserSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bjson.WriteJSON(w, map[string]interface{}{"users": contacts}, http.StatusOK)
+}
+
+// PutAvatar Endpoint: POST /users/avatar
+//
+// Request payload:
+type putAvatarPayload struct {
+	Blob string `validate:"nonzero"`
+	X    float64
+	Y    float64
+	Size float64
+}
+
+// PutAvatar sets the user's avatar to the one given
+func PutAvatar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	body := bjson.BodyFromContext(ctx)
+
+	var payload putAvatarPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	bucket, err := storage.GetAvatarBucket(ctx)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgUpload)
+		return
+	}
+	defer bucket.Close()
+
+	name := uuid.Must(uuid.NewV4()).String() + ".jpg"
+
+	outputBlob, err := bucket.NewWriter(ctx, name, nil)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgUpload)
+		return
+	}
+	defer outputBlob.Close()
+
+	inputBlob := base64.NewDecoder(base64.StdEncoding, strings.NewReader(payload.Blob))
+	var stderr bytes.Buffer
+
+	cropGeo := fmt.Sprintf("%vx%v+%v+%v", int(payload.Size), int(payload.Size), int(payload.X), int(payload.Y))
+	cmd := exec.Command("convert", "-", "-crop", cropGeo, "-adaptive-resize", "256x256", "jpeg:-")
+	cmd.Stdin = inputBlob
+	cmd.Stdout = outputBlob
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		fmt.Println(stderr.String())
+		bjson.HandleInternalServerError(w, err, errMsgUpload)
+		return
+	}
+
+	u.Avatar = name
+	if err := u.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
+		return
+	}
+
+	bjson.WriteJSON(w, u, http.StatusOK)
 }
