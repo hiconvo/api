@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	uuid "github.com/gofrs/uuid"
+	"gocloud.dev/blob"
 
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
@@ -423,9 +424,11 @@ func PutAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer bucket.Close()
 
-	name := uuid.Must(uuid.NewV4()).String() + ".jpg"
+	key := uuid.Must(uuid.NewV4()).String() + ".jpg"
 
-	outputBlob, err := bucket.NewWriter(ctx, name, nil)
+	outputBlob, err := bucket.NewWriter(ctx, key, &blob.WriterOptions{
+		CacheControl: "525600",
+	})
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgUpload)
 		return
@@ -447,7 +450,18 @@ func PutAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u.Avatar = name
+	// Delete existing avatar if there is one
+	oldKey := storage.GetKeyFromAvatarURL(u.Avatar)
+	exists, err := bucket.Exists(ctx, oldKey)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgUpload)
+		return
+	}
+	if exists {
+		bucket.Delete(ctx, oldKey)
+	}
+
+	u.Avatar = storage.GetFullAvatarURL(key)
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
