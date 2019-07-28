@@ -241,6 +241,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 		// Update email and send verification email
 		u.Email = payload.Email
+		u.Verified = false
 		u.SendVerifyEmail()
 	}
 
