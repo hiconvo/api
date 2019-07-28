@@ -10,7 +10,7 @@ import (
 	"github.com/hiconvo/api/utils/secrets"
 )
 
-var googleAud string = secrets.Get("GOOGLE_OAUTH_KEY")
+var googleAud string = secrets.Get("GOOGLE_OAUTH_KEY", "")
 
 type UserPayload struct {
 	Email    string `validate:"regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4}$"`

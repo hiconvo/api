@@ -31,10 +31,15 @@ func init() {
 	secrets = secretMap
 }
 
-func Get(id string) string {
+func Get(id, fallback string) string {
 	s := secrets[id]
 	if s == "" {
-		fmt.Fprintf(os.Stderr, "Secret '%s' is empty\n", id)
+		fmt.Fprintf(os.Stderr, "Secret '%s' is empty, trying to read from environment...\n", id)
+		s = os.Getenv(id)
+	}
+	if s == "" {
+		fmt.Fprintf(os.Stderr, "Secret '%s' is not defined in the environment either, using fallback\n", id)
+		return fallback
 	}
 	return s
 }

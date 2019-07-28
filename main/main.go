@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	raven.SetDSN(secrets.Get("SENTRY_DSN"))
+	raven.SetDSN(secrets.Get("SENTRY_DSN", ""))
 	raven.SetRelease(os.Getenv("GAE_VERSION"))
 
 	http.Handle("/", handlers.CreateRouter())

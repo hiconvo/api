@@ -33,7 +33,7 @@ func init() {
 	if strings.HasSuffix(os.Args[0], ".test") {
 		client = &testClient{}
 	} else {
-		client = sendgrid.NewSendClient(secrets.Get("SENDGRID_API_KEY"))
+		client = sendgrid.NewSendClient(secrets.Get("SENDGRID_API_KEY", ""))
 	}
 }
 
