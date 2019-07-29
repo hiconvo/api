@@ -66,7 +66,7 @@ func verifyGoogleToken(ctx context.Context, payload UserPayload) (ProviderPayloa
 
 func verifyFacebookToken(ctx context.Context, payload UserPayload) (ProviderPayload, error) {
 	url := fmt.Sprintf(
-		"https://graph.facebook.com/me?fields=id,email,first_name,last_name&access_token=%s",
+		"https://graph.facebook.com/me?fields=id,email,first_name,last_name,picture&access_token=%s",
 		payload.Token)
 	res, err := http.Get(url)
 	if err != nil {
