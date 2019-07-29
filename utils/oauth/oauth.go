@@ -13,7 +13,6 @@ import (
 var googleAud string = secrets.Get("GOOGLE_OAUTH_KEY", "")
 
 type UserPayload struct {
-	Email    string `validate:"regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4}$"`
 	Provider string `validate:"regexp=^(google|facebook)$"`
 	Token    string `validate:"nonzero"`
 }
@@ -24,6 +23,7 @@ type ProviderPayload struct {
 	FirstName string
 	LastName  string
 	Provider  string
+	Avatar    string
 }
 
 // Verify both verifies the fiven oauth token and retrieves needed info about
@@ -60,6 +60,7 @@ func verifyGoogleToken(ctx context.Context, payload UserPayload) (ProviderPayloa
 		Email:     data["email"],
 		FirstName: data["given_name"],
 		LastName:  data["family_name"],
+		Avatar:    data["picture"],
 	}, nil
 }
 
@@ -72,16 +73,17 @@ func verifyFacebookToken(ctx context.Context, payload UserPayload) (ProviderPayl
 		return ProviderPayload{}, err
 	}
 
-	data := make(map[string]string)
+	data := make(map[string]interface{})
 	if decodeErr := json.NewDecoder(res.Body).Decode(&data); decodeErr != nil {
 		return ProviderPayload{}, decodeErr
 	}
 
 	return ProviderPayload{
-		ID:        data["id"],
+		ID:        data["id"].(string),
 		Provider:  "facebook",
-		Email:     data["email"],
-		FirstName: data["first_name"],
-		LastName:  data["last_name"],
+		Email:     data["email"].(string),
+		FirstName: data["first_name"].(string),
+		LastName:  data["last_name"].(string),
+		Avatar:    data["picture"].(map[string]interface{})["data"].(map[string]interface{})["url"].(string),
 	}, nil
 }

@@ -185,17 +185,25 @@ func NewUserWithPassword(email, firstname, lastname, password string) (User, err
 	return user, nil
 }
 
-func NewUserWithOAuth(email, firstname, lastname, oauthprovider, oauthtoken string) (User, error) {
+func NewUserWithOAuth(email, firstname, lastname, avatar, oauthprovider, oauthtoken string) (User, error) {
+	var googleID string
+	var facebookID string
+	if oauthprovider == "google" {
+		googleID = oauthtoken
+	} else {
+		facebookID = oauthtoken
+	}
 	user := User{
 		Key:             datastore.IncompleteKey("User", nil),
 		Email:           email,
 		FirstName:       firstname,
 		LastName:        lastname,
 		FullName:        "",
+		Avatar:          avatar,
 		PasswordDigest:  "",
 		Token:           random.Token(),
-		OAuthGoogleID:   "",
-		OAuthFacebookID: "",
+		OAuthGoogleID:   googleID,
+		OAuthFacebookID: facebookID,
 		Verified:        false,
 	}
 

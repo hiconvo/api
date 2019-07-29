@@ -167,7 +167,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 
 	// Try to find the user by email. If found, associate the new token
 	// with the existing user.
-	u, found, err = models.GetUserByEmail(ctx, payload.Email)
+	u, found, err = models.GetUserByEmail(ctx, oauthPayload.Email)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgGet)
 		return
@@ -192,6 +192,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		oauthPayload.Email,
 		oauthPayload.FirstName,
 		oauthPayload.LastName,
+		oauthPayload.Avatar,
 		oauthPayload.Provider,
 		oauthPayload.ID)
 	if err != nil {
