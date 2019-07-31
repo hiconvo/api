@@ -21,19 +21,18 @@ func TestCreateThread(t *testing.T) {
 	u2, _ := createTestUser(t)
 
 	type test struct {
-		Data             map[string]interface{}
-		Headers          map[string]string
-		StatusCode       int
-		ExpectedOwnerID  string
-		ExpectedMemberID string
+		AuthHeader  map[string]string
+		InData      map[string]interface{}
+		OutCode     int
+		OutOwnerID  string
+		OutMemberID string
 	}
 
 	tests := []test{
 		// Good payload
 		{
-			Headers:    getAuthHeader(u1.Token),
-			StatusCode: http.StatusCreated,
-			Data: map[string]interface{}{
+			AuthHeader: getAuthHeader(u1.Token),
+			InData: map[string]interface{}{
 				"subject": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
@@ -41,14 +40,14 @@ func TestCreateThread(t *testing.T) {
 					},
 				},
 			},
-			ExpectedOwnerID:  u1.ID,
-			ExpectedMemberID: u2.ID,
+			OutCode:     http.StatusCreated,
+			OutOwnerID:  u1.ID,
+			OutMemberID: u2.ID,
 		},
 		// Bad payload
 		{
-			Headers:    getAuthHeader(u1.Token),
-			StatusCode: http.StatusBadRequest,
-			Data: map[string]interface{}{
+			AuthHeader: getAuthHeader(u1.Token),
+			InData: map[string]interface{}{
 				"subject": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
@@ -56,12 +55,12 @@ func TestCreateThread(t *testing.T) {
 					},
 				},
 			},
+			OutCode: http.StatusBadRequest,
 		},
 		// Bad headers
 		{
-			Headers:    map[string]string{"boop": "beep"},
-			StatusCode: http.StatusUnauthorized,
-			Data: map[string]interface{}{
+			AuthHeader: map[string]string{"boop": "beep"},
+			InData: map[string]interface{}{
 				"subject": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
@@ -69,19 +68,20 @@ func TestCreateThread(t *testing.T) {
 					},
 				},
 			},
+			OutCode: http.StatusUnauthorized,
 		},
 	}
 
 	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/threads", testCase.Data, testCase.Headers)
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.StatusCode)
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/threads", testCase.InData, testCase.AuthHeader)
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 
-		if testCase.StatusCode < 400 {
+		if testCase.OutCode < 400 {
 			gotOwnerID, _ := respData["owner"].(map[string]interface{})["id"].(string)
-			thelpers.AssertEqual(t, gotOwnerID, testCase.ExpectedOwnerID)
+			thelpers.AssertEqual(t, gotOwnerID, testCase.OutOwnerID)
 
 			gotParticipantID, _ := respData["users"].([]interface{})[0].(map[string]interface{})["id"].(string)
-			thelpers.AssertEqual(t, gotParticipantID, testCase.ExpectedMemberID)
+			thelpers.AssertEqual(t, gotParticipantID, testCase.OutMemberID)
 		}
 	}
 }
@@ -90,39 +90,53 @@ func TestCreateThread(t *testing.T) {
 // GET /threads Tests
 //////////////////////
 
-func TestGetThreadsSucceeds(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2, &u3})
+func TestGetThreads(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member1, _ := createTestUser(t)
+	member2, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member1, &member2})
 
-	for _, u := range []models.User{u1, u2, u3} {
-		h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", "/threads", nil, h)
-		thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
+	type test struct {
+		AuthHeader    map[string]string
+		OutCode       int
+		IsThreadInRes bool
+	}
 
-		gotThread := respData["threads"].([]interface{})[0].(map[string]interface{})
-		gotThreadID := gotThread["id"].(string)
-		thelpers.AssertEqual(t, gotThreadID, thread.ID)
+	tests := []test{
+		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, IsThreadInRes: true},
+		{AuthHeader: getAuthHeader(member1.Token), OutCode: http.StatusOK, IsThreadInRes: true},
+		{AuthHeader: getAuthHeader(member2.Token), OutCode: http.StatusOK, IsThreadInRes: true},
+		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusOK, IsThreadInRes: false},
+		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, IsThreadInRes: false},
+	}
 
-		gotThreadOwner := gotThread["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
-		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", "/threads", nil, testCase.AuthHeader)
 
-		gotThreadUsers := gotThread["users"].([]interface{})
-		for _, c := range gotThreadUsers {
-			typedC := c.(map[string]interface{})
-			switch typedC["id"] {
-			case u1.ID:
-				thelpers.AssertEqual(t, typedC["fullName"], u1.FullName)
-			case u2.ID:
-				thelpers.AssertEqual(t, typedC["fullName"], u2.FullName)
-			case u3.ID:
-				thelpers.AssertEqual(t, typedC["fullName"], u3.FullName)
-			default:
-				t.Errorf("handler returned unexpected id: got %v want any of %v",
-					typedC["id"], []string{u2.ID, u3.ID})
-			}
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			continue
+		}
+
+		gotThreads := respData["threads"].([]interface{})
+
+		if testCase.IsThreadInRes {
+			thelpers.AssetObjectsContainKeys(t, "id", []string{thread.ID}, gotThreads)
+			thelpers.AssetObjectsContainKeys(t, "subject", []string{thread.Subject}, gotThreads)
+
+			gotThread := gotThreads[0].(map[string]interface{})
+
+			gotThreadUsers := gotThread["users"].([]interface{})
+			thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member1.ID, member2.ID}, gotThreadUsers)
+			thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member1.FullName, member2.FullName}, gotThreadUsers)
+
+			gotThreadOwner := gotThread["owner"].(map[string]interface{})
+			thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
+			thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
+		} else {
+			thelpers.AssetObjectsContainKeys(t, "id", []string{}, gotThreads)
 		}
 	}
 }
@@ -131,18 +145,32 @@ func TestGetThreadsSucceeds(t *testing.T) {
 // GET /thread/{id} Tests
 /////////////////////////
 
-func TestGetThreadSucceeds(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2})
-
+func TestGetThread(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member})
 	url := fmt.Sprintf("/threads/%s", thread.ID)
 
-	for _, u := range []models.User{u1, u2} {
-		h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, h)
+	type test struct {
+		AuthHeader map[string]string
+		OutCode    int
+	}
 
-		thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
+	tests := []test{
+		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK},
+		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusOK},
+		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
+		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized},
+	}
+
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, testCase.AuthHeader)
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			continue
+		}
 
 		thelpers.AssertEqual(t, respData["id"], thread.ID)
 
@@ -150,155 +178,209 @@ func TestGetThreadSucceeds(t *testing.T) {
 		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
 		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
 
-		gotThreadParticipants := respData["users"].([]interface{})
-		thelpers.AssertObjectsContainIDs(t, gotThreadParticipants, []string{u1.ID, u2.ID})
+		gotThreadUsers := respData["users"].([]interface{})
+		thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member.ID}, gotThreadUsers)
+		thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member.FullName}, gotThreadUsers)
 	}
-}
-
-func TestGetThreadFailsWithUnauthorizedUser(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2})
-
-	u3, _ := createTestUser(t)
-
-	url := fmt.Sprintf("/threads/%s", thread.ID)
-
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u3.Token)}
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, h)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusNotFound)
 }
 
 ///////////////////////////
 // PATCH /thread/{id} Tests
 ///////////////////////////
 
-func TestUpdateThreadSucceeds(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2})
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u1.Token)}
+func TestUpdateThread(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member})
+	url := fmt.Sprintf("/threads/%s", thread.ID)
 
-	subject := "Ruth Marcus"
-	reqData := map[string]interface{}{
-		"subject": subject,
+	type test struct {
+		AuthHeader map[string]string
+		OutCode    int
+		ShouldPass bool
+		InData     map[string]interface{}
 	}
 
-	url := fmt.Sprintf("/threads/%s", thread.ID)
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "PATCH", url, reqData, h)
+	tests := []test{
+		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, ShouldPass: true, InData: map[string]interface{}{"subject": "Ruth Marcus"}},
+		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, ShouldPass: false, InData: map[string]interface{}{"subject": "Ruth Marcus"}},
+		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, ShouldPass: false},
+		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, ShouldPass: false},
+	}
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
-	thelpers.AssertEqual(t, respData["subject"], subject)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "PATCH", url, testCase.InData, testCase.AuthHeader)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			continue
+		}
+
+		if testCase.ShouldPass {
+			thelpers.AssertEqual(t, respData["subject"], testCase.InData["subject"])
+		} else {
+			thelpers.AssertEqual(t, respData["subject"], thread.Subject)
+		}
+	}
 }
 
 ////////////////////////////
 // DELETE /thread/{id} Tests
 ////////////////////////////
 
-func TestDeleteThreadSucceeds(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2})
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u1.Token)}
-
+func TestDeleteThread(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member})
 	url := fmt.Sprintf("/threads/%s", thread.ID)
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, h)
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
+	type test struct {
+		AuthHeader map[string]string
+		OutCode    int
+		ShouldPass bool
+	}
 
-	var gotThread models.Thread
-	err := tclient.Get(tc, thread.Key, &gotThread)
-	thelpers.AssertEqual(t, err, datastore.ErrNoSuchEntity)
+	tests := []test{
+		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, ShouldPass: false},
+		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, ShouldPass: false},
+		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, ShouldPass: false},
+		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, ShouldPass: true},
+		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusNotFound, ShouldPass: true},
+	}
+
+	for _, testCase := range tests {
+		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, testCase.AuthHeader)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.ShouldPass {
+			var gotThread models.Thread
+			err := tclient.Get(tc, thread.Key, &gotThread)
+			thelpers.AssertEqual(t, err, datastore.ErrNoSuchEntity)
+		}
+	}
 }
 
 /////////////////////////////////////
 // POST /thread/{id}/users/{id} Tests
 /////////////////////////////////////
 
-func TestAddToThreadSucceeds(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{})
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u1.Token)}
+func TestAddToThread(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member, _ := createTestUser(t)
+	memberToAdd, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member})
 
-	url := fmt.Sprintf("/threads/%s/users/%s", thread.ID, u2.ID)
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, nil, h)
+	type test struct {
+		AuthHeader map[string]string
+		OutCode    int
+		InID       string
+		ShouldPass bool
+	}
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
+	tests := []test{
+		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, InID: memberToAdd.ID},
+		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, InID: memberToAdd.ID},
+		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, InID: memberToAdd.ID},
+		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, InID: memberToAdd.ID},
+	}
 
-	thelpers.AssertEqual(t, respData["id"], thread.ID)
+	for _, testCase := range tests {
+		url := fmt.Sprintf("/threads/%s/users/%s", thread.ID, testCase.InID)
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, nil, testCase.AuthHeader)
 
-	gotThreadOwner := respData["owner"].(map[string]interface{})
-	thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
-	thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 
-	gotThreadParticipants := respData["users"].([]interface{})
-	thelpers.AssertObjectsContainIDs(t, gotThreadParticipants, []string{u1.ID, u2.ID})
-}
+		if testCase.OutCode >= 400 {
+			continue
+		}
 
-func TestAddToThreadFailsWithUnauthorizedUser(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{})
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u2.Token)}
+		thelpers.AssertEqual(t, respData["id"], thread.ID)
 
-	url := fmt.Sprintf("/threads/%s/users/%s", thread.ID, u2.ID)
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", url, nil, h)
+		gotThreadOwner := respData["owner"].(map[string]interface{})
+		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
+		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusNotFound)
+		gotThreadUsers := respData["users"].([]interface{})
+		thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member.ID, memberToAdd.ID}, gotThreadUsers)
+		thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member.FullName, memberToAdd.FullName}, gotThreadUsers)
+	}
 }
 
 ///////////////////////////////////////
 // DELETE /thread/{id}/users/{id} Tests
 ///////////////////////////////////////
 
-func TestRemoveFromThreadSucceeds(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
+func TestRemoveFromThread(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member, _ := createTestUser(t)
+	memberToRemove, _ := createTestUser(t)
+	memberToLeave, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member, &memberToRemove, &memberToLeave})
 
-	for _, u := range []models.User{u1, u2} {
-		thread := createTestThread(t, &u1, []*models.User{&u2})
-		// change the token to make sure that both the owner and participant can
-		// remove user
-		h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
+	type test struct {
+		AuthHeader     map[string]string
+		InID           string
+		OutCode        int
+		OutMemberIDs   []string
+		OutMemberNames []string
+	}
 
-		url := fmt.Sprintf("/threads/%s/users/%s", thread.ID, u2.ID)
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, h)
+	tests := []test{
+		{
+			AuthHeader: getAuthHeader(nonmember.Token),
+			InID:       member.ID,
+			OutCode:    http.StatusNotFound,
+		},
+		{
+			AuthHeader: getAuthHeader(member.Token),
+			InID:       memberToRemove.ID,
+			OutCode:    http.StatusNotFound,
+		},
+		{
+			AuthHeader: map[string]string{"boop": "beep"},
+			InID:       member.ID,
+			OutCode:    http.StatusUnauthorized,
+		},
+		{
+			AuthHeader:     getAuthHeader(owner.Token),
+			InID:           memberToRemove.ID,
+			OutCode:        http.StatusOK,
+			OutMemberIDs:   []string{owner.ID, member.ID, memberToLeave.ID},
+			OutMemberNames: []string{owner.FullName, member.FullName, memberToLeave.FullName},
+		},
+		{
+			AuthHeader:     getAuthHeader(memberToLeave.Token),
+			InID:           memberToLeave.ID,
+			OutCode:        http.StatusOK,
+			OutMemberIDs:   []string{owner.ID, member.ID},
+			OutMemberNames: []string{owner.FullName, member.FullName},
+		},
+	}
 
-		thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
+	for _, testCase := range tests {
+		url := fmt.Sprintf("/threads/%s/users/%s", thread.ID, testCase.InID)
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, testCase.AuthHeader)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			continue
+		}
+
+		thelpers.AssertEqual(t, respData["id"], thread.ID)
 
 		gotThreadOwner := respData["owner"].(map[string]interface{})
 		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
 		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
 
-		gotThreadParticipants := respData["users"].([]interface{})
-		thelpers.AssertObjectsContainIDs(t, gotThreadParticipants, []string{u1.ID})
-		thelpers.AssertEqual(t, len(respData["users"].([]interface{})), 1)
+		gotThreadUsers := respData["users"].([]interface{})
+		thelpers.AssetObjectsContainKeys(t, "id", testCase.OutMemberIDs, gotThreadUsers)
+		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutMemberNames, gotThreadUsers)
 	}
-}
-
-func TestRemoveFromThreadFailsWithUnauthorizedUser(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	u4, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2, &u3})
-
-	url := fmt.Sprintf("/threads/%s/users/%s", thread.ID, u2.ID)
-
-	// Unrelated user cannot remove user
-	h1 := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u4.Token)}
-	_, rr1, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, h1)
-	thelpers.AssertStatusCodeEqual(t, rr1, http.StatusNotFound)
-
-	// Participant cannot remove another participant
-	h2 := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u3.Token)}
-	_, rr2, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, h2)
-	thelpers.AssertStatusCodeEqual(t, rr2, http.StatusNotFound)
-
-	// Participant cannot remove owner
-	url = fmt.Sprintf("/threads/%s/users/%s", thread.ID, u1.ID)
-	_, rr3, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, h2)
-	thelpers.AssertStatusCodeEqual(t, rr3, http.StatusNotFound)
 }

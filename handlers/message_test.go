@@ -68,9 +68,14 @@ func TestGetMessages(t *testing.T) {
 	}
 
 	tests := []test{
+		// Owner can get messages
 		{Headers: getAuthHeader(owner.Token), StatusCode: http.StatusOK},
+		// Member can get messages
 		{Headers: getAuthHeader(member1.Token), StatusCode: http.StatusOK},
+		// NonMember cannot get messages
 		{Headers: getAuthHeader(nonmember.Token), StatusCode: http.StatusNotFound},
+		// Unauthenticated user cannot get messages
+		{Headers: map[string]string{"boop": "beep"}, StatusCode: http.StatusUnauthorized},
 	}
 
 	for _, testCase := range tests {

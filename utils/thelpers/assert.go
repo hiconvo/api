@@ -64,6 +64,43 @@ func AssertObjectsContainIDs(t *testing.T, got []interface{}, wantedIDs []string
 	}
 }
 
+func AssetObjectsContainKeys(t *testing.T, key string, wantedKeys []string, got []interface{}) {
+	// Get all of the key values into a slice
+	gotIDs := make([]string, len(got))
+	for i, item := range got {
+		obj := item.(map[string]interface{})
+		gotKey := obj[key].(string)
+		gotIDs[i] = gotKey
+	}
+
+	for _, gotID := range gotIDs {
+		contains := false
+		for _, wantedKey := range wantedKeys {
+			if gotID == wantedKey {
+				contains = true
+			}
+		}
+
+		if !contains {
+			t.Errorf("handler returned unexpected id: got %v want any of %v",
+				gotID, wantedKeys)
+		}
+	}
+
+	for _, wantedKey := range wantedKeys {
+		contains := false
+		for _, gotID := range gotIDs {
+			if gotID == wantedKey {
+				contains = true
+			}
+		}
+
+		if !contains {
+			t.Errorf("handler did not return expected id: want %v", wantedKey)
+		}
+	}
+}
+
 func toString(v interface{}) string {
 	return fmt.Sprintf("%v", v)
 }
