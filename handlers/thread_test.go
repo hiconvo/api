@@ -16,49 +16,74 @@ import (
 // POST /threads Tests
 //////////////////////
 
-func TestCreateThreadWithValidPayloadSucceeds(t *testing.T) {
+func TestCreateThread(t *testing.T) {
 	u1, _ := createTestUser(t)
 	u2, _ := createTestUser(t)
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u1.Token)}
 
-	reqData := map[string]interface{}{
-		"subject": random.String(10),
-		"users": []map[string]string{
-			map[string]string{
-				"id": u2.ID,
+	type test struct {
+		Data             map[string]interface{}
+		Headers          map[string]string
+		StatusCode       int
+		ExpectedOwnerID  string
+		ExpectedMemberID string
+	}
+
+	tests := []test{
+		// Good payload
+		{
+			Headers:    getAuthHeader(u1.Token),
+			StatusCode: http.StatusCreated,
+			Data: map[string]interface{}{
+				"subject": random.String(10),
+				"users": []map[string]string{
+					map[string]string{
+						"id": u2.ID,
+					},
+				},
+			},
+			ExpectedOwnerID:  u1.ID,
+			ExpectedMemberID: u2.ID,
+		},
+		// Bad payload
+		{
+			Headers:    getAuthHeader(u1.Token),
+			StatusCode: http.StatusBadRequest,
+			Data: map[string]interface{}{
+				"subject": random.String(10),
+				"users": []map[string]string{
+					map[string]string{
+						"id": "Rudolf Carnap",
+					},
+				},
+			},
+		},
+		// Bad headers
+		{
+			Headers:    map[string]string{"boop": "beep"},
+			StatusCode: http.StatusUnauthorized,
+			Data: map[string]interface{}{
+				"subject": random.String(10),
+				"users": []map[string]string{
+					map[string]string{
+						"id": u2.ID,
+					},
+				},
 			},
 		},
 	}
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/threads", reqData, h)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/threads", testCase.Data, testCase.Headers)
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.StatusCode)
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusCreated)
+		if testCase.StatusCode < 400 {
+			gotOwnerID, _ := respData["owner"].(map[string]interface{})["id"].(string)
+			thelpers.AssertEqual(t, gotOwnerID, testCase.ExpectedOwnerID)
 
-	gotOwnerID, _ := respData["owner"].(map[string]interface{})["id"].(string)
-	thelpers.AssertEqual(t, gotOwnerID, u1.ID)
-
-	gotParticipantID, _ := respData["users"].([]interface{})[0].(map[string]interface{})["id"].(string)
-	thelpers.AssertEqual(t, gotParticipantID, u2.ID)
-}
-
-func TestCreateThreadWithInvalidPayloadFails(t *testing.T) {
-	u1, _ := createTestUser(t)
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u1.Token)}
-
-	reqData := map[string]interface{}{
-		"subject": random.String(10),
-		"users": []map[string]string{
-			map[string]string{
-				"id": "Rudolf Carnap",
-			},
-		},
+			gotParticipantID, _ := respData["users"].([]interface{})[0].(map[string]interface{})["id"].(string)
+			thelpers.AssertEqual(t, gotParticipantID, testCase.ExpectedMemberID)
+		}
 	}
-
-	_, rr1, _ := thelpers.TestEndpoint(t, tc, th, "POST", "/threads", reqData, h)
-	thelpers.AssertStatusCodeEqual(t, rr1, http.StatusBadRequest)
-
-	_, rr2, _ := thelpers.TestEndpoint(t, tc, th, "POST", "/threads", reqData, nil)
-	thelpers.AssertStatusCodeEqual(t, rr2, http.StatusUnauthorized)
 }
 
 //////////////////////
