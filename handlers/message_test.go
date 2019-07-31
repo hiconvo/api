@@ -14,107 +14,73 @@ import (
 // POST /threads/{id}/messages Tests
 ////////////////////////////////////
 
-func TestAddMessageToThreadWithValidPayloadSucceeds(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2, &u3})
-
+func TestAddMessageToThread(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member1, _ := createTestUser(t)
+	member2, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member1, &member2})
 	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
-	// Owner
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u1.Token)}
-
-	reqData := map[string]interface{}{
-		"body": random.String(10),
+	type test struct {
+		Body       string
+		Headers    map[string]string
+		StatusCode int
 	}
 
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, h)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusCreated)
-
-	// Participant
-	h = map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u2.Token)}
-
-	_, rr, _ = thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, h)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusCreated)
-}
-
-func TestAddMessageToThreadWithInvalidPayloadFails(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	u4, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2, &u3})
-
-	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
-
-	// User who does not belong to thread
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u4.Token)}
-
-	reqData := map[string]interface{}{
-		"body": random.String(10),
+	tests := []test{
+		// Owner
+		{Body: random.String(10), Headers: getAuthHeader(owner.Token), StatusCode: http.StatusCreated},
+		// Member
+		{Body: random.String(10), Headers: getAuthHeader(member1.Token), StatusCode: http.StatusCreated},
+		// NonMember
+		{Body: random.String(10), Headers: getAuthHeader(nonmember.Token), StatusCode: http.StatusNotFound},
+		// EmptyPayload
+		{Body: "", Headers: getAuthHeader(member1.Token), StatusCode: http.StatusBadRequest},
 	}
 
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, h)
+	for _, testCase := range tests {
+		reqData := map[string]interface{}{"body": testCase.Body}
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusNotFound)
+		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, testCase.Headers)
 
-	// Invalid payload
-	h = map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u2.Token)}
-
-	reqData = map[string]interface{}{
-		"what": random.String(10),
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.StatusCode)
 	}
-
-	_, rr, _ = thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, h)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusBadRequest)
 }
 
 ///////////////////////////////////
 // GET /threads/{id}/messages Tests
 ///////////////////////////////////
 
-func TestGetMessagesWithValidPayloadSucceeds(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2, &u3})
-	m1 := createTestMessage(t, &u1, &thread)
-	m2 := createTestMessage(t, &u2, &thread)
-
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u1.Token)}
-	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, h)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
-
-	messages := respData["messages"].([]interface{})
-	firstMessage := messages[0].(map[string]interface{})
-	secondMessage := messages[1].(map[string]interface{})
-
-	// Sorted from new to old
-	thelpers.AssertEqual(t, firstMessage["id"], m2.ID)
-	thelpers.AssertEqual(t, secondMessage["id"], m1.ID)
-}
-
-func TestGetMessagesWithInvalidPayloadFails(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	u4, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2, &u3})
-	createTestMessage(t, &u1, &thread)
-	createTestMessage(t, &u2, &thread)
-
+func TestGetMessages(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member1, _ := createTestUser(t)
+	member2, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member1, &member2})
+	message1 := createTestMessage(t, &owner, &thread)
+	message2 := createTestMessage(t, &member1, &thread)
 	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
-	// User who does not belong to thread
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u4.Token)}
+	type test struct {
+		Headers    map[string]string
+		StatusCode int
+	}
 
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, h)
+	tests := []test{
+		{Headers: getAuthHeader(owner.Token), StatusCode: http.StatusOK},
+		{Headers: getAuthHeader(member1.Token), StatusCode: http.StatusOK},
+		{Headers: getAuthHeader(nonmember.Token), StatusCode: http.StatusNotFound},
+	}
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusNotFound)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, testCase.Headers)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.StatusCode)
+
+		if testCase.StatusCode == http.StatusOK {
+			messages := respData["messages"].([]interface{})
+			thelpers.AssertObjectsContainIDs(t, messages, []string{message1.ID, message2.ID})
+		}
+	}
 }

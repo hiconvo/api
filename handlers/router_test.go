@@ -119,3 +119,7 @@ func createTestMessage(t *testing.T, user *models.User, thread *models.Thread) m
 
 	return message
 }
+
+func getAuthHeader(token string) map[string]string {
+	return map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
+}
