@@ -23,28 +23,40 @@ func TestAddMessageToThread(t *testing.T) {
 	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
 	type test struct {
+		AuthHeader map[string]string
 		Body       string
-		Headers    map[string]string
-		StatusCode int
+		Author     models.User
+		OutCode    int
 	}
 
 	tests := []test{
 		// Owner
-		{Body: random.String(10), Headers: getAuthHeader(owner.Token), StatusCode: http.StatusCreated},
+		{Body: random.String(10), AuthHeader: getAuthHeader(owner.Token), Author: owner, OutCode: http.StatusCreated},
 		// Member
-		{Body: random.String(10), Headers: getAuthHeader(member1.Token), StatusCode: http.StatusCreated},
+		{Body: random.String(10), AuthHeader: getAuthHeader(member1.Token), Author: member1, OutCode: http.StatusCreated},
 		// NonMember
-		{Body: random.String(10), Headers: getAuthHeader(nonmember.Token), StatusCode: http.StatusNotFound},
+		{Body: random.String(10), AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
 		// EmptyPayload
-		{Body: "", Headers: getAuthHeader(member1.Token), StatusCode: http.StatusBadRequest},
+		{Body: "", AuthHeader: getAuthHeader(member1.Token), OutCode: http.StatusBadRequest},
 	}
 
 	for _, testCase := range tests {
 		reqData := map[string]interface{}{"body": testCase.Body}
 
-		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, testCase.Headers)
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, testCase.AuthHeader)
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.StatusCode)
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			continue
+		}
+
+		thelpers.AssertEqual(t, respData["body"], testCase.Body)
+		thelpers.AssertEqual(t, respData["threadId"], thread.ID)
+
+		gotMessageUser := respData["user"].(map[string]interface{})
+		thelpers.AssertEqual(t, gotMessageUser["fullName"], testCase.Author.FullName)
+		thelpers.AssertEqual(t, gotMessageUser["id"], testCase.Author.ID)
 	}
 }
 
@@ -63,29 +75,32 @@ func TestGetMessages(t *testing.T) {
 	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
 	type test struct {
-		Headers    map[string]string
-		StatusCode int
+		AuthHeader map[string]string
+		OutCode    int
 	}
 
 	tests := []test{
 		// Owner can get messages
-		{Headers: getAuthHeader(owner.Token), StatusCode: http.StatusOK},
+		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK},
 		// Member can get messages
-		{Headers: getAuthHeader(member1.Token), StatusCode: http.StatusOK},
+		{AuthHeader: getAuthHeader(member1.Token), OutCode: http.StatusOK},
 		// NonMember cannot get messages
-		{Headers: getAuthHeader(nonmember.Token), StatusCode: http.StatusNotFound},
+		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
 		// Unauthenticated user cannot get messages
-		{Headers: map[string]string{"boop": "beep"}, StatusCode: http.StatusUnauthorized},
+		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized},
 	}
 
 	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, testCase.Headers)
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, testCase.AuthHeader)
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.StatusCode)
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 
-		if testCase.StatusCode == http.StatusOK {
-			messages := respData["messages"].([]interface{})
-			thelpers.AssertObjectsContainIDs(t, messages, []string{message1.ID, message2.ID})
+		if testCase.OutCode >= 400 {
+			continue
 		}
+
+		messages := respData["messages"].([]interface{})
+		thelpers.AssetObjectsContainKeys(t, "id", []string{message1.ID, message2.ID}, messages)
+		thelpers.AssetObjectsContainKeys(t, "body", []string{message1.Body, message2.Body}, messages)
 	}
 }

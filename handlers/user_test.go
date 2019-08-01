@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/hiconvo/api/utils/magic"
-	"github.com/hiconvo/api/utils/random"
 	"github.com/hiconvo/api/utils/thelpers"
 )
 
@@ -16,176 +15,201 @@ import (
 // POST /users Tests
 ////////////////////
 
-func TestCreateUserWithValidPayloadSucceeds(t *testing.T) {
-	reqData := map[string]string{
-		"email":     strings.ToLower(fmt.Sprintf("%s@test.com", random.String(14))),
-		"firstName": random.String(10),
-		"lastName":  random.String(10),
-		"password":  random.String(10),
+func TestCreateUser(t *testing.T) {
+	existingUser, _ := createTestUser(t)
+
+	type test struct {
+		InData    map[string]interface{}
+		OutCode   int
+		OutPaylod string
 	}
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users", reqData, nil)
+	tests := []test{
+		{
+			InData: map[string]interface{}{
+				"email":     "ruth.marcus@yale.edu",
+				"firstName": "Ruth",
+				"lastName":  "Marcus",
+				"password":  "the comma is a giveaway",
+			},
+			OutCode:   http.StatusCreated,
+			OutPaylod: "",
+		},
+		{
+			InData: map[string]interface{}{
+				"email":    "rudolf.carnap@charles.cz",
+				"lastName": "Carnap",
+				"password": "",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"firstName":"This field is required","password":"Must be at least 8 characters long"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"email":     "kit.fine@nyu.edu",
+				"firstName": true,
+				"password":  "Reality is constituted by tensed facts",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"message":"type mismatch on FirstName field: found bool, expected string"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"email":     existingUser.Email,
+				"firstName": "Ruth",
+				"lastName":  "Millikan",
+				"password":  "Language and thought are biological categories",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"message":"This email has already been registered"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"email":     "it's all in my mind",
+				"firstName": "George",
+				"lastName":  "Berkeley",
+				"password":  "Ordinary objects are ideas",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"email":"This is not a valid email"}`,
+		},
+	}
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusCreated)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users", testCase.InData, nil)
 
-	for k, v := range reqData {
-		if k == "password" {
-			continue
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			thelpers.AssertEqual(t, rr.Body.String(), testCase.OutPaylod)
+		} else {
+			thelpers.AssertEqual(t, respData["email"], testCase.InData["email"])
+			thelpers.AssertEqual(t, respData["firstName"], testCase.InData["firstName"])
+			thelpers.AssertEqual(t, respData["lastName"], testCase.InData["lastName"])
 		}
-
-		thelpers.AssertEqual(t, respData[k], v)
 	}
-}
-
-func TestCreateUserWithIncompletePayloadFails(t *testing.T) {
-	reqData := map[string]string{
-		"email": fmt.Sprintf("%s@test.com", random.String(11)),
-	}
-
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", "/users", reqData, nil)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusBadRequest)
-
-	got := rr.Body.String()
-	want := `{"firstName":"This field is required","password":"Must be at least 8 characters long"}`
-	thelpers.AssertEqual(t, got, want)
-}
-
-func TestCreateUserWithInvalidPayloadFails(t *testing.T) {
-	reqData := map[string]interface{}{
-		"email":     random.String(10),
-		"firstName": true,
-		"lastName":  random.String(10),
-		"password":  random.String(10),
-	}
-
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", "/users", reqData, nil)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusBadRequest)
-
-	got := rr.Body.String()
-	want := `{"message":"type mismatch on FirstName field: found bool, expected string"}`
-	thelpers.AssertEqual(t, got, want)
-}
-
-func TestCreateUserWithExistingEmailFails(t *testing.T) {
-	// Add user to db
-	u, _ := createTestUser(t)
-
-	reqData := map[string]string{
-		"email":     u.Email,
-		"firstName": random.String(10),
-		"lastName":  random.String(10),
-		"password":  random.String(10),
-	}
-
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", "/users", reqData, nil)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusBadRequest)
-
-	got := rr.Body.String()
-	want := `{"message":"This email has already been registered"}`
-	thelpers.AssertEqual(t, got, want)
 }
 
 ////////////////////
 // GET /users Tests
 ////////////////////
 
-func TestGetUserWithValidTokenSucceeds(t *testing.T) {
-	u, _ := createTestUser(t)
-
+func TestGetUser(t *testing.T) {
+	existingUser, _ := createTestUser(t)
 	// Create a couple more users to create the possibility that a wrong user
 	// be retrieved
 	createTestUser(t)
 	createTestUser(t)
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", "/users", nil, map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", u.Token),
-	})
+	type test struct {
+		AuthHeader map[string]string
+		OutCode    int
+		OutPaylod  string
+	}
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
+	tests := []test{
+		{
+			AuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			OutCode:    http.StatusOK,
+		},
+		{
+			AuthHeader: map[string]string{"Authorization": "Bearer abcdefghijklmnopqrstuvwxyz"},
+			OutCode:    http.StatusUnauthorized,
+			OutPaylod:  `{"message":"Unauthorized"}`,
+		},
+		{
+			AuthHeader: map[string]string{"everything": "is what it is"},
+			OutCode:    http.StatusUnauthorized,
+			OutPaylod:  `{"message":"Unauthorized"}`,
+		},
+		{
+			AuthHeader: nil,
+			OutCode:    http.StatusUnauthorized,
+			OutPaylod:  `{"message":"Unauthorized"}`,
+		},
+	}
 
-	thelpers.AssertEqual(t, respData["id"], u.ID)
-	thelpers.AssertEqual(t, respData["firstName"], u.FirstName)
-	thelpers.AssertEqual(t, respData["lastName"], u.LastName)
-	thelpers.AssertEqual(t, respData["token"], u.Token)
-	thelpers.AssertEqual(t, respData["verified"], u.Verified)
-	thelpers.AssertEqual(t, respData["email"], u.Email)
-}
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", "/users", nil, testCase.AuthHeader)
 
-func TestGetUserWithInvalidTokenFails(t *testing.T) {
-	// Create a user to make sure that there is something in the db that could
-	// be retreived
-	createTestUser(t)
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 
-	_, rr, _ := thelpers.TestEndpoint(t, tc, th, "GET", "/users", nil, map[string]string{
-		"Authorization": "Bearer abcdefghijklmnopqrstuvwxyz",
-	})
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusUnauthorized)
-}
-
-func TestGetUserWithInvalidHeaderFails(t *testing.T) {
-	// Create a user to make sure that there is something in the db that could
-	// be retreived
-	createTestUser(t)
-
-	// Invalid header
-	_, rr1, _ := thelpers.TestEndpoint(t, tc, th, "GET", "/users", nil, map[string]string{
-		"rudolf": "carnap",
-	})
-	thelpers.AssertStatusCodeEqual(t, rr1, http.StatusUnauthorized)
-
-	// No header
-	_, rr2, _ := thelpers.TestEndpoint(t, tc, th, "GET", "/users", nil, nil)
-	thelpers.AssertStatusCodeEqual(t, rr2, http.StatusUnauthorized)
+		if testCase.OutCode >= 400 {
+			thelpers.AssertEqual(t, rr.Body.String(), testCase.OutPaylod)
+		} else {
+			thelpers.AssertEqual(t, respData["id"], existingUser.ID)
+			thelpers.AssertEqual(t, respData["firstName"], existingUser.FirstName)
+			thelpers.AssertEqual(t, respData["lastName"], existingUser.LastName)
+			thelpers.AssertEqual(t, respData["token"], existingUser.Token)
+			thelpers.AssertEqual(t, respData["verified"], existingUser.Verified)
+			thelpers.AssertEqual(t, respData["email"], existingUser.Email)
+		}
+	}
 }
 
 /////////////////////////
 // POST /users/auth Tests
 /////////////////////////
 
-func TestAuthenticateUserWithValidPayloadSucceeds(t *testing.T) {
-	u, p := createTestUser(t)
+func TestAuthenticateUser(t *testing.T) {
+	existingUser, password := createTestUser(t)
 
-	reqData := map[string]string{
-		"email":    u.Email,
-		"password": p,
+	type test struct {
+		InData    map[string]interface{}
+		OutCode   int
+		OutPaylod string
 	}
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/auth", reqData, nil)
+	tests := []test{
+		{
+			InData: map[string]interface{}{
+				"email":    existingUser.Email,
+				"password": password,
+			},
+			OutCode: http.StatusOK,
+		},
+		{
+			InData: map[string]interface{}{
+				"email":    existingUser.Email,
+				"password": "123456789",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"message":"Invalid credentials"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"email":    existingUser.Email,
+				"password": "",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"password":"This field is required"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"email":    "santa@northpole.com",
+				"password": "have you been naughty or nice?",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"message":"Invalid credentials"}`,
+		},
+	}
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/auth", testCase.InData, nil)
 
-	thelpers.AssertEqual(t, respData["id"], u.ID)
-	thelpers.AssertEqual(t, respData["firstName"], u.FirstName)
-	thelpers.AssertEqual(t, respData["lastName"], u.LastName)
-	thelpers.AssertEqual(t, respData["token"], u.Token)
-	thelpers.AssertEqual(t, respData["verified"], u.Verified)
-	thelpers.AssertEqual(t, respData["email"], u.Email)
-}
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 
-func TestAuthenticateUserWithInvalidPayloadFails(t *testing.T) {
-	u, _ := createTestUser(t)
-
-	// Valid email, wrong password
-	reqData := map[string]string{"email": u.Email, "password": "123456789"}
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/auth", reqData, nil)
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusBadRequest)
-	thelpers.AssertEqual(t, respData["message"], "Invalid credentials")
-
-	// Valid email, missing password
-	reqData = map[string]string{"email": u.Email}
-	_, rr, respData = thelpers.TestEndpoint(t, tc, th, "POST", "/users/auth", reqData, nil)
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusBadRequest)
-	thelpers.AssertEqual(t, respData["password"], "This field is required")
-
-	// Invalid email
-	reqData = map[string]string{"email": "does.not@exist.com", "password": "123456789"}
-	_, rr, respData = thelpers.TestEndpoint(t, tc, th, "POST", "/users/auth", reqData, nil)
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusBadRequest)
-	thelpers.AssertEqual(t, respData["message"], "Invalid credentials")
+		if testCase.OutCode >= 400 {
+			thelpers.AssertEqual(t, rr.Body.String(), testCase.OutPaylod)
+		} else {
+			thelpers.AssertEqual(t, respData["id"], existingUser.ID)
+			thelpers.AssertEqual(t, respData["firstName"], existingUser.FirstName)
+			thelpers.AssertEqual(t, respData["lastName"], existingUser.LastName)
+			thelpers.AssertEqual(t, respData["token"], existingUser.Token)
+			thelpers.AssertEqual(t, respData["verified"], existingUser.Verified)
+			thelpers.AssertEqual(t, respData["email"], existingUser.Email)
+		}
+	}
 }
 
 /////////////////////
@@ -194,96 +218,144 @@ func TestAuthenticateUserWithInvalidPayloadFails(t *testing.T) {
 
 // TODO: Test update email and password fields.
 
-func TestUpdateUserWithValidPayloadSucceeds(t *testing.T) {
-	u, _ := createTestUser(t)
+func TestUpdateUser(t *testing.T) {
+	existingUser, _ := createTestUser(t)
 
-	fname := "Rudolf"
-	lname := "Carnap"
+	type test struct {
+		AuthHeader map[string]string
+		InData     map[string]interface{}
+		OutCode    int
+		OutData    map[string]interface{}
+		OutPaylod  string
+	}
 
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
-	d := map[string]string{"firstName": fname, "lastName": lname}
+	tests := []test{
+		{
+			AuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			InData: map[string]interface{}{
+				"firstName": "Sir",
+				"lastName":  "Malebranche",
+			},
+			OutCode: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser.ID,
+				"firstName": "Sir",
+				"lastName":  "Malebranche",
+				"token":     existingUser.Token,
+				"verified":  existingUser.Verified,
+				"email":     existingUser.Email,
+			},
+		},
+		{
+			AuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			InData: map[string]interface{}{
+				"email": "asdf",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"email":"This is not a valid email"}`,
+		},
+	}
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "PATCH", "/users", d, h)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "PATCH", "/users", testCase.InData, testCase.AuthHeader)
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 
-	thelpers.AssertEqual(t, respData["id"], u.ID)
-	thelpers.AssertEqual(t, respData["firstName"], fname)
-	thelpers.AssertEqual(t, respData["lastName"], lname)
-	thelpers.AssertEqual(t, respData["token"], u.Token)
-	thelpers.AssertEqual(t, respData["verified"], u.Verified)
-	thelpers.AssertEqual(t, respData["email"], u.Email)
-}
-
-func TestUpdateUserWithInvalidPayloadFails(t *testing.T) {
-	u, _ := createTestUser(t)
-
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
-	d := map[string]string{"email": "asdf"}
-
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "PATCH", "/users", d, h)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusBadRequest)
-
-	thelpers.AssertEqual(t, respData["email"], "This is not a valid email")
+		if testCase.OutCode >= 400 {
+			thelpers.AssertEqual(t, rr.Body.String(), testCase.OutPaylod)
+		} else {
+			thelpers.AssertEqual(t, respData["id"], testCase.OutData["id"])
+			thelpers.AssertEqual(t, respData["firstName"], testCase.OutData["firstName"])
+			thelpers.AssertEqual(t, respData["lastName"], testCase.OutData["lastName"])
+			thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
+			thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
+			thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
+		}
+	}
 }
 
 ///////////////////////
 // POST /users/password
 ///////////////////////
 
-func TestUpdatePasswordWithValidPayloadSucceeds(t *testing.T) {
-	u, _ := createTestUser(t)
-	link := magic.NewLink(u.Key, u.PasswordDigest, "reset")
+func TestUpdatePassword(t *testing.T) {
+	existingUser, _ := createTestUser(t)
+	link := magic.NewLink(existingUser.Key, existingUser.PasswordDigest, "reset")
 	split := strings.Split(link, "/")
 	kenc := split[len(split)-3]
 	b64ts := split[len(split)-2]
 	sig := split[len(split)-1]
 
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
-	d := map[string]string{
-		"signature": sig,
-		"timestamp": b64ts,
-		"userID":    kenc,
-		"password":  "12345678",
+	existingUser2, _ := createTestUser(t)
+	link2 := magic.NewLink(existingUser2.Key, existingUser2.PasswordDigest, "reset")
+	split2 := strings.Split(link2, "/")
+	kenc2 := split2[len(split2)-3]
+	b64ts2 := split2[len(split2)-2]
+
+	type test struct {
+		AuthHeader map[string]string
+		InData     map[string]interface{}
+		OutCode    int
+		OutData    map[string]interface{}
+		OutPaylod  string
 	}
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/password", d, h)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
-
-	thelpers.AssertEqual(t, respData["id"], u.ID)
-	thelpers.AssertEqual(t, respData["firstName"], u.FirstName)
-	thelpers.AssertEqual(t, respData["lastName"], u.LastName)
-	thelpers.AssertEqual(t, respData["token"], u.Token)
-	thelpers.AssertEqual(t, respData["verified"], u.Verified)
-	thelpers.AssertEqual(t, respData["email"], u.Email)
-
-	// Make sure link does not work after use
-	_, rr, respData = thelpers.TestEndpoint(t, tc, th, "POST", "/users/password", d, h)
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusUnauthorized)
-	thelpers.AssertEqual(t, respData["message"], "This link is not valid anymore")
-}
-
-func TestUpdatePasswordWithInvalidPayloadFails(t *testing.T) {
-	u, _ := createTestUser(t)
-	link := magic.NewLink(u.Key, u.PasswordDigest, "reset")
-	split := strings.Split(link, "/")
-	kenc := split[len(split)-3]
-	b64ts := split[len(split)-2]
-
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
-	d := map[string]string{
-		"signature": random.String(20),
-		"timestamp": b64ts,
-		"userID":    kenc,
-		"password":  "12345678",
+	tests := []test{
+		{
+			InData: map[string]interface{}{
+				"signature": sig,
+				"timestamp": b64ts,
+				"userID":    kenc,
+				"password":  "12345678",
+			},
+			OutCode: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser.ID,
+				"firstName": existingUser.FirstName,
+				"lastName":  existingUser.LastName,
+				"token":     existingUser.Token,
+				"verified":  existingUser.Verified,
+				"email":     existingUser.Email,
+			},
+		},
+		{
+			InData: map[string]interface{}{
+				"signature": sig,
+				"timestamp": b64ts,
+				"userID":    kenc,
+				"password":  "12345678",
+			},
+			OutCode:   http.StatusUnauthorized,
+			OutPaylod: `{"message":"This link is not valid anymore"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"signature": "not a valid signature",
+				"timestamp": b64ts2,
+				"userID":    kenc2,
+				"password":  "12345678",
+			},
+			OutCode:   http.StatusUnauthorized,
+			OutPaylod: `{"message":"This link is not valid anymore"}`,
+		},
 	}
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/password", d, h)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/password", testCase.InData, testCase.AuthHeader)
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusUnauthorized)
-	thelpers.AssertEqual(t, respData["message"], "This link is not valid anymore")
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			thelpers.AssertEqual(t, rr.Body.String(), testCase.OutPaylod)
+		} else {
+			thelpers.AssertEqual(t, respData["id"], testCase.OutData["id"])
+			thelpers.AssertEqual(t, respData["firstName"], testCase.OutData["firstName"])
+			thelpers.AssertEqual(t, respData["lastName"], testCase.OutData["lastName"])
+			thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
+			thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
+			thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
+		}
+	}
 }
 
 ///////////////////////
@@ -291,53 +363,81 @@ func TestUpdatePasswordWithInvalidPayloadFails(t *testing.T) {
 ///////////////////////
 
 func TestVerifyEmailWithValidPayloadSucceeds(t *testing.T) {
-	u, _ := createTestUser(t)
-	link := magic.NewLink(u.Key, strconv.FormatBool(u.Verified), "verify")
+	existingUser, _ := createTestUser(t)
+	link := magic.NewLink(existingUser.Key, strconv.FormatBool(existingUser.Verified), "verify")
 	split := strings.Split(link, "/")
 	kenc := split[len(split)-3]
 	b64ts := split[len(split)-2]
 	sig := split[len(split)-1]
 
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
-	d := map[string]string{
-		"signature": sig,
-		"timestamp": b64ts,
-		"userID":    kenc,
+	existingUser2, _ := createTestUser(t)
+	link2 := magic.NewLink(existingUser2.Key, strconv.FormatBool(existingUser2.Verified), "verify")
+	split2 := strings.Split(link2, "/")
+	kenc2 := split2[len(split2)-3]
+	b64ts2 := split2[len(split2)-2]
+
+	type test struct {
+		AuthHeader map[string]string
+		InData     map[string]interface{}
+		OutCode    int
+		OutData    map[string]interface{}
+		OutPaylod  string
 	}
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/verify", d, h)
-
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
-
-	thelpers.AssertEqual(t, respData["id"], u.ID)
-	thelpers.AssertEqual(t, respData["firstName"], u.FirstName)
-	thelpers.AssertEqual(t, respData["lastName"], u.LastName)
-	thelpers.AssertEqual(t, respData["token"], u.Token)
-	thelpers.AssertEqual(t, respData["verified"], true)
-	thelpers.AssertEqual(t, respData["email"], u.Email)
-
-	// Make sure link does not work after use
-	_, rr, respData = thelpers.TestEndpoint(t, tc, th, "POST", "/users/verify", d, h)
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusUnauthorized)
-	thelpers.AssertEqual(t, respData["message"], "This link is not valid anymore")
-}
-
-func TestVerifyEmailWithInvalidPayloadFails(t *testing.T) {
-	u, _ := createTestUser(t)
-	link := magic.NewLink(u.Key, strconv.FormatBool(u.Verified), "verify")
-	split := strings.Split(link, "/")
-	kenc := split[len(split)-3]
-	b64ts := split[len(split)-2]
-
-	h := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", u.Token)}
-	d := map[string]string{
-		"signature": random.String(20),
-		"timestamp": b64ts,
-		"userID":    kenc,
+	tests := []test{
+		{
+			InData: map[string]interface{}{
+				"signature": sig,
+				"timestamp": b64ts,
+				"userID":    kenc,
+				"password":  "12345678",
+			},
+			OutCode: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser.ID,
+				"firstName": existingUser.FirstName,
+				"lastName":  existingUser.LastName,
+				"token":     existingUser.Token,
+				"verified":  true,
+				"email":     existingUser.Email,
+			},
+		},
+		{
+			InData: map[string]interface{}{
+				"signature": sig,
+				"timestamp": b64ts,
+				"userID":    kenc,
+				"password":  "12345678",
+			},
+			OutCode:   http.StatusUnauthorized,
+			OutPaylod: `{"message":"This link is not valid anymore"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"signature": "not a valid signature",
+				"timestamp": b64ts2,
+				"userID":    kenc2,
+				"password":  "12345678",
+			},
+			OutCode:   http.StatusUnauthorized,
+			OutPaylod: `{"message":"This link is not valid anymore"}`,
+		},
 	}
 
-	_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/verify", d, h)
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/verify", testCase.InData, testCase.AuthHeader)
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusUnauthorized)
-	thelpers.AssertEqual(t, respData["message"], "This link is not valid anymore")
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			thelpers.AssertEqual(t, rr.Body.String(), testCase.OutPaylod)
+		} else {
+			thelpers.AssertEqual(t, respData["id"], testCase.OutData["id"])
+			thelpers.AssertEqual(t, respData["firstName"], testCase.OutData["firstName"])
+			thelpers.AssertEqual(t, respData["lastName"], testCase.OutData["lastName"])
+			thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
+			thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
+			thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
+		}
+	}
 }
