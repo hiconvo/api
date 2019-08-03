@@ -14,7 +14,7 @@ type Message struct {
 	Key       *datastore.Key `json:"-"        datastore:"__key__"`
 	ID        string         `json:"id"       datastore:"-"`
 	UserKey   *datastore.Key `json:"-"`
-	User      *Contact       `json:"user"     datastore:"-"`
+	User      *UserPartial   `json:"user"     datastore:"-"`
 	ThreadKey *datastore.Key `json:"-"`
 	ThreadID  string         `json:"threadId" datastore:"-"`
 	Body      string         `json:"body"     datastore:",noindex"`
@@ -66,7 +66,7 @@ func NewMessage(u *User, t *Thread, body string) (Message, error) {
 	message := Message{
 		Key:       datastore.IncompleteKey("Message", nil),
 		UserKey:   u.Key,
-		User:      MapUserToContact(u),
+		User:      MapUserToUserPartial(u),
 		ThreadKey: t.Key,
 		ThreadID:  t.ID,
 		Body:      body,
@@ -75,7 +75,7 @@ func NewMessage(u *User, t *Thread, body string) (Message, error) {
 
 	t.Preview = &Preview{
 		Body:      body,
-		Sender:    MapUserToContact(u),
+		Sender:    MapUserToUserPartial(u),
 		Timestamp: ts,
 	}
 
@@ -100,7 +100,7 @@ func GetMessagesByThread(ctx context.Context, t *Thread) ([]*Message, error) {
 	}
 
 	for i := range messages {
-		messages[i].User = MapUserToContact(users[i])
+		messages[i].User = MapUserToUserPartial(users[i])
 	}
 
 	// TODO: Get Query#Order to work above.

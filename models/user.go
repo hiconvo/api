@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -32,6 +33,42 @@ type User struct {
 	Verified        bool             `json:"verified"`
 	Threads         []*datastore.Key `json:"-"        datastore:",noindex"`
 	Avatar          string           `json:"avatar"`
+}
+
+type UserPartial struct {
+	ID        string `json:"id"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	FullName  string `json:"fullName"`
+	Avatar    string `json:"avatar"`
+}
+
+func MapUserToUserPartial(u *User) *UserPartial {
+	return &UserPartial{
+		ID:        u.ID,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		FullName:  u.FullName,
+		Avatar:    u.Avatar,
+	}
+}
+
+func MapUsersToUserPartials(users []*User) []*UserPartial {
+	contacts := make([]*UserPartial, len(users))
+	for i, u := range users {
+		contacts[i] = MapUserToUserPartial(u)
+	}
+	return contacts
+}
+
+func MapUserPartialToUser(c *UserPartial, users []*User) (*User, error) {
+	for _, u := range users {
+		if u.ID == c.ID {
+			return u, nil
+		}
+	}
+
+	return &User{}, errors.New("Matching user not in slice")
 }
 
 func (u *User) LoadKey(k *datastore.Key) error {
@@ -71,7 +108,7 @@ func (u *User) Commit(ctx context.Context) error {
 		Index("users").
 		Id(u.ID).
 		DocAsUpsert(true).
-		Doc(MapUserToContact(u)).
+		Doc(MapUserToUserPartial(u)).
 		Do(ctx)
 	if upsertErr != nil {
 		fmt.Fprintf(os.Stderr, "Failed to index user in elasticsearch: %s", upsertErr)
@@ -130,11 +167,11 @@ func (u *User) RemoveThread(t *Thread) error {
 	return nil
 }
 
-func UserSearch(ctx context.Context, query string) ([]Contact, error) {
+func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 	skip := 0
 	take := 10
 
-	contacts := make([]Contact, 0)
+	contacts := make([]UserPartial, 0)
 
 	esQuery := elastic.NewMultiMatchQuery(query, "fullName", "firstName", "lastName").
 		Fuzziness("3").
@@ -148,10 +185,8 @@ func UserSearch(ctx context.Context, query string) ([]Contact, error) {
 		return contacts, err
 	}
 
-	fmt.Println(result.TotalHits())
-
 	for _, hit := range result.Hits.Hits {
-		var contact Contact
+		var contact UserPartial
 		jsonErr := json.Unmarshal(hit.Source, &contact)
 		if jsonErr != nil {
 			return contacts, jsonErr

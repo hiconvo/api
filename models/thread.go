@@ -10,15 +10,15 @@ import (
 )
 
 type Thread struct {
-	Key      *datastore.Key   `json:"-"        datastore:"__key__"`
-	ID       string           `json:"id"       datastore:"-"`
-	OwnerKey *datastore.Key   `json:"-"`
-	Owner    *Contact         `json:"owner"    datastore:"-"`
-	UserKeys []*datastore.Key `json:"-"        datastore:",noindex"`
-	Users    []*User          `json:"-"        datastore:"-"`
-	Contacts []*Contact       `json:"users"    datastore:"-"`
-	Subject  string           `json:"subject"  datastore:",noindex"`
-	Preview  *Preview         `json:"preview"  datastore:",noindex"`
+	Key          *datastore.Key   `json:"-"        datastore:"__key__"`
+	ID           string           `json:"id"       datastore:"-"`
+	OwnerKey     *datastore.Key   `json:"-"`
+	Owner        *UserPartial     `json:"owner"    datastore:"-"`
+	UserKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
+	Users        []*User          `json:"-"        datastore:"-"`
+	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
+	Subject      string           `json:"subject"  datastore:",noindex"`
+	Preview      *Preview         `json:"preview"  datastore:",noindex"`
 }
 
 func (t *Thread) LoadKey(k *datastore.Key) error {
@@ -90,7 +90,7 @@ func (t *Thread) AddUser(u *User) {
 
 	t.UserKeys = append(t.UserKeys, u.Key)
 	t.Users = append(t.Users, u)
-	t.Contacts = append(t.Contacts, MapUserToContact(u))
+	t.UserPartials = append(t.UserPartials, MapUserToUserPartial(u))
 }
 
 func (t *Thread) RemoveUser(u *User) {
@@ -111,10 +111,10 @@ func (t *Thread) RemoveUser(u *User) {
 		}
 	}
 	// Remove from contacts.
-	for i, c := range t.Contacts {
+	for i, c := range t.UserPartials {
 		if c.ID == u.ID {
-			t.Contacts[i] = t.Contacts[len(t.Contacts)-1]
-			t.Contacts = t.Contacts[:len(t.Contacts)-1]
+			t.UserPartials[i] = t.UserPartials[len(t.UserPartials)-1]
+			t.UserPartials = t.UserPartials[:len(t.UserPartials)-1]
 			break
 		}
 	}
@@ -168,13 +168,13 @@ func NewThread(subject string, owner *User, users []*User) (Thread, error) {
 	}
 
 	return Thread{
-		Key:      datastore.IncompleteKey("Thread", nil),
-		OwnerKey: owner.Key,
-		Owner:    MapUserToContact(owner),
-		UserKeys: userKeys,
-		Users:    users,
-		Contacts: MapUsersToContacs(users),
-		Subject:  subject,
+		Key:          datastore.IncompleteKey("Thread", nil),
+		OwnerKey:     owner.Key,
+		Owner:        MapUserToUserPartial(owner),
+		UserKeys:     userKeys,
+		Users:        users,
+		UserPartials: MapUsersToUserPartials(users),
+		Subject:      subject,
 	}, nil
 }
 
@@ -232,7 +232,7 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 		return tptrs, err
 	}
 
-	// In order to satisfy MapUsersToContacs() and other functions, we map
+	// In order to satisfy MapUsersToUserPartials() and other functions, we map
 	// user objects to pointers to them.
 	uptrs := make([]*User, len(us))
 	for i := range us {
@@ -259,8 +259,8 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 		}
 
 		threads[i].Users = threadUsers
-		threads[i].Owner = MapUserToContact(owner)
-		threads[i].Contacts = MapUsersToContacs(threadUsers)
+		threads[i].Owner = MapUserToUserPartial(owner)
+		threads[i].UserPartials = MapUsersToUserPartials(threadUsers)
 
 		start += idxs[i]
 		tptrs[i] = &threads[i]
@@ -290,8 +290,8 @@ func handleGetThread(ctx context.Context, key *datastore.Key, t Thread) (Thread,
 	}
 
 	t.Users = userPointers
-	t.Contacts = MapUsersToContacs(userPointers)
-	t.Owner = MapUserToContact(&owner)
+	t.UserPartials = MapUsersToUserPartials(userPointers)
+	t.Owner = MapUserToUserPartial(&owner)
 
 	return t, nil
 }

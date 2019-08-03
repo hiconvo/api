@@ -5,7 +5,7 @@ import (
 )
 
 type Preview struct {
-	Body      string    `json:"body"`
-	Sender    *Contact  `json:"sender"`
-	Timestamp time.Time `json:"timestamp"`
+	Body      string       `json:"body"`
+	Sender    *UserPartial `json:"sender"`
+	Timestamp time.Time    `json:"timestamp"`
 }
