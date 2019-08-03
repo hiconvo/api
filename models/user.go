@@ -33,6 +33,8 @@ type User struct {
 	Verified        bool             `json:"verified"`
 	Threads         []*datastore.Key `json:"-"        datastore:",noindex"`
 	Avatar          string           `json:"avatar"`
+	ContactKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
+	Contacts        []*UserPartial   `json:"-"        datastore:"-"`
 }
 
 type UserPartial struct {
@@ -165,6 +167,34 @@ func (u *User) RemoveThread(t *Thread) error {
 	}
 
 	return nil
+}
+
+func (u *User) AddContact(c *User) error {
+	u.ContactKeys = append(u.ContactKeys, c.Key)
+
+	return nil
+}
+
+func (u *User) RemoveContact(c *User) error {
+	for i, k := range u.ContactKeys {
+		if k.Equal(c.Key) {
+			u.ContactKeys[i] = u.ContactKeys[len(u.ContactKeys)-1]
+			u.ContactKeys = u.ContactKeys[:len(u.ContactKeys)-1]
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func (u *User) HasContact(c *User) bool {
+	for _, k := range u.ContactKeys {
+		if k.Equal(c.Key) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
