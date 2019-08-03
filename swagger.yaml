@@ -288,7 +288,7 @@ paths:
               users:
                 type: array
                 items:
-                  $ref: "#/definitions/contact"
+                  $ref: "#/definitions/userpartial"
       responses:
         201:
           description: Thread
@@ -312,9 +312,14 @@ paths:
         200:
           description: Thread list
           schema:
-            type: array
-            items:
-              $ref: "#/definitions/thread"
+            type: object
+            required:
+              - threads
+            properties:
+              threads:
+                type: array
+                items:
+                  $ref: "#/definitions/thread"
         401:
           description: Permission denied
           schema:
@@ -423,9 +428,14 @@ paths:
         200:
           description: Message list
           schema:
-            type: array
-            items:
-              $ref: "#/definitions/message"
+            type: object
+            required:
+              - messages
+            properties:
+              messages:
+                type: array
+                items:
+                  $ref: "#/definitions/message"
         404:
           description: Not found 
           schema:
@@ -462,6 +472,59 @@ paths:
           schema:
             $ref: "#/definitions/error"
 
+  /contacts:
+    get:
+      summary: Get contacts
+      description: Get the current user's contacts
+      security:
+        - token: []
+      responses:
+        200:
+          description: Contact list
+          schema:
+            type: object
+            required:
+              - contacts
+            properties:
+              contacts:
+                type: array
+                items:
+                  $ref: "#/definitions/userpartial"
+        401:
+          description: Permission denied
+          schema:
+            $ref: "#/definitions/error"
+
+  /contacts/{userID}:
+    post:
+      summary: Create contact
+      description: Add a user to the current user's contacts
+      security:
+        - token: []
+      responses:
+        201:
+          description: Contact
+          schema:
+            $ref: "#/definitions/userpartial"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+    delete:
+      summary: Delete contact
+      description: Remove a user from the current user's contacts
+      security:
+        - token: []
+      responses:
+        200:
+          description: Contact
+          schema:
+            $ref: "#/definitions/userpartial"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
 definitions:
 
   user:
@@ -492,7 +555,7 @@ definitions:
         type: string
         readOnly: true
 
-  contact:
+  userpartial:
     type: object
     required:
       - id
@@ -509,6 +572,9 @@ definitions:
       fullName:
         type: string
         readOnly: true
+      avatar:
+        type: string
+        readOnly: true
 
   thread:
     type: object
@@ -522,12 +588,12 @@ definitions:
         type: string
         readOnly: true
       owner:
-        $ref: "#/definitions/contact"
+        $ref: "#/definitions/userpartial"
         readOnly: true
       users:
         type: array
         items:
-          $ref: "#/definitions/contact"
+          $ref: "#/definitions/userpartial"
       subject:
         type: string
 
@@ -547,7 +613,7 @@ definitions:
         type: string
         readOnly: true
       user:
-        $ref: "#/definitions/contact"
+        $ref: "#/definitions/userpartial"
         readOnly: true
       body:
         type: string
