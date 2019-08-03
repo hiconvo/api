@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -187,12 +188,19 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Finally create a new user
+	// Finally at new user case
+
+	avatarURI, err := oauth.CacheAvatar(ctx, oauthPayload.TempAvatar)
+	if err != nil {
+		// Print error but keep going. User might not have a profile pic.
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
+
 	u, err = models.NewUserWithOAuth(
 		oauthPayload.Email,
 		oauthPayload.FirstName,
 		oauthPayload.LastName,
-		oauthPayload.Avatar,
+		avatarURI,
 		oauthPayload.Provider,
 		oauthPayload.ID)
 	if err != nil {

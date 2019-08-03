@@ -1,12 +1,18 @@
 package oauth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"os/exec"
 
+	uuid "github.com/gofrs/uuid"
+	"gocloud.dev/blob"
+
+	"github.com/hiconvo/api/storage"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -18,12 +24,12 @@ type UserPayload struct {
 }
 
 type ProviderPayload struct {
-	ID        string
-	Email     string
-	FirstName string
-	LastName  string
-	Provider  string
-	Avatar    string
+	ID         string
+	Email      string
+	FirstName  string
+	LastName   string
+	Provider   string
+	TempAvatar string
 }
 
 // Verify both verifies the fiven oauth token and retrieves needed info about
@@ -55,18 +61,18 @@ func verifyGoogleToken(ctx context.Context, payload UserPayload) (ProviderPayloa
 	}
 
 	return ProviderPayload{
-		ID:        data["sub"],
-		Provider:  "google",
-		Email:     data["email"],
-		FirstName: data["given_name"],
-		LastName:  data["family_name"],
-		Avatar:    data["picture"],
+		ID:         data["sub"],
+		Provider:   "google",
+		Email:      data["email"],
+		FirstName:  data["given_name"],
+		LastName:   data["family_name"],
+		TempAvatar: data["picture"] + "?sz=256",
 	}, nil
 }
 
 func verifyFacebookToken(ctx context.Context, payload UserPayload) (ProviderPayload, error) {
 	url := fmt.Sprintf(
-		"https://graph.facebook.com/me?fields=id,email,first_name,last_name,picture&access_token=%s",
+		"https://graph.facebook.com/me?fields=id,email,first_name,last_name&access_token=%s",
 		payload.Token)
 	res, err := http.Get(url)
 	if err != nil {
@@ -78,12 +84,55 @@ func verifyFacebookToken(ctx context.Context, payload UserPayload) (ProviderPayl
 		return ProviderPayload{}, decodeErr
 	}
 
+	tempAvatarURI := fmt.Sprintf(
+		"https://graph.facebook.com/%s/picture?type=large&width=256&height=256&access_token=%s",
+		data["id"].(string), payload.Token)
+
 	return ProviderPayload{
-		ID:        data["id"].(string),
-		Provider:  "facebook",
-		Email:     data["email"].(string),
-		FirstName: data["first_name"].(string),
-		LastName:  data["last_name"].(string),
-		Avatar:    data["picture"].(map[string]interface{})["data"].(map[string]interface{})["url"].(string),
+		ID:         data["id"].(string),
+		Provider:   "facebook",
+		Email:      data["email"].(string),
+		FirstName:  data["first_name"].(string),
+		LastName:   data["last_name"].(string),
+		TempAvatar: tempAvatarURI,
 	}, nil
+}
+
+func CacheAvatar(ctx context.Context, uri string) (string, error) {
+	res, err := http.Get(uri)
+	if err != nil {
+		return "", err
+	}
+	if res.StatusCode != http.StatusOK {
+		return "", errors.New("Could not download profile image")
+	}
+
+	key := uuid.Must(uuid.NewV4()).String() + ".jpg"
+
+	bucket, err := storage.GetAvatarBucket(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer bucket.Close()
+
+	outputBlob, err := bucket.NewWriter(ctx, key, &blob.WriterOptions{
+		CacheControl: "525600",
+	})
+	if err != nil {
+		return "", err
+	}
+	defer outputBlob.Close()
+
+	var stderr bytes.Buffer
+
+	cmd := exec.Command("convert", "-", "-adaptive-resize", "256x256", "jpeg:-")
+	cmd.Stdin = res.Body
+	cmd.Stdout = outputBlob
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", errors.New(stderr.String())
+	}
+
+	return storage.GetFullAvatarURL(key), nil
 }
