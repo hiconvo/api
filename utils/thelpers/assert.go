@@ -68,6 +68,7 @@ func AssetObjectsContainKeys(t *testing.T, key string, wantedValues []string, go
 }
 
 func AssetObjectsNOTContainKeys(t *testing.T, key string, got []interface{}) {
+	defer func() { recover() }()
 	for _, item := range got {
 		obj := item.(map[string]interface{})
 		gotKey := obj[key].(string)

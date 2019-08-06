@@ -61,6 +61,8 @@ func TestGetContacts(t *testing.T) {
 		contacts := respData["contacts"].([]interface{})
 		thelpers.AssetObjectsContainKeys(t, "id", testCase.OutContactIDs, contacts)
 		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutContactNames, contacts)
+		thelpers.AssetObjectsNOTContainKeys(t, "token", contacts)
+		thelpers.AssetObjectsNOTContainKeys(t, "email", contacts)
 	}
 }
 
@@ -111,6 +113,8 @@ func TestCreateContact(t *testing.T) {
 
 		thelpers.AssertEqual(t, respData["id"], contact1.ID)
 		thelpers.AssertEqual(t, respData["fullName"], contact1.FullName)
+		thelpers.AssertEqual(t, respData["token"], nil)
+		thelpers.AssertEqual(t, respData["email"], nil)
 	}
 }
 
@@ -172,5 +176,7 @@ func TestDeleteContact(t *testing.T) {
 
 		thelpers.AssertEqual(t, respData["id"], contact1.ID)
 		thelpers.AssertEqual(t, respData["fullName"], contact1.FullName)
+		thelpers.AssertEqual(t, respData["token"], nil)
+		thelpers.AssertEqual(t, respData["email"], nil)
 	}
 }

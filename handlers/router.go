@@ -35,13 +35,13 @@ func CreateRouter() http.Handler {
 	authSubrouter := jsonSubrouter.NewRoute().Subrouter()
 	authSubrouter.Use(middleware.WithUser)
 
-	authSubrouter.HandleFunc("/users/{userID}", GetUser).Methods("GET")
-
 	authSubrouter.HandleFunc("/users", GetCurrentUser).Methods("GET")
 	authSubrouter.HandleFunc("/users", UpdateUser).Methods("PATCH")
 	authSubrouter.HandleFunc("/users/resend", SendVerifyEmail).Methods("POST")
 	authSubrouter.HandleFunc("/users/search", UserSearch).Methods("GET")
 	authSubrouter.HandleFunc("/users/avatar", PutAvatar).Methods("POST")
+
+	authSubrouter.HandleFunc("/users/{userID}", GetUser).Methods("GET")
 
 	authSubrouter.HandleFunc("/threads", CreateThread).Methods("POST")
 	authSubrouter.HandleFunc("/threads", GetThreads).Methods("GET")
