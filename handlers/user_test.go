@@ -94,7 +94,7 @@ func TestCreateUser(t *testing.T) {
 // GET /users Tests
 ////////////////////
 
-func TestGetUser(t *testing.T) {
+func TestGetCurrentUser(t *testing.T) {
 	existingUser, _ := createTestUser(t)
 	// Create a couple more users to create the possibility that a wrong user
 	// be retrieved
@@ -143,6 +143,63 @@ func TestGetUser(t *testing.T) {
 			thelpers.AssertEqual(t, respData["token"], existingUser.Token)
 			thelpers.AssertEqual(t, respData["verified"], existingUser.Verified)
 			thelpers.AssertEqual(t, respData["email"], existingUser.Email)
+		}
+	}
+}
+
+////////////////////
+// GET /users/{id} Tests
+////////////////////
+
+func TestGetUser(t *testing.T) {
+	existingUser, _ := createTestUser(t)
+	user1, _ := createTestUser(t)
+	// Create a couple more users to create the possibility that a wrong user
+	// be retrieved
+	createTestUser(t)
+	createTestUser(t)
+
+	type test struct {
+		AuthHeader map[string]string
+		URL        string
+		OutCode    int
+		OutPaylod  string
+	}
+
+	tests := []test{
+		{
+			AuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			URL:        fmt.Sprintf("/users/%s", user1.ID),
+			OutCode:    http.StatusOK,
+		},
+		{
+			AuthHeader: map[string]string{"Authorization": "Bearer abcdefghijklmnopqrstuvwxyz"},
+			URL:        fmt.Sprintf("/users/%s", user1.ID),
+			OutCode:    http.StatusUnauthorized,
+			OutPaylod:  `{"message":"Unauthorized"}`,
+		},
+		{
+			AuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			URL:        fmt.Sprintf("/users/%s", "somenonsense"),
+			OutCode:    http.StatusNotFound,
+			OutPaylod:  `{"message":"Could not get user"}`,
+		},
+	}
+
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", testCase.URL, nil, testCase.AuthHeader)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			thelpers.AssertEqual(t, rr.Body.String(), testCase.OutPaylod)
+		} else {
+			thelpers.AssertEqual(t, respData["id"], user1.ID)
+			thelpers.AssertEqual(t, respData["firstName"], user1.FirstName)
+			thelpers.AssertEqual(t, respData["lastName"], user1.LastName)
+			thelpers.AssertEqual(t, respData["fullName"], user1.FullName)
+			thelpers.AssertEqual(t, respData["token"], nil)
+			thelpers.AssertEqual(t, respData["email"], nil)
 		}
 	}
 }

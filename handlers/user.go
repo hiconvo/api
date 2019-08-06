@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	uuid "github.com/gofrs/uuid"
+	"github.com/gorilla/mux"
 	"gocloud.dev/blob"
 
 	"github.com/hiconvo/api/middleware"
@@ -87,12 +88,29 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, user, http.StatusCreated)
 }
 
-// GetUser Endpoint: GET /users
+// GetCurrentUser Endpoint: GET /users
 
-// GetUser is an endpoint that returns the current user.
-func GetUser(w http.ResponseWriter, r *http.Request) {
+// GetCurrentUser is an endpoint that returns the current user.
+func GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(r.Context())
 	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// GetUser Endpoint: GET /users/{id}
+
+// GetUser is an endpoint that returns the requested user if found
+func GetUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	userID := vars["userID"]
+
+	u, err := models.GetUserByID(ctx, userID)
+	if err != nil {
+		bjson.WriteJSON(w, errMsgGet, http.StatusNotFound)
+		return
+	}
+
+	bjson.WriteJSON(w, models.MapUserToUserPartial(&u), http.StatusOK)
 }
 
 // AuthenticateUser Endpoint: POST /users/auth
