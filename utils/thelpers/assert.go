@@ -28,75 +28,52 @@ func AssertStatusCodeEqual(t *testing.T, rr *httptest.ResponseRecorder, want int
 	}
 }
 
-func AssertObjectsContainIDs(t *testing.T, got []interface{}, wantedIDs []string) {
-	gotIDs := make([]string, len(got))
-	for i, c := range got {
-		typedC := c.(map[string]interface{})
-		id := typedC["id"].(string)
-		gotIDs[i] = id
+func AssetObjectsContainKeys(t *testing.T, key string, wantedValues []string, got []interface{}) {
+	// Get all of the key values into a slice
+	gotValues := make([]string, len(got))
+	for i, item := range got {
+		obj := item.(map[string]interface{})
+		gotValue := obj[key].(string)
+		gotValues[i] = gotValue
 	}
 
-	for _, gotID := range gotIDs {
+	for _, gotValue := range gotValues {
 		contains := false
-		for _, wantedID := range wantedIDs {
-			if gotID == wantedID {
+		for _, wantedValue := range wantedValues {
+			if gotValue == wantedValue {
 				contains = true
+				break
 			}
 		}
 
 		if !contains {
-			t.Errorf("handler returned unexpected id: got %v want any of %v",
-				gotID, wantedIDs)
+			t.Errorf("handler returned unexpected value for '%s': got %v want any of %v",
+				key, gotValue, wantedValues)
 		}
 	}
 
-	for _, wantedID := range wantedIDs {
+	for _, wantedValue := range wantedValues {
 		contains := false
-		for _, gotID := range gotIDs {
-			if gotID == wantedID {
+		for _, gotValue := range gotValues {
+			if gotValue == wantedValue {
 				contains = true
+				break
 			}
 		}
 
 		if !contains {
-			t.Errorf("handler did not return expected id: want %v", wantedID)
+			t.Errorf("handler did not return expected value for key '%s': want %v", key, wantedValue)
 		}
 	}
 }
 
-func AssetObjectsContainKeys(t *testing.T, key string, wantedKeys []string, got []interface{}) {
-	// Get all of the key values into a slice
-	gotIDs := make([]string, len(got))
-	for i, item := range got {
+func AssetObjectsNOTContainKeys(t *testing.T, key string, got []interface{}) {
+	for _, item := range got {
 		obj := item.(map[string]interface{})
 		gotKey := obj[key].(string)
-		gotIDs[i] = gotKey
-	}
-
-	for _, gotID := range gotIDs {
-		contains := false
-		for _, wantedKey := range wantedKeys {
-			if gotID == wantedKey {
-				contains = true
-			}
-		}
-
-		if !contains {
-			t.Errorf("handler returned unexpected id: got %v want any of %v",
-				gotID, wantedKeys)
-		}
-	}
-
-	for _, wantedKey := range wantedKeys {
-		contains := false
-		for _, gotID := range gotIDs {
-			if gotID == wantedKey {
-				contains = true
-			}
-		}
-
-		if !contains {
-			t.Errorf("handler did not return expected id: want %v", wantedKey)
+		if gotKey == key {
+			t.Errorf("handler returned unwanted key: got %v",
+				gotKey)
 		}
 	}
 }
