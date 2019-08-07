@@ -35,7 +35,7 @@ func init() {
 
 		urlPrefix = fallBackPath + "/"
 	} else {
-		urlPrefix = "https://storage.cloud.google.com/convo-avatars/"
+		urlPrefix = "https://storage.googleapis.com/convo-avatars/"
 	}
 }
 
