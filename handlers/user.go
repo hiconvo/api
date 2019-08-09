@@ -466,7 +466,7 @@ func PutAvatar(w http.ResponseWriter, r *http.Request) {
 	var stderr bytes.Buffer
 
 	cropGeo := fmt.Sprintf("%vx%v+%v+%v", int(payload.Size), int(payload.Size), int(payload.X), int(payload.Y))
-	cmd := exec.Command("convert", "-", "-crop", cropGeo, "-adaptive-resize", "256x256", "jpeg:-")
+	cmd := exec.Command("convert", "-", "-auto-orient", "-crop", cropGeo, "-adaptive-resize", "256x256", "jpeg:-")
 	cmd.Stdin = inputBlob
 	cmd.Stdout = outputBlob
 	cmd.Stderr = &stderr
