@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cloud.google.com/go/datastore"
@@ -82,15 +83,21 @@ func (t *Thread) OwnerIs(u *User) bool {
 }
 
 // AddUser adds a user to the thread.
-func (t *Thread) AddUser(u *User) {
+func (t *Thread) AddUser(u *User) error {
 	// Cannot add owner or duplicate.
 	if t.OwnerIs(u) || t.HasUser(u) {
-		return
+		return errors.New("This user is already a member of this convo")
+	}
+
+	if len(t.UserKeys) >= 20 {
+		return errors.New("This convo has the maximum number of users")
 	}
 
 	t.UserKeys = append(t.UserKeys, u.Key)
 	t.Users = append(t.Users, u)
 	t.UserPartials = append(t.UserPartials, MapUserToUserPartial(u))
+
+	return nil
 }
 
 func (t *Thread) RemoveUser(u *User) {
@@ -159,10 +166,10 @@ func NewThread(subject string, owner *User, users []*User) (Thread, error) {
 	if subject == "" {
 		subject += owner.FirstName + " "
 		for i, u := range users {
-			if i == len(users) {
-				subject += "and " + u.FullName
+			if i == len(users)-1 {
+				subject += "and " + u.FirstName
 			} else {
-				subject += u.FullName + ", "
+				subject += u.FirstName + ", "
 			}
 		}
 	}

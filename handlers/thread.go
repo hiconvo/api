@@ -266,14 +266,13 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if thread.HasUser(&userToBeAdded) {
+	if err := thread.AddUser(&userToBeAdded); err != nil {
 		bjson.WriteJSON(w, map[string]string{
-			"message": "This user is already a member of this convo",
+			"message": err.Error(),
 		}, http.StatusBadRequest)
 		return
 	}
 
-	thread.AddUser(&userToBeAdded)
 	userToBeAdded.AddThread(&thread)
 
 	// Save the user.
