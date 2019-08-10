@@ -420,7 +420,7 @@ paths:
 
   /threads/{threadID}/messages:
     get:
-      summary: Get messages
+      summary: Get thread messages
       description: Get messages
       security:
         - token: []
@@ -442,7 +442,7 @@ paths:
             $ref: "#/definitions/error"
 
     post:
-      summary: Create message
+      summary: Create thread message
       description: Create and send a message
       security:
         - token: []
@@ -525,6 +525,257 @@ paths:
           schema:
             $ref: "#/definitions/error"
 
+  /events:
+    post:
+      summary: Create event
+      description: |
+        By default, the current user is the owner of the newly 
+        created event.
+      security:
+        - token: []
+      parameters:
+        - in: body
+          name: event
+          schema:
+            type: object
+            required:
+              - time
+              - location
+              - invitees
+              - name
+              - description
+            properties:
+              time:
+                type: int
+              location:
+                type: string
+              invitees:
+                type: array
+                items:
+                  $ref: "#/definitions/userpartial"
+              name:
+                type: string
+              description:
+                type: string
+      responses:
+        201:
+          description: Event
+          schema:
+            $ref: "#/definitions/event"
+        400:
+          description: Validation error
+          schema:
+            $ref: "#/definitions/error"
+        401:
+          description: Permission denied
+          schema:
+            $ref: "#/definitions/error"
+    get:
+      summary: Get events
+      description: Get the current user's events
+      security:
+        - token: []
+      responses:
+        200:
+          description: Event list
+          schema:
+            type: object
+            required:
+              - events
+            properties:
+              events:
+                type: array
+                items:
+                  $ref: "#/definitions/event"
+        401:
+          description: Permission denied
+          schema:
+            $ref: "#/definitions/error"
+
+  /events/{id}:
+    get:
+      summary: Get event
+      description: Gets the indicated event.
+      security:
+        - token: []
+      responses:
+        200:
+          description: Event
+          schema:
+            $ref: "#/definitions/event"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
+    patch:
+      summary: Update event
+      description: Updates the indicated event. Only the owner of the event can change it.
+      security:
+        - token: []
+      parameters:
+        - in: body
+          name: thread
+          schema:
+            type: object
+            properties:
+              time:
+                type: int
+              location:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+      responses:
+        200:
+          description: Event
+          schema:
+            $ref: "#/definitions/event"
+        400:
+          description: Validation error
+          schema:
+            $ref: "#/definitions/error"
+        401:
+          description: Permission denied
+          schema:
+            $ref: "#/definitions/error"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
+    delete:
+      summary: Delete event
+      description: Deletes the indicated event. Only the owner of the event can delete it.
+      security:
+        - token: []
+      responses:
+        200:
+          description: Event
+          schema:
+            $ref: "#/definitions/event"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
+  /events/{eventID}/rsvp:
+    post:
+      summary: RSVP to event
+      description: Marks a user as going or not going to an event. The request can be secured with either a signature or a user token.
+      security:
+        - token: []
+      parameters:
+        - in: body
+          name: thread
+          schema:
+            type: object
+            properties:
+              going:
+                type: boolean
+                required: true
+              signature:
+                type: string
+              timestamp:
+                type: string
+              userID:
+                type: string
+      responses:
+        200:
+          description: Event
+          schema:
+            $ref: "#/definitions/event"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
+  /events/{eventID}/users/{userID}:
+    post:
+      summary: Add user to event
+      description: Adds a user to the event.
+      security:
+        - token: []
+      responses:
+        200:
+          description: Event
+          schema:
+            $ref: "#/definitions/event"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
+    delete:
+      summary: Remove user from event
+      description: Removes a user from the event.
+      security:
+        - token: []
+      responses:
+        200:
+          description: Event
+          schema:
+            $ref: "#/definitions/event"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
+  /events/{eventID}/messages:
+    get:
+      summary: Get event messages
+      description: Get messages
+      security:
+        - token: []
+      responses:
+        200:
+          description: Message list
+          schema:
+            type: object
+            required:
+              - messages
+            properties:
+              messages:
+                type: array
+                items:
+                  $ref: "#/definitions/message"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
+    post:
+      summary: Create event message
+      description: Create and send a message
+      security:
+        - token: []
+      parameters:
+        - in: body
+          name: message
+          schema:
+            type: object
+            properties:
+              body:
+                type: string
+      responses:
+        200:
+          description: Message
+          schema:
+            $ref: "#/definitions/message"
+        400:
+          description: Validation error
+          schema:
+            $ref: "#/definitions/error"
+        401:
+          description: Permission denied
+          schema:
+            $ref: "#/definitions/error"
+        404:
+          description: Not found 
+          schema:
+            $ref: "#/definitions/error"
+
 definitions:
 
   user:
@@ -601,7 +852,7 @@ definitions:
     type: object
     required:
       - id
-      - threadId
+      - parentId
       - user
       - body
       - created_at
@@ -609,7 +860,7 @@ definitions:
       id:
         type: string
         readOnly: true
-      threadID:
+      parentID:
         type: string
         readOnly: true
       user:
@@ -621,7 +872,50 @@ definitions:
       created_at:
         type: string
         readOnly: true
-
+  
+  event:
+    type: object
+    required:
+      - id
+      - owner
+      - created_at
+      - time
+      - location
+      - invitees
+      - name
+      - description
+    properties:
+      id:
+        type: string
+        readOnly: true
+      owner:
+        $ref: "#/definitions/userpartial"
+        readOnly: true
+      created_at:
+        type: string
+        readOnly: true
+      time:
+        type: int
+        readOnly: false
+      location:
+        type: string
+        readOnly: false
+      invitees:
+        type: array
+        items:
+          $ref: "#/definitions/userpartial"
+        readOnly: false
+      rsvps:
+        type: array
+        items:
+          type: string
+      name:
+        type: string
+        readOnly: false
+      description:
+        type: string
+        readOnly: false
+ 
   error:
     type: object
     description: Object with either a general error under the key message or field specific errors under keys matching the field name. The errors themselves are always strings.
