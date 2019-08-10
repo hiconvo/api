@@ -170,6 +170,18 @@ func (u *User) RemoveThread(t *Thread) error {
 }
 
 func (u *User) AddContact(c *User) error {
+	if u.HasContact(c) {
+		return errors.New("You already have this contact")
+	}
+
+	if u.Key.Equal(c.Key) {
+		return errors.New("You cannot add yourself as a contact")
+	}
+
+	if len(u.ContactKeys) >= 50 {
+		return errors.New("You can have a maximum of 50 contacts")
+	}
+
 	u.ContactKeys = append(u.ContactKeys, c.Key)
 
 	return nil

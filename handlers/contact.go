@@ -43,22 +43,12 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if u.HasContact(&userToBeAdded) {
-		bjson.WriteJSON(w, errMsgHasContact, http.StatusBadRequest)
+	if err := u.AddContact(&userToBeAdded); err != nil {
+		bjson.WriteJSON(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusBadRequest)
 		return
 	}
-
-	if u.Key.Equal(userToBeAdded.Key) {
-		bjson.WriteJSON(w, errMsgAddSelf, http.StatusBadRequest)
-		return
-	}
-
-	if len(u.ContactKeys) >= 50 {
-		bjson.WriteJSON(w, errMsgTooManyContacts, http.StatusBadRequest)
-		return
-	}
-
-	u.AddContact(&userToBeAdded)
 
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgAddContact)
