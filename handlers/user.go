@@ -57,11 +57,30 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Make sure the user is not already registered
-	_, found, err := models.GetUserByEmail(ctx, payload.Email)
+	foundUser, found, err := models.GetUserByEmail(ctx, payload.Email)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreate)
 		return
 	} else if found {
+		if !foundUser.IsPasswordSet && !foundUser.IsGoogleLinked && !foundUser.IsFacebookLinked {
+			// The email is registered but the user has not setup their account.
+			// In order to make sure the requestor is who they say thay are and is not
+			// trying to gain access to someone else's identity, we lock the account and
+			// require that the email be verified before the user can get access.
+			foundUser.FirstName = payload.FirstName
+			foundUser.LastName = payload.LastName
+			foundUser.IsLocked = true
+			foundUser.SendPasswordResetEmail()
+			if err := foundUser.Commit(ctx); err != nil {
+				bjson.HandleInternalServerError(w, err, errMsgSave)
+				return
+			}
+			bjson.WriteJSON(w, map[string]string{
+				"message": "Please verify your email to proceed",
+			}, http.StatusOK)
+			return
+		}
+
 		bjson.WriteJSON(w, errMsgReg, http.StatusBadRequest)
 		return
 	}
@@ -142,6 +161,15 @@ func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if u.CheckPassword(payload.Password) {
+		if u.IsLocked {
+			u.SendVerifyEmail()
+
+			bjson.WriteJSON(w, map[string]string{
+				"message": "You must verify your email before you can login",
+			}, http.StatusBadRequest)
+			return
+		}
+
 		bjson.WriteJSON(w, u, http.StatusOK)
 		return
 	}
@@ -337,6 +365,7 @@ func UpdatePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u.ChangePassword(payload.Password)
+	u.IsLocked = false
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
@@ -383,6 +412,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u.Verified = true
+	u.IsLocked = false
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
