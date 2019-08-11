@@ -164,7 +164,6 @@ func NewThread(subject string, owner *User, users []*User) (Thread, error) {
 	//
 	// TODO: Change this when adding/removing users from threads.
 	if subject == "" {
-		subject += owner.FirstName + " "
 		for i, u := range users {
 			if i == len(users)-1 {
 				subject += "and " + u.FirstName
