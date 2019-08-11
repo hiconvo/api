@@ -19,6 +19,9 @@ type sender interface {
 	Send(email *smail.SGMailV3) (*rest.Response, error)
 }
 
+// EmailMessage is a sendable email message. All of its fields
+// are strings. No additional processing or rendering is done
+// in this package.
 type EmailMessage struct {
 	FromName    string
 	FromEmail   string
@@ -37,6 +40,7 @@ func init() {
 	}
 }
 
+// Send sends the given EmailMessage.
 func Send(e EmailMessage) error {
 	from := smail.NewEmail(e.FromName, e.FromEmail)
 	to := smail.NewEmail(e.ToName, e.ToEmail)

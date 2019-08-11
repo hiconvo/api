@@ -12,6 +12,8 @@ import (
 	"gopkg.in/russross/blackfriday.v2"
 )
 
+// Message is a renderable message. It is always a constituent of a
+// Thread. The Body field accepts markdown. XML is not allowed.
 type Message struct {
 	Body   string
 	Name   string
@@ -19,6 +21,9 @@ type Message struct {
 	ToID   string
 }
 
+// Thread is a representation of a renderable email thread. It contains
+// a subject, a slice of messages, and a preview. All fields are or
+// resolve to strings.
 type Thread struct {
 	Subject  string
 	Messages []Message
