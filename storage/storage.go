@@ -48,6 +48,10 @@ func GetFullAvatarURL(object string) string {
 }
 
 func GetKeyFromAvatarURL(url string) string {
+	if url == "" {
+		return "null-key"
+	}
+
 	ss := strings.Split(url, "/")
 	return ss[len(ss)-1]
 }
