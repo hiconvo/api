@@ -12,13 +12,13 @@ const (
 	fromEmail = "robots@hiconvo.com"
 	fromName  = "ConvoBot"
 
-	passwordReset = "Hello,\n\nPlease [click here]( %s ) to reset your password.\n\nThanks,<br />ConvoBot"
+	passwordReset = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />ConvoBot"
 	verifyEmail   = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />ConvoBot"
 	messageTplStr = "%s said:\n\n%s\n\n"
 )
 
 func sendPasswordResetEmail(u *User, magicLink string) error {
-	return sendAdministrativeEmail(u, passwordReset, "[convo] Password Reset", magicLink)
+	return sendAdministrativeEmail(u, passwordReset, "[convo] Set Password", magicLink)
 }
 
 func sendVerifyEmail(u *User, magicLink string) error {

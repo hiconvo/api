@@ -419,7 +419,7 @@ func TestUpdatePassword(t *testing.T) {
 // POST /users/verify
 ///////////////////////
 
-func TestVerifyEmailWithValidPayloadSucceeds(t *testing.T) {
+func TestVerifyEmail(t *testing.T) {
 	existingUser, _ := createTestUser(t)
 	link := magic.NewLink(existingUser.Key, strconv.FormatBool(existingUser.Verified), "verify")
 	split := strings.Split(link, "/")
@@ -496,5 +496,51 @@ func TestVerifyEmailWithValidPayloadSucceeds(t *testing.T) {
 			thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
 			thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
 		}
+	}
+}
+
+///////////////////////
+// POST /users/forgot
+///////////////////////
+
+func TestForgotPassword(t *testing.T) {
+	existingUser, _ := createTestUser(t)
+
+	type test struct {
+		InData    map[string]interface{}
+		OutCode   int
+		OutPaylod string
+	}
+
+	tests := []test{
+		{
+			InData: map[string]interface{}{
+				"email": existingUser.Email,
+			},
+			OutCode:   http.StatusOK,
+			OutPaylod: `{"message":"Check your email for a link to reset your password"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"email": "plato@greece.edu",
+			},
+			OutCode:   http.StatusOK,
+			OutPaylod: `{"message":"Check your email for a link to reset your password"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"email": "asdf",
+			},
+			OutCode:   http.StatusBadRequest,
+			OutPaylod: `{"email":"This is not a valid email"}`,
+		},
+	}
+
+	for _, testCase := range tests {
+		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", "/users/forgot", testCase.InData, nil)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		thelpers.AssertEqual(t, rr.Body.String(), testCase.OutPaylod)
 	}
 }

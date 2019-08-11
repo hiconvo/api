@@ -87,6 +87,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 		// seen it before and keep going.
 		if emailOK {
 			if _, seenOK := seenEmails[email]; !seenOK {
+				seen[email] = struct{}{}
 				emails = append(emails, email)
 			}
 			continue

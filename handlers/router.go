@@ -30,6 +30,7 @@ func CreateRouter() http.Handler {
 	jsonSubrouter.HandleFunc("/users/oauth", OAuth).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/password", UpdatePassword).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/verify", VerifyEmail).Methods("POST")
+	jsonSubrouter.HandleFunc("/users/forgot", ForgotPassword).Methods("POST")
 
 	// JSON + Auth endpoints
 	authSubrouter := jsonSubrouter.NewRoute().Subrouter()

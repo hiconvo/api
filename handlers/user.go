@@ -421,6 +421,39 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, u, http.StatusOK)
 }
 
+// ForgotPassword Endpoint: POST /users/forgot
+//
+// Request payload:
+type forgotPasswordPayload struct {
+	Email string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+}
+
+// ForgotPassword sends a set password email to the user whose email
+// matches the email given in the payload. If no matching user is found
+// this does nothing.
+func ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+
+	var payload forgotPasswordPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	u, found, err := models.GetUserByEmail(ctx, payload.Email)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgGet)
+		return
+	} else if found {
+		u.SendPasswordResetEmail()
+	}
+
+	bjson.WriteJSON(w, map[string]string{
+		"message": "Check your email for a link to reset your password",
+	}, http.StatusOK)
+}
+
 // SendVerifyEmail Endpoint: POST /users/resend
 
 // SendVerifyEmail resends the email verification email.
@@ -434,6 +467,9 @@ func SendVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, u, http.StatusOK)
 }
 
+// UserSearch Endpoint: GET /users/search?query={query}
+
+// UserSearch returns search results
 func UserSearch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -496,7 +532,7 @@ func PutAvatar(w http.ResponseWriter, r *http.Request) {
 	var stderr bytes.Buffer
 
 	cropGeo := fmt.Sprintf("%vx%v+%v+%v", int(payload.Size), int(payload.Size), int(payload.X), int(payload.Y))
-	cmd := exec.Command("convert", "-", "-auto-orient", "-crop", cropGeo, "-adaptive-resize", "256x256", "jpeg:-")
+	cmd := exec.Command("convert", "-", "-crop", cropGeo, "-adaptive-resize", "256x256", "jpeg:-")
 	cmd.Stdin = inputBlob
 	cmd.Stdout = outputBlob
 	cmd.Stderr = &stderr
