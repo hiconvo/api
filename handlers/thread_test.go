@@ -44,6 +44,23 @@ func TestCreateThread(t *testing.T) {
 			OutOwnerID:  u1.ID,
 			OutMemberID: u2.ID,
 		},
+		{
+			AuthHeader: getAuthHeader(u1.Token),
+			InData: map[string]interface{}{
+				"subject": random.String(10),
+				"users": []map[string]string{
+					map[string]string{
+						"id": u2.ID,
+					},
+					map[string]string{
+						"email": "test@test.com",
+					},
+				},
+			},
+			OutCode:     http.StatusCreated,
+			OutOwnerID:  u1.ID,
+			OutMemberID: u2.ID,
+		},
 		// Bad payload
 		{
 			AuthHeader: getAuthHeader(u1.Token),

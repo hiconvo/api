@@ -110,14 +110,18 @@ func (u *User) Commit(ctx context.Context) error {
 	u.Key = key
 	u.DeriveProperties()
 
-	_, upsertErr := search.Client.Update().
-		Index("users").
-		Id(u.ID).
-		DocAsUpsert(true).
-		Doc(MapUserToUserPartial(u)).
-		Do(ctx)
-	if upsertErr != nil {
-		fmt.Fprintf(os.Stderr, "Failed to index user in elasticsearch: %s", upsertErr)
+	// Only index users that are usefully searchable. There's no
+	// point in indexing a user whose name is empty.
+	if u.FirstName != "" {
+		_, upsertErr := search.Client.Update().
+			Index("users").
+			Id(u.ID).
+			DocAsUpsert(true).
+			Doc(MapUserToUserPartial(u)).
+			Do(ctx)
+		if upsertErr != nil {
+			fmt.Fprintf(os.Stderr, "Failed to index user in elasticsearch: %s", upsertErr)
+		}
 	}
 
 	return nil
@@ -247,6 +251,17 @@ func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 	return contacts, nil
 }
 
+func NewIncompleteUser(email string) (User, error) {
+	user := User{
+		Key:      datastore.IncompleteKey("User", nil),
+		Email:    email,
+		Token:    random.Token(),
+		Verified: false,
+	}
+
+	return user, nil
+}
+
 func NewUserWithPassword(email, firstname, lastname, password string) (User, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
@@ -336,6 +351,22 @@ func GetUsersByThread(ctx context.Context, t *Thread) ([]*User, error) {
 	}
 
 	return users, nil
+}
+
+func GetOrCreateUserByEmail(ctx context.Context, email string) (User, bool, error) {
+	u, found, err := GetUserByEmail(ctx, email)
+	if err != nil {
+		return User{}, false, err
+	} else if found {
+		return u, false, nil
+	}
+
+	u, err = NewIncompleteUser(email)
+	if err != nil {
+		return User{}, false, err
+	}
+
+	return u, true, nil
 }
 
 func getUserByField(ctx context.Context, field, value string) (User, bool, error) {

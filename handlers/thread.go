@@ -43,14 +43,24 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(payload.Users) > 20 {
+		bjson.WriteJSON(w, map[string]string{
+			"message": "Convos have a maximum of 20 members",
+		}, http.StatusBadRequest)
+	}
+
 	// Make sure users actually exist and remove both duplicate ids and
 	// the owner's id from payload.Users
 	//
 	// First, decode ids into keys and put them into a userKeys slice.
+	// Also, for thread members indicated by email, save emails to
+	// a slice for handling later.
 	var userKeys []*datastore.Key
+	var emails []string
 	// Create a map to keep track of seen ids in order to avoid duplicates.
 	// Add the `ou` to seen so that she won't be added to the users list.
 	seen := make(map[string]struct{}, len(payload.Users)+1)
+	seenEmails := make(map[string]struct{}, len(payload.Users)+1)
 	seen[ou.ID] = struct{}{}
 	for _, u := range payload.Users {
 		// Make sure that the payload is of the expected type.
@@ -63,13 +73,23 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 			}, http.StatusBadRequest)
 			return
 		}
-		// Second, check that the `id` key points to a string.
+		// Second, check that the `id` or `email` key points to a string.
 		id, idOK := umap["id"].(string)
-		if !idOK {
+		email, emailOK := umap["email"].(string)
+		if !idOK && !emailOK {
 			bjson.WriteJSON(w, map[string]string{
-				"users": "User ID must be a string",
+				"users": "User ID or email must be a string",
 			}, http.StatusBadRequest)
 			return
+		}
+
+		// If we recived an email, save it to the emails slice if we haven't
+		// seen it before and keep going.
+		if emailOK {
+			if _, seenOK := seenEmails[email]; !seenOK {
+				emails = append(emails, email)
+			}
+			continue
 		}
 
 		// Make sure we haven't seen this id before.
@@ -96,6 +116,25 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 			"users": "Invalid users",
 		}, http.StatusBadRequest)
 		return
+	}
+
+	// Handle members indicated by email.
+	for i := range emails {
+		u, created, err := models.GetOrCreateUserByEmail(ctx, emails[i])
+		if err != nil {
+			bjson.HandleInternalServerError(w, err, errMsgCreateThread)
+			return
+		}
+		if created {
+			err = u.Commit(ctx)
+			if err != nil {
+				bjson.HandleInternalServerError(w, err, errMsgCreateThread)
+				return
+			}
+		}
+
+		userStructs = append(userStructs, u)
+		userKeys = append(userKeys, u.Key)
 	}
 
 	// Create the thread object.
