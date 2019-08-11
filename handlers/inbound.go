@@ -50,8 +50,11 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 
 	// Get user from from address
 	user, found, uErr := models.GetUserByEmail(ctx, from)
-	if !found || uErr != nil {
+	if !found {
 		sendErrorEmail(from)
+		handleClientErrorResponse(w, errors.New("Email not recognized"))
+		return
+	} else if uErr != nil {
 		handleClientErrorResponse(w, uErr)
 		return
 	}
@@ -126,7 +129,7 @@ func sendErrorEmail(email string) {
 		ToName:      "",
 		ToEmail:     email,
 		Subject:     "[convo] Send Failure",
-		HTMLContent: "Hello,\n\nYou responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.\n\nThanks,\nConvoBot",
+		HTMLContent: "<p>Hello,</p><p>You responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.</p><p>Thanks,<br />ConvoBot</p>",
 		TextContent: "Hello,\n\nYou responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.\n\nThanks,\nConvoBot",
 	})
 
