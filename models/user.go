@@ -20,21 +20,25 @@ import (
 )
 
 type User struct {
-	Key             *datastore.Key   `json:"-"        datastore:"__key__"`
-	ID              string           `json:"id"       datastore:"-"`
-	Email           string           `json:"email"`
-	FirstName       string           `json:"firstName"`
-	LastName        string           `json:"lastName"`
-	FullName        string           `json:"fullName" datastore:"-"`
-	PasswordDigest  string           `json:"-"        datastore:",noindex"`
-	Token           string           `json:"token"`
-	OAuthGoogleID   string           `json:"-"`
-	OAuthFacebookID string           `json:"-"`
-	Verified        bool             `json:"verified"`
-	Threads         []*datastore.Key `json:"-"        datastore:",noindex"`
-	Avatar          string           `json:"avatar"`
-	ContactKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
-	Contacts        []*UserPartial   `json:"-"        datastore:"-"`
+	Key              *datastore.Key   `json:"-"        datastore:"__key__"`
+	ID               string           `json:"id"       datastore:"-"`
+	Email            string           `json:"email"`
+	FirstName        string           `json:"firstName"`
+	LastName         string           `json:"lastName"`
+	FullName         string           `json:"fullName" datastore:"-"`
+	Token            string           `json:"token"`
+	PasswordDigest   string           `json:"-"        datastore:",noindex"`
+	OAuthGoogleID    string           `json:"-"`
+	OAuthFacebookID  string           `json:"-"`
+	IsPasswordSet    bool             `json:"isPasswordSet"    datastore:"-"`
+	IsGoogleLinked   bool             `json:"isGoogleLinked"   datastore:"-"`
+	IsFacebookLinked bool             `json:"isFacebookLinked" datastore:"-"`
+	IsLocked         bool             `json:"-"`
+	Verified         bool             `json:"verified"`
+	Threads          []*datastore.Key `json:"-"        datastore:",noindex"`
+	Avatar           string           `json:"avatar"`
+	ContactKeys      []*datastore.Key `json:"-"        datastore:",noindex"`
+	Contacts         []*UserPartial   `json:"-"        datastore:"-"`
 }
 
 type UserPartial struct {
@@ -91,7 +95,7 @@ func (u *User) Load(ps []datastore.Property) error {
 		return err
 	}
 
-	u.DeriveFullName()
+	u.DeriveProperties()
 
 	return nil
 }
@@ -104,7 +108,7 @@ func (u *User) Commit(ctx context.Context) error {
 
 	u.ID = key.Encode()
 	u.Key = key
-	u.DeriveFullName()
+	u.DeriveProperties()
 
 	_, upsertErr := search.Client.Update().
 		Index("users").
@@ -135,10 +139,13 @@ func (u *User) ChangePassword(password string) bool {
 	return true
 }
 
-func (u *User) DeriveFullName() string {
+func (u *User) DeriveProperties() {
 	untrimmed := fmt.Sprintf("%s %s", u.FirstName, u.LastName)
 	u.FullName = strings.TrimSpace(untrimmed)
-	return u.FullName
+
+	u.IsPasswordSet = u.PasswordDigest != ""
+	u.IsGoogleLinked = u.OAuthGoogleID != ""
+	u.IsFacebookLinked = u.OAuthFacebookID != ""
 }
 
 func (u *User) SendPasswordResetEmail() error {

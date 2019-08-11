@@ -63,7 +63,7 @@ func createTestUser(t *testing.T) (models.User, string) {
 
 	u.Key = key
 	u.ID = key.Encode()
-	u.DeriveFullName()
+	u.DeriveProperties()
 
 	return u, password
 }
