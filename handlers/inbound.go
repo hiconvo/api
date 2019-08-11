@@ -10,6 +10,7 @@ import (
 	"github.com/getsentry/raven-go"
 
 	"github.com/hiconvo/api/models"
+	"github.com/hiconvo/api/utils/mail"
 	"github.com/hiconvo/api/utils/pluck"
 	"github.com/hiconvo/api/utils/validate"
 )
@@ -50,12 +51,14 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 	// Get user from from address
 	user, found, uErr := models.GetUserByEmail(ctx, from)
 	if !found || uErr != nil {
+		sendErrorEmail(from)
 		handleClientErrorResponse(w, uErr)
 		return
 	}
 
 	// Verify that the user is a particiapant of the thread
 	if !(thread.OwnerIs(&user) || thread.HasUser(&user)) {
+		sendErrorEmail(user.Email)
 		handleClientErrorResponse(w, errors.New("Permission denied"))
 		return
 	}
@@ -114,4 +117,21 @@ func handleServerErrorResponse(w http.ResponseWriter, err error) {
 	raven.CaptureError(err, map[string]string{"inbound": "failure"})
 	fmt.Fprintln(os.Stderr, err.Error())
 	w.WriteHeader(http.StatusInternalServerError)
+}
+
+func sendErrorEmail(email string) {
+	err := mail.Send(mail.EmailMessage{
+		FromName:    "ConvoBot",
+		FromEmail:   "robots@hiconvo.com",
+		ToName:      "",
+		ToEmail:     email,
+		Subject:     "[convo] Send Failure",
+		HTMLContent: "Hello,\n\nYou responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.\n\nThanks,\nConvoBot",
+		TextContent: "Hello,\n\nYou responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.\n\nThanks,\nConvoBot",
+	})
+
+	if err != nil {
+		raven.CaptureError(err, map[string]string{"inbound": "ignored"})
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
 }
