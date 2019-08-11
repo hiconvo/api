@@ -125,7 +125,7 @@ func handleServerErrorResponse(w http.ResponseWriter, err error) {
 func sendErrorEmail(email string) {
 	err := mail.Send(mail.EmailMessage{
 		FromName:    "ConvoBot",
-		FromEmail:   "robots@hiconvo.com",
+		FromEmail:   "robots@mail.hiconvo.com",
 		ToName:      "",
 		ToEmail:     email,
 		Subject:     "[convo] Send Failure",

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	fromEmail = "robots@hiconvo.com"
+	fromEmail = "robots@mail.hiconvo.com"
 	fromName  = "ConvoBot"
 
 	passwordReset = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />ConvoBot"

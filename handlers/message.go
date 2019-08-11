@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"html"
 	"net/http"
 
 	"github.com/hiconvo/api/middleware"
@@ -66,7 +67,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := models.NewMessage(&u, &thread, payload.Body)
+	message, err := models.NewMessage(&u, &thread, html.UnescapeString(payload.Body))
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
 		return
