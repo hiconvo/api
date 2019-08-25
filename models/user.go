@@ -36,6 +36,7 @@ type User struct {
 	IsLocked         bool             `json:"-"`
 	Verified         bool             `json:"verified"`
 	Threads          []*datastore.Key `json:"-"        datastore:",noindex"`
+	Events           []*datastore.Key `json:"-"        datastore:",noindex"`
 	Avatar           string           `json:"avatar"`
 	ContactKeys      []*datastore.Key `json:"-"        datastore:",noindex"`
 	Contacts         []*UserPartial   `json:"-"        datastore:"-"`
@@ -210,9 +211,45 @@ func (u *User) RemoveContact(c *User) error {
 	return nil
 }
 
+func (u *User) AddEvent(e *Event) error {
+	if u.HasEvent(e) {
+		return errors.New("You already have this event")
+	}
+
+	if u.Key.Equal(e.Key) {
+		return errors.New("You cannot add yourself to an event")
+	}
+
+	u.Events = append(u.Events, e.Key)
+
+	return nil
+}
+
+func (u *User) RemoveEvent(e *Event) error {
+	for i, k := range u.Events {
+		if k.Equal(e.Key) {
+			u.Events[i] = u.Events[len(u.Events)-1]
+			u.Events = u.Events[:len(u.Events)-1]
+			return nil
+		}
+	}
+
+	return nil
+}
+
 func (u *User) HasContact(c *User) bool {
 	for _, k := range u.ContactKeys {
 		if k.Equal(c.Key) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (u *User) HasEvent(e *Event) bool {
+	for _, k := range u.Events {
+		if k.Equal(e.Key) {
 			return true
 		}
 	}

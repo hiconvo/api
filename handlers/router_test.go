@@ -120,6 +120,42 @@ func createTestMessage(t *testing.T, user *models.User, thread *models.Thread) m
 	return message
 }
 
+func createTestEvent(t *testing.T, owner *models.User, users []*models.User) models.Event {
+	// Create the thread.
+	event, tErr := models.NewEvent("test", "locKey", "loc", owner, users)
+	if tErr != nil {
+		t.Fatal(tErr)
+	}
+
+	// Save the event and extract the key and ID.
+	key, kErr := tclient.Put(tc, event.Key, &event)
+	if kErr != nil {
+		t.Fatal(kErr)
+	}
+	event.ID = key.Encode()
+	event.Key = key
+
+	// Add the event to the user objects.
+	for i := range users {
+		users[i].AddEvent(&event)
+	}
+
+	// Create a slice of keys corresponding to users so that the
+	// users can be updated with their new event membership in the db.
+	userKeys := make([]*datastore.Key, len(users))
+	for i := range users {
+		userKeys[i] = users[i].Key
+	}
+
+	// Save the users.
+	_, uErr := tclient.PutMulti(tc, userKeys, users)
+	if uErr != nil {
+		t.Fatal(uErr)
+	}
+
+	return event
+}
+
 func getAuthHeader(token string) map[string]string {
 	return map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
 }

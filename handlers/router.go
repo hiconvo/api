@@ -47,6 +47,9 @@ func CreateRouter() http.Handler {
 	authSubrouter.HandleFunc("/threads", CreateThread).Methods("POST")
 	authSubrouter.HandleFunc("/threads", GetThreads).Methods("GET")
 
+	authSubrouter.HandleFunc("/events", CreateEvent).Methods("POST")
+	authSubrouter.HandleFunc("/events", GetEvents).Methods("GET")
+
 	authSubrouter.HandleFunc("/contacts", GetContacts).Methods("GET")
 	authSubrouter.HandleFunc("/contacts/{userID}", AddContact).Methods("POST")
 	authSubrouter.HandleFunc("/contacts/{userID}", RemoveContact).Methods("DELETE")
@@ -64,6 +67,17 @@ func CreateRouter() http.Handler {
 
 	threadSubrouter.HandleFunc("/threads/{threadID}/messages", GetMessagesByThread).Methods("GET")
 	threadSubrouter.HandleFunc("/threads/{threadID}/messages", AddMessageToThread).Methods("POST")
+
+	// JSON + Auth + Event endpoints
+	eventSubrouter := authSubrouter.NewRoute().Subrouter()
+	eventSubrouter.Use(middleware.WithEvent)
+
+	eventSubrouter.HandleFunc("/events/{eventID}", GetEvent).Methods("GET")
+	eventSubrouter.HandleFunc("/events/{eventID}", UpdateEvent).Methods("PATCH")
+	eventSubrouter.HandleFunc("/events/{eventID}", DeleteEvent).Methods("DELETE")
+
+	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", AddUserToEvent).Methods("POST")
+	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE")
 
 	return middleware.WithLogging(middleware.WithCORS(router))
 }
