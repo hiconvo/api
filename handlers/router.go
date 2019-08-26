@@ -31,7 +31,7 @@ func CreateRouter() http.Handler {
 	jsonSubrouter.HandleFunc("/users/password", UpdatePassword).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/verify", VerifyEmail).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/forgot", ForgotPassword).Methods("POST")
-	jsonSubrouter.HandleFunc("/events/rsvp", MagicRSVP).Methods("POST")
+	jsonSubrouter.HandleFunc("/events/rsvps", MagicRSVP).Methods("POST")
 
 	// JSON + Auth endpoints
 	authSubrouter := jsonSubrouter.NewRoute().Subrouter()

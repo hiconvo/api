@@ -3,11 +3,14 @@ package handlers_test
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/models"
+	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/random"
 	"github.com/hiconvo/api/utils/thelpers"
 )
@@ -524,5 +527,93 @@ func TestRemoveRSVPFromEvent(t *testing.T) {
 		gotEventUsers := respData["rsvps"].([]interface{})
 		thelpers.AssetObjectsContainKeys(t, "id", testCase.OutMemberIDs, gotEventUsers)
 		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutMemberNames, gotEventUsers)
+	}
+}
+
+/////////////////////////////////////
+// POST /event/rsvps Tests
+/////////////////////////////////////
+
+func TestMagicRSVP(t *testing.T) {
+	existingUser, _ := createTestUser(t)
+	existingUser2, _ := createTestUser(t)
+	owner, _ := createTestUser(t)
+
+	event := createTestEvent(t, &owner, []*models.User{&existingUser, &existingUser2})
+
+	link := magic.NewLink(existingUser.Key, strconv.FormatBool(event.HasRSVP(&existingUser)), "rsvp")
+	split := strings.Split(link, "/")
+	kenc := split[len(split)-3]
+	b64ts := split[len(split)-2]
+	sig := split[len(split)-1]
+
+	link2 := magic.NewLink(existingUser2.Key, strconv.FormatBool(event.HasRSVP(&existingUser2)), "rsvp")
+	split2 := strings.Split(link2, "/")
+	kenc2 := split2[len(split2)-3]
+	b64ts2 := split2[len(split2)-2]
+
+	type test struct {
+		AuthHeader map[string]string
+		InData     map[string]interface{}
+		OutCode    int
+		OutData    map[string]interface{}
+		OutPaylod  string
+	}
+
+	tests := []test{
+		{
+			InData: map[string]interface{}{
+				"signature": sig,
+				"timestamp": b64ts,
+				"userID":    kenc,
+				"eventID":   event.ID,
+			},
+			OutCode: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser.ID,
+				"firstName": existingUser.FirstName,
+				"lastName":  existingUser.LastName,
+				"token":     existingUser.Token,
+				"verified":  true,
+				"email":     existingUser.Email,
+			},
+		},
+		{
+			InData: map[string]interface{}{
+				"signature": sig,
+				"timestamp": b64ts,
+				"userID":    kenc,
+				"eventID":   event.ID,
+			},
+			OutCode:   http.StatusUnauthorized,
+			OutPaylod: `{"message":"This link is not valid anymore"}`,
+		},
+		{
+			InData: map[string]interface{}{
+				"signature": "not a valid signature",
+				"timestamp": b64ts2,
+				"userID":    kenc2,
+				"eventID":   event.ID,
+			},
+			OutCode:   http.StatusUnauthorized,
+			OutPaylod: `{"message":"This link is not valid anymore"}`,
+		},
+	}
+
+	for _, testCase := range tests {
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/events/rsvps", testCase.InData, testCase.AuthHeader)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			continue
+		}
+
+		thelpers.AssertEqual(t, respData["id"], testCase.OutData["id"])
+		thelpers.AssertEqual(t, respData["firstName"], testCase.OutData["firstName"])
+		thelpers.AssertEqual(t, respData["lastName"], testCase.OutData["lastName"])
+		thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
+		thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
+		thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
 	}
 }

@@ -505,8 +505,15 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	u.Verified = true
+
 	if err := e.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	if err := u.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
 	}
 
