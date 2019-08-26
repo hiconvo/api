@@ -409,3 +409,120 @@ func TestRemoveFromEvent(t *testing.T) {
 		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutMemberNames, gotEventUsers)
 	}
 }
+
+/////////////////////////////////////
+// POST /event/{id}/rsvps Tests
+/////////////////////////////////////
+
+func TestAddRSVPToEvent(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	event := createTestEvent(t, &owner, []*models.User{&member})
+
+	type test struct {
+		AuthHeader map[string]string
+		OutCode    int
+	}
+
+	tests := []test{
+		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
+		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized},
+		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusBadRequest},
+		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusOK},
+	}
+
+	for _, testCase := range tests {
+		url := fmt.Sprintf("/events/%s/rsvps", event.ID)
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, nil, testCase.AuthHeader)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			continue
+		}
+
+		thelpers.AssertEqual(t, respData["id"], event.ID)
+
+		gotEventOwner := respData["owner"].(map[string]interface{})
+		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
+		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
+
+		gotEventRSVPs := respData["rsvps"].([]interface{})
+		thelpers.AssetObjectsContainKeys(t, "id", []string{member.ID}, gotEventRSVPs)
+		thelpers.AssetObjectsContainKeys(t, "fullName", []string{member.FullName}, gotEventRSVPs)
+	}
+}
+
+///////////////////////////////////////
+// DELETE /event/{id}/rsvps Tests
+///////////////////////////////////////
+
+func TestRemoveRSVPFromEvent(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member, _ := createTestUser(t)
+	memberToRemove, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	event := createTestEvent(t, &owner, []*models.User{&member, &memberToRemove})
+
+	if err := event.AddRSVP(&memberToRemove); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := event.AddRSVP(&member); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := event.Commit(tc); err != nil {
+		t.Fatal(err)
+	}
+
+	type test struct {
+		AuthHeader     map[string]string
+		OutCode        int
+		OutMemberIDs   []string
+		OutMemberNames []string
+	}
+
+	tests := []test{
+		{
+			AuthHeader: getAuthHeader(nonmember.Token),
+			OutCode:    http.StatusNotFound,
+		},
+		{
+			AuthHeader: map[string]string{"boop": "beep"},
+			OutCode:    http.StatusUnauthorized,
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			OutCode:    http.StatusBadRequest,
+		},
+		{
+			AuthHeader:     getAuthHeader(memberToRemove.Token),
+			OutCode:        http.StatusOK,
+			OutMemberIDs:   []string{member.ID},
+			OutMemberNames: []string{member.FullName},
+		},
+	}
+
+	for _, testCase := range tests {
+		url := fmt.Sprintf("/events/%s/rsvps", event.ID)
+		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, testCase.AuthHeader)
+
+		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+
+		if testCase.OutCode >= 400 {
+			continue
+		}
+
+		thelpers.AssertEqual(t, respData["id"], event.ID)
+
+		gotEventOwner := respData["owner"].(map[string]interface{})
+		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
+		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
+
+		gotEventUsers := respData["rsvps"].([]interface{})
+		thelpers.AssetObjectsContainKeys(t, "id", testCase.OutMemberIDs, gotEventUsers)
+		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutMemberNames, gotEventUsers)
+	}
+}

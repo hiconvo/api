@@ -31,6 +31,7 @@ func CreateRouter() http.Handler {
 	jsonSubrouter.HandleFunc("/users/password", UpdatePassword).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/verify", VerifyEmail).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/forgot", ForgotPassword).Methods("POST")
+	jsonSubrouter.HandleFunc("/events/rsvp", MagicRSVP).Methods("POST")
 
 	// JSON + Auth endpoints
 	authSubrouter := jsonSubrouter.NewRoute().Subrouter()
@@ -78,6 +79,8 @@ func CreateRouter() http.Handler {
 
 	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", AddUserToEvent).Methods("POST")
 	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE")
+	eventSubrouter.HandleFunc("/events/{eventID}/rsvps", AddRSVPToEvent).Methods("POST")
+	eventSubrouter.HandleFunc("/events/{eventID}/rsvps", RemoveRSVPFromEvent).Methods("DELETE")
 
 	return middleware.WithLogging(middleware.WithCORS(router))
 }

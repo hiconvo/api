@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"cloud.google.com/go/datastore"
 	"github.com/gorilla/mux"
@@ -10,6 +11,7 @@ import (
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
+	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -384,4 +386,129 @@ func RemoveUserFromEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
+}
+
+// AddRSVPToEvent Endpoint: POST /events/{eventID}/rsvps
+
+// AddRSVPToEvent RSVPs a user to the event.
+func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	event := middleware.EventFromContext(ctx)
+
+	if !event.HasUser(&u) {
+		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		return
+	}
+
+	if err := event.AddRSVP(&u); err != nil {
+		bjson.WriteJSON(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusBadRequest)
+		return
+	}
+
+	// Save the event.
+	if err := event.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	bjson.WriteJSON(w, event, http.StatusOK)
+}
+
+// RemoveRSVPFromEvent Endpoint: DELETE /events/{eventID}/rsvps
+
+// RemoveRSVPFromEvent removed a user from the event. The owner can remove
+// anyone. Participants can remove themselves.
+func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	event := middleware.EventFromContext(ctx)
+
+	if !event.HasUser(&u) {
+		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		return
+	}
+
+	// The owner cannot remove herself
+	if event.OwnerIs(&u) {
+		bjson.WriteJSON(w, map[string]string{
+			"message": "The event owner cannot be removed from the event",
+		}, http.StatusBadRequest)
+		return
+	}
+
+	event.RemoveRSVP(&u)
+
+	// Save the event.
+	if err := event.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	bjson.WriteJSON(w, event, http.StatusOK)
+}
+
+// MagicRSVP Endpoint: POST /events/rsvp
+//
+// Request payload:
+type magicRSVPPayload struct {
+	Signature string `validate:"nonzero"`
+	Timestamp string `validate:"nonzero"`
+	UserID    string `validate:"nonzero"`
+	EventID   string `validate:"nonzero"`
+}
+
+// MagicRSVP rsvps a user without a registered account
+func MagicRSVP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+
+	var payload magicRSVPPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	u, err := models.GetUserByID(ctx, payload.UserID)
+	if err != nil {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		return
+	}
+
+	e, err := models.GetEventByID(ctx, payload.EventID)
+	if err != nil {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		return
+	}
+
+	if !e.HasUser(&u) {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
+		return
+	}
+
+	if !magic.Verify(
+		payload.UserID,
+		payload.Timestamp,
+		strconv.FormatBool(e.HasRSVP(&u)),
+		payload.Signature,
+	) {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
+		return
+	}
+
+	if err := e.AddRSVP(&u); err != nil {
+		bjson.WriteJSON(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusBadRequest)
+		return
+	}
+
+	if err := e.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	bjson.WriteJSON(w, u, http.StatusOK)
 }
