@@ -19,8 +19,8 @@ type Event struct {
 	RSVPs        []*UserPartial   `json:"rsvps"    datastore:"-"`
 	PlaceID      string           `json:"placeID"  datastore:",noindex"`
 	Address      string           `json:"address"  datastore:",noindex"`
-	Lat          float32          `json:"lat"      datastore:",noindex"`
-	Lng          float32          `json:"lng"      datastore:",noindex"`
+	Lat          float64          `json:"lat"      datastore:",noindex"`
+	Lng          float64          `json:"lng"      datastore:",noindex"`
 	Name         string           `json:"name"     datastore:",noindex"`
 }
 
@@ -161,7 +161,7 @@ func (e *Event) SendInvites(ctx context.Context) error {
 
 func NewEvent(
 	name, placeID, address string,
-	lat, lng float32,
+	lat, lng float64,
 	owner *User,
 	users []*User,
 ) (Event, error) {

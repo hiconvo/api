@@ -11,6 +11,7 @@ import (
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/magic"
+	"github.com/hiconvo/api/utils/places"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -55,6 +56,14 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	place, err := places.Resolve(ctx, payload.PlaceID)
+	if err != nil {
+		bjson.WriteJSON(w, map[string]string{
+			"placeID": err.Error(),
+		}, http.StatusBadRequest)
+		return
+	}
+
 	userStructs, userKeys, emails, err := extractUsers(ctx, ou, payload.Users)
 	if err != nil {
 		bjson.WriteJSON(w, map[string]string{
@@ -82,7 +91,14 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	// With userPointers in hand, we can now create the event object. We set
 	// the original requestor `ou` as the owner.
-	event, err := models.NewEvent(payload.Name, payload.PlaceID, "", 0.0, 0.0, &ou, userPointers)
+	event, err := models.NewEvent(
+		payload.Name,
+		place.PlaceID,
+		place.Address,
+		place.Lat,
+		place.Lng,
+		&ou,
+		userPointers)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)
 		return

@@ -30,11 +30,13 @@ require (
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sendgrid/rest v2.4.1+incompatible
 	github.com/sendgrid/sendgrid-go v3.4.1+incompatible
+	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	gocloud.dev v0.15.0
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
+	googlemaps.github.io/maps v0.0.0-20190906051648-24f4c8471353
 	gopkg.in/gographics/imagick.v3 v3.2.0 // indirect
 	gopkg.in/russross/blackfriday.v2 v2.0.1
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8 // indirect
