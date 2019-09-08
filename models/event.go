@@ -17,8 +17,10 @@ type Event struct {
 	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
 	RSVPKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
 	RSVPs        []*UserPartial   `json:"rsvps"    datastore:"-"`
-	LocationKey  string           `json:"-"`
-	Location     string           `json:"location"`
+	PlaceID      string           `json:"placeID"  datastore:",noindex"`
+	Address      string           `json:"address"  datastore:",noindex"`
+	Lat          float32          `json:"lat"      datastore:",noindex"`
+	Lng          float32          `json:"lng"      datastore:",noindex"`
 	Name         string           `json:"name"     datastore:",noindex"`
 }
 
@@ -157,7 +159,12 @@ func (e *Event) SendInvites(ctx context.Context) error {
 	return nil
 }
 
-func NewEvent(name, locationKey, location string, owner *User, users []*User) (Event, error) {
+func NewEvent(
+	name, placeID, address string,
+	lat, lng float32,
+	owner *User,
+	users []*User,
+) (Event, error) {
 	// Get all of the users' keys, remove duplicates, and check whether
 	// the owner was included in the users slice
 	userKeys := make([]*datastore.Key, 0)
@@ -180,21 +187,6 @@ func NewEvent(name, locationKey, location string, owner *User, users []*User) (E
 		users = append(users, owner)
 	}
 
-	// If a subject wasn't given, create one that is a list of the participants'
-	// names.
-	//
-	// TODO: Change this when adding/removing users from threads.
-	if name == "" {
-		name += "Event for "
-		for i, u := range users {
-			if i == len(users)-1 {
-				name += "and " + u.FirstName
-			} else {
-				name += u.FirstName + ", "
-			}
-		}
-	}
-
 	return Event{
 		Key:          datastore.IncompleteKey("Event", nil),
 		OwnerKey:     owner.Key,
@@ -202,8 +194,10 @@ func NewEvent(name, locationKey, location string, owner *User, users []*User) (E
 		UserKeys:     userKeys,
 		UserPartials: MapUsersToUserPartials(users),
 		Name:         name,
-		LocationKey:  locationKey,
-		Location:     location,
+		PlaceID:      placeID,
+		Address:      address,
+		Lat:          lat,
+		Lng:          lng,
 	}, nil
 }
 

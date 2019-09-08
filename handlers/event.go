@@ -82,7 +82,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	// With userPointers in hand, we can now create the event object. We set
 	// the original requestor `ou` as the owner.
-	event, err := models.NewEvent(payload.Name, "", "", &ou, userPointers)
+	event, err := models.NewEvent(payload.Name, payload.PlaceID, "", 0.0, 0.0, &ou, userPointers)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)
 		return
