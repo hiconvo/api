@@ -47,96 +47,25 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 		bjson.WriteJSON(w, map[string]string{
 			"message": "Convos have a maximum of 20 members",
 		}, http.StatusBadRequest)
+		return
 	}
 
-	// Make sure users actually exist and remove both duplicate ids and
-	// the owner's id from payload.Users
-	//
-	// First, decode ids into keys and put them into a userKeys slice.
-	// Also, for thread members indicated by email, save emails to
-	// a slice for handling later.
-	var userKeys []*datastore.Key
-	var emails []string
-	// Create a map to keep track of seen ids in order to avoid duplicates.
-	// Add the `ou` to seen so that she won't be added to the users list.
-	seen := make(map[string]struct{}, len(payload.Users)+1)
-	seenEmails := make(map[string]struct{}, len(payload.Users)+1)
-	seen[ou.ID] = struct{}{}
-	for _, u := range payload.Users {
-		// Make sure that the payload is of the expected type.
-		//
-		// First, check that the user key points to an array of maps.
-		umap, uOK := u.(map[string]interface{})
-		if !uOK {
-			bjson.WriteJSON(w, map[string]string{
-				"users": "Users must be an array of objects",
-			}, http.StatusBadRequest)
-			return
-		}
-		// Second, check that the `id` or `email` key points to a string.
-		id, idOK := umap["id"].(string)
-		email, emailOK := umap["email"].(string)
-		if !idOK && !emailOK {
-			bjson.WriteJSON(w, map[string]string{
-				"users": "User ID or email must be a string",
-			}, http.StatusBadRequest)
-			return
-		}
-
-		// If we recived an email, save it to the emails slice if we haven't
-		// seen it before and keep going.
-		if emailOK {
-			if _, seenOK := seenEmails[email]; !seenOK {
-				seen[email] = struct{}{}
-				emails = append(emails, email)
-			}
-			continue
-		}
-
-		// Make sure we haven't seen this id before.
-		if _, seenOK := seen[id]; seenOK {
-			continue
-		}
-		seen[id] = struct{}{}
-
-		// Decode the key and add to the slice.
-		key, kErr := datastore.DecodeKey(id)
-		if kErr != nil {
-			bjson.WriteJSON(w, map[string]string{
-				"users": "Invalid users",
-			}, http.StatusBadRequest)
-			return
-		}
-		userKeys = append(userKeys, key)
-	}
-	// Now, get the user objects and save to a new slice of user structs.
-	// If this fails, then the input was not valid.
-	userStructs := make([]models.User, len(userKeys))
-	if uErr := db.Client.GetMulti(ctx, userKeys, userStructs); uErr != nil {
+	userStructs, userKeys, emails, err := extractUsers(ctx, ou, payload.Users)
+	if err != nil {
 		bjson.WriteJSON(w, map[string]string{
-			"users": "Invalid users",
+			"users": err.Error(),
 		}, http.StatusBadRequest)
 		return
 	}
 
-	// Handle members indicated by email.
-	for i := range emails {
-		u, created, err := models.GetOrCreateUserByEmail(ctx, emails[i])
-		if err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgCreateThread)
-			return
-		}
-		if created {
-			err = u.Commit(ctx)
-			if err != nil {
-				bjson.HandleInternalServerError(w, err, errMsgCreateThread)
-				return
-			}
-		}
-
-		userStructs = append(userStructs, u)
-		userKeys = append(userKeys, u.Key)
+	newUsers, newUserKeys, err := createUsersByEmail(ctx, emails)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)
+		return
 	}
+
+	userStructs = append(userStructs, newUsers...)
+	userKeys = append(userKeys, newUserKeys...)
 
 	// Create the thread object.
 	//

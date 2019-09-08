@@ -153,6 +153,10 @@ func (e *Event) RemoveRSVP(u *User) {
 	}
 }
 
+func (e *Event) SendInvites(ctx context.Context) error {
+	return nil
+}
+
 func NewEvent(name, locationKey, location string, owner *User, users []*User) (Event, error) {
 	// Get all of the users' keys, remove duplicates, and check whether
 	// the owner was included in the users slice

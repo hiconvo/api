@@ -36,14 +36,15 @@ func TestCreateEvent(t *testing.T) {
 		{
 			AuthHeader: getAuthHeader(u1.Token),
 			InData: map[string]interface{}{
-				"name": random.String(10),
+				"name":        random.String(10),
+				"placeID":     random.String(10),
+				"time":        "2019-09-08T01:19:20.915Z",
+				"description": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
 						"id": u2.ID,
 					},
 				},
-				"location":    random.String(10),
-				"locationKey": random.String(10),
 			},
 			OutCode:     http.StatusCreated,
 			OutOwnerID:  u1.ID,
@@ -52,7 +53,10 @@ func TestCreateEvent(t *testing.T) {
 		{
 			AuthHeader: getAuthHeader(u1.Token),
 			InData: map[string]interface{}{
-				"name": random.String(10),
+				"name":        random.String(10),
+				"placeID":     random.String(10),
+				"time":        "2019-09-08T01:19:20.915Z",
+				"description": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
 						"id": u2.ID,
@@ -61,8 +65,6 @@ func TestCreateEvent(t *testing.T) {
 						"email": "test@test.com",
 					},
 				},
-				"location":    random.String(10),
-				"locationKey": random.String(10),
 			},
 			OutCode:     http.StatusCreated,
 			OutOwnerID:  u1.ID,
@@ -72,14 +74,15 @@ func TestCreateEvent(t *testing.T) {
 		{
 			AuthHeader: getAuthHeader(u1.Token),
 			InData: map[string]interface{}{
-				"name": random.String(10),
+				"name":        random.String(10),
+				"placeID":     random.String(10),
+				"time":        "2019-09-08T01:19:20.915Z",
+				"description": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
 						"id": "Rudolf Carnap",
 					},
 				},
-				"location":    random.String(10),
-				"locationKey": random.String(10),
 			},
 			OutCode: http.StatusBadRequest,
 		},
@@ -87,14 +90,15 @@ func TestCreateEvent(t *testing.T) {
 		{
 			AuthHeader: map[string]string{"boop": "beep"},
 			InData: map[string]interface{}{
-				"name": random.String(10),
+				"name":        random.String(10),
+				"placeID":     random.String(10),
+				"time":        "2019-09-08T01:19:20.915Z",
+				"description": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
 						"id": u2.ID,
 					},
 				},
-				"location":    random.String(10),
-				"locationKey": random.String(10),
 			},
 			OutCode: http.StatusUnauthorized,
 		},
