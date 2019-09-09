@@ -43,4 +43,7 @@ require (
 	gopkg.in/validator.v2 v2.0.0-20180514200540-135c24b11c19
 )
 
-replace gopkg.in/russross/blackfriday.v2 v2.0.1 => github.com/russross/blackfriday/v2 v2.0.1
+replace (
+	git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
+	gopkg.in/russross/blackfriday.v2 v2.0.1 => github.com/russross/blackfriday/v2 v2.0.1
+)

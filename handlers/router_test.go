@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/datastore"
 
@@ -122,7 +123,7 @@ func createTestMessage(t *testing.T, user *models.User, thread *models.Thread) m
 
 func createTestEvent(t *testing.T, owner *models.User, users []*models.User) models.Event {
 	// Create the thread.
-	event, tErr := models.NewEvent("test", "locKey", "loc", 0.0, 0.0, owner, users)
+	event, tErr := models.NewEvent("test", "locKey", "loc", 0.0, 0.0, time.Now(), owner, users)
 	if tErr != nil {
 		t.Fatal(tErr)
 	}

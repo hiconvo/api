@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"errors"
+	"time"
 
 	"cloud.google.com/go/datastore"
 	"github.com/hiconvo/api/db"
@@ -22,6 +23,7 @@ type Event struct {
 	Lat          float64          `json:"lat"      datastore:",noindex"`
 	Lng          float64          `json:"lng"      datastore:",noindex"`
 	Name         string           `json:"name"     datastore:",noindex"`
+	Time         time.Time        `json:"time"     datastore:",noindex"`
 }
 
 func (e *Event) LoadKey(k *datastore.Key) error {
@@ -162,6 +164,7 @@ func (e *Event) SendInvites(ctx context.Context) error {
 func NewEvent(
 	name, placeID, address string,
 	lat, lng float64,
+	timestamp time.Time,
 	owner *User,
 	users []*User,
 ) (Event, error) {
@@ -198,6 +201,7 @@ func NewEvent(
 		Address:      address,
 		Lat:          lat,
 		Lng:          lng,
+		Time:         timestamp,
 	}, nil
 }
 

@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -30,13 +31,12 @@ var (
 type createEventPayload struct {
 	Name        string `validate:"max=255,nonzero"`
 	PlaceID     string `validate:"max=255,nonzero"`
-	Time        string `validate:"regexp=^(?:[1-9]\d{3}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1\d|2[0-8])|(?:0[13-9]|1[0-2])-(?:29|30)|(?:0[13578]|1[02])-31)|(?:[1-9]\d(?:0[48]|[2468][048]|[13579][26])|(?:[2468][048]|[13579][26])00)-02-29)T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:Z|[+-][01]\d:[0-5]\d)$"`
+	Time        string `validate:"max=255,nonzero"`
 	Description string `validate:"max=1023,nonzero"`
 	Users       []interface{}
 }
 
 // CreateEvent creates a event
-// TODO: Location
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ou := middleware.UserFromContext(ctx)
@@ -52,6 +52,14 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	if len(payload.Users) > 300 {
 		bjson.WriteJSON(w, map[string]string{
 			"message": "Events have a maximum of 300 members",
+		}, http.StatusBadRequest)
+		return
+	}
+
+	timestamp, err := time.Parse(time.RFC3339, payload.Time)
+	if err != nil {
+		bjson.WriteJSON(w, map[string]string{
+			"time": "Invalid time",
 		}, http.StatusBadRequest)
 		return
 	}
@@ -97,6 +105,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		place.Address,
 		place.Lat,
 		place.Lng,
+		timestamp,
 		&ou,
 		userPointers)
 	if err != nil {
@@ -170,11 +179,12 @@ func GetEvent(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type updateEventPayload struct {
-	Name string `validate:"max=255,nonzero"`
+	Name    string `validate:"max=255"`
+	PlaceID string `validate:"max=255"`
+	Time    string `validate:"max=255"`
 }
 
 // UpdateEvent allows the owner to change the event name and location
-// TODO: LOCATION
 func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
@@ -193,7 +203,37 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event.Name = payload.Name
+	// TODO: Come up with something better than this.
+	if payload.Name != "" && payload.Name != event.Name {
+		event.Name = payload.Name
+	}
+
+	if payload.Time != "" {
+		timestamp, err := time.Parse(time.RFC3339, payload.Time)
+		if err != nil {
+			bjson.WriteJSON(w, map[string]string{
+				"time": "Invalid time",
+			}, http.StatusBadRequest)
+			return
+		}
+
+		event.Time = timestamp
+	}
+
+	if payload.PlaceID != "" && payload.PlaceID != event.PlaceID {
+		place, err := places.Resolve(ctx, payload.PlaceID)
+		if err != nil {
+			bjson.WriteJSON(w, map[string]string{
+				"placeID": err.Error(),
+			}, http.StatusBadRequest)
+			return
+		}
+
+		event.PlaceID = place.PlaceID
+		event.Address = place.Address
+		event.Lat = place.Lat
+		event.Lng = place.Lng
+	}
 
 	if err := event.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)

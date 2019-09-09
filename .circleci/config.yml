@@ -31,7 +31,7 @@ jobs:
 
       - restore_cache:
           keys:
-            - pkg-cache-{{ checksum "go.sum" }}
+            - pkg-cache-{{ checksum "go.mod" }}
 
       - run:
           name: run tests
@@ -39,7 +39,7 @@ jobs:
             go test ./...
 
       - save_cache:
-          key: pkg-cache-{{ checksum "go.sum" }}
+          key: pkg-cache-{{ checksum "go.mod" }}
           paths:
             - "/usr/local/go/src"
             - "/usr/local/go/pkg"
