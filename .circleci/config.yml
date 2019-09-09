@@ -32,9 +32,6 @@ jobs:
       - restore_cache:
           keys:
             - pkg-cache-{{ checksum "go.sum" }}
-      - run: 
-          name: retrieve go dependencies
-          command: go get
 
       - run:
           name: run tests
@@ -45,6 +42,8 @@ jobs:
           key: pkg-cache-{{ checksum "go.sum" }}
           paths:
             - "/usr/local/go/src"
+            - "/usr/local/go/pkg"
+            - "/usr/local/go/bin"
 
   deploy:
     docker:
