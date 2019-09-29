@@ -163,7 +163,7 @@ func (e *Event) SendInvites(ctx context.Context) error {
 }
 
 func NewEvent(
-	name, placeID, address, description string,
+	name, description, placeID, address string,
 	lat, lng float64,
 	timestamp time.Time,
 	owner *User,
