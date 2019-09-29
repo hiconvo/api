@@ -3,9 +3,11 @@ package models
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"cloud.google.com/go/datastore"
+	"github.com/gosimple/slug"
 	"github.com/hiconvo/api/db"
 )
 
@@ -16,6 +18,7 @@ type Event struct {
 	Owner        *UserPartial     `json:"owner"    datastore:"-"`
 	UserKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
 	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
+	Users        []*User          `json:"-"        datastore:"-"`
 	RSVPKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
 	RSVPs        []*UserPartial   `json:"rsvps"    datastore:"-"`
 	PlaceID      string           `json:"placeID"  datastore:",noindex"`
@@ -23,8 +26,9 @@ type Event struct {
 	Lat          float64          `json:"lat"      datastore:",noindex"`
 	Lng          float64          `json:"lng"      datastore:",noindex"`
 	Name         string           `json:"name"     datastore:",noindex"`
-	Description  string           `json:"description"     datastore:",noindex"`
-	Timestamp    time.Time        `json:"timestamp"     datastore:",noindex"`
+	Description  string           `json:"description"  datastore:",noindex"`
+	Timestamp    time.Time        `json:"timestamp"    datastore:",noindex"`
+	UTCOffset    int              `json:"-"        datastore:",noindex"`
 }
 
 func (e *Event) LoadKey(k *datastore.Key) error {
@@ -158,14 +162,23 @@ func (e *Event) RemoveRSVP(u *User) {
 	}
 }
 
+func (e *Event) GetEmail() string {
+	slugified := slug.Make(e.Name)
+	if len(slugified) > 20 {
+		slugified = slugified[:20]
+	}
+	return fmt.Sprintf("%s-%d@mail.hiconvo.com", slugified, e.Key.ID)
+}
+
 func (e *Event) SendInvites(ctx context.Context) error {
-	return nil
+	return sendEvent(e)
 }
 
 func NewEvent(
 	name, description, placeID, address string,
 	lat, lng float64,
 	timestamp time.Time,
+	utcOffset int,
 	owner *User,
 	users []*User,
 ) (Event, error) {
@@ -197,12 +210,14 @@ func NewEvent(
 		Owner:        MapUserToUserPartial(owner),
 		UserKeys:     userKeys,
 		UserPartials: MapUsersToUserPartials(users),
+		Users:        users,
 		Name:         name,
 		PlaceID:      placeID,
 		Address:      address,
 		Lat:          lat,
 		Lng:          lng,
 		Timestamp:    timestamp,
+		UTCOffset:    utcOffset,
 		Description:  description,
 	}, nil
 }
@@ -286,6 +301,7 @@ func GetEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
 
 		events[i].Owner = MapUserToUserPartial(owner)
 		events[i].UserPartials = MapUsersToUserPartials(eventUsers)
+		events[i].Users = eventUsers
 		events[i].RSVPs = MapUsersToUserPartials(eventRSVPs)
 
 		start += idxs[i]
@@ -321,6 +337,7 @@ func handleGetEvent(ctx context.Context, key *datastore.Key, e Event) (Event, er
 	}
 
 	e.UserPartials = MapUsersToUserPartials(userPointers)
+	e.Users = userPointers
 	e.Owner = MapUserToUserPartial(&owner)
 	e.RSVPs = MapUsersToUserPartials(rsvpPointers)
 

@@ -3,7 +3,9 @@ package models
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/mail"
 	"github.com/hiconvo/api/utils/template"
 )
@@ -15,6 +17,7 @@ const (
 	passwordReset = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />ConvoBot"
 	verifyEmail   = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />ConvoBot"
 	messageTplStr = "%s said:\n\n%s\n\n"
+	eventTplStr   = "%s invited you to:\n\n%s\n\n%s\n\n%s\n\n%s\n"
 )
 
 func sendPasswordResetEmail(u *User, magicLink string) error {
@@ -28,7 +31,7 @@ func sendVerifyEmail(u *User, magicLink string) error {
 func sendAdministrativeEmail(u *User, strTpl, subject, magicLink string) error {
 	plainText := fmt.Sprintf(strTpl, magicLink)
 
-	html, err := template.Render(template.Thread{
+	html, err := template.RenderThread(template.Thread{
 		Subject: subject,
 		Messages: []template.Message{
 			template.Message{
@@ -88,6 +91,35 @@ func sendThread(thread *Thread, messages []*Message) error {
 	return nil
 }
 
+func sendEvent(event *Event) error {
+	users := event.Users
+
+	// Loop through all participants and generate emails
+	emailMessages := make([]mail.EmailMessage, len(users))
+	for i := range users {
+		currentUser := users[i]
+		plainText, html, rerr := renderEvent(event, currentUser)
+		if rerr != nil {
+			return rerr
+		}
+		emailMessages[i] = mail.EmailMessage{
+			FromName:    event.Owner.FullName,
+			FromEmail:   event.GetEmail(),
+			ToName:      currentUser.FullName,
+			ToEmail:     currentUser.Email,
+			Subject:     fmt.Sprintf("Invitation to %s", event.Name),
+			TextContent: plainText,
+			HTMLContent: html,
+		}
+	}
+
+	for i := range emailMessages {
+		mail.Send(emailMessages[i])
+	}
+
+	return nil
+}
+
 func renderThread(thread *Thread, messages []*Message, user *User) (string, string, error) {
 	var lastFive []*Message
 	if len(messages) > 5 {
@@ -121,10 +153,47 @@ func renderThread(thread *Thread, messages []*Message, user *User) (string, stri
 		preview = plainText
 	}
 
-	html, err := template.Render(template.Thread{
+	html, err := template.RenderThread(template.Thread{
 		Subject:  thread.Subject,
 		Messages: tplMessages,
 		Preview:  preview,
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	return plainText, html, nil
+}
+
+func renderEvent(event *Event, user *User) (string, string, error) {
+	loc := time.FixedZone("Given", event.UTCOffset)
+	timestamp := event.Timestamp.In(loc).Format("Jan 2 @ 3:04 PM")
+
+	var builder strings.Builder
+	fmt.Fprintf(&builder, eventTplStr,
+		event.Owner.FullName,
+		event.Name,
+		event.Address,
+		timestamp,
+		event.Description)
+	plainText := builder.String()
+
+	// Use the first 200 chars as the preview
+	var preview string
+	if len(plainText) > 200 {
+		preview = plainText[:200] + "..."
+	} else {
+		preview = plainText
+	}
+
+	html, err := template.RenderEvent(template.Event{
+		Name:        event.Name,
+		Address:     event.Address,
+		Time:        timestamp,
+		Description: event.Description,
+		Preview:     preview,
+		FromName:    event.Owner.FullName,
+		MagicLink:   magic.NewLink(event.Key, user.Key.Encode(), "rsvp"),
 	})
 	if err != nil {
 		return "", "", err

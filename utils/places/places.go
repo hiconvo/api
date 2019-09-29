@@ -11,10 +11,11 @@ import (
 )
 
 type Place struct {
-	PlaceID string
-	Address string
-	Lat     float64
-	Lng     float64
+	PlaceID   string
+	Address   string
+	Lat       float64
+	Lng       float64
+	UTCOffset int
 }
 
 type resolver interface {
@@ -36,6 +37,10 @@ func init() {
 		}
 	}
 
+	fieldName, err := maps.ParsePlaceDetailsFieldMask("name")
+	if err != nil {
+		panic(err)
+	}
 	fieldPlaceID, err := maps.ParsePlaceDetailsFieldMask("place_id")
 	if err != nil {
 		panic(err)
@@ -48,9 +53,18 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	fieldUTCOffset, err := maps.ParsePlaceDetailsFieldMask("utc_offset")
+	if err != nil {
+		panic(err)
+	}
 
-	fields = []maps.PlaceDetailsFieldMask{fieldPlaceID, fieldFormattedAddress, fieldGeometry}
-
+	fields = []maps.PlaceDetailsFieldMask{
+		fieldPlaceID,
+		fieldName,
+		fieldFormattedAddress,
+		fieldGeometry,
+		fieldUTCOffset,
+	}
 }
 
 func Resolve(ctx context.Context, placeID string) (Place, error) {
@@ -62,10 +76,13 @@ func Resolve(ctx context.Context, placeID string) (Place, error) {
 		return Place{}, err
 	}
 
+	address := strings.Join([]string{result.Name, result.FormattedAddress}, ", ")
+
 	return Place{
-		PlaceID: result.PlaceID,
-		Address: result.FormattedAddress,
-		Lat:     result.Geometry.Location.Lat,
-		Lng:     result.Geometry.Location.Lng,
+		PlaceID:   result.PlaceID,
+		Address:   address,
+		Lat:       result.Geometry.Location.Lat,
+		Lng:       result.Geometry.Location.Lng,
+		UTCOffset: *result.UTCOffset * 60,
 	}, nil
 }

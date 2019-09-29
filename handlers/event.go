@@ -108,6 +108,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		place.Lat,
 		place.Lng,
 		timestamp,
+		place.UTCOffset,
 		&ou,
 		userPointers)
 	if err != nil {

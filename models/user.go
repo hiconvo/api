@@ -51,7 +51,7 @@ type UserPartial struct {
 }
 
 func MapUserToUserPartial(u *User) *UserPartial {
-	// If this is an unregistered user, show the part of their email
+	// If the user does not have any name info, show the part of their email
 	// before the "@"
 	var fullName string
 	if u.FirstName == "" || u.LastName == "" || u.FullName == "" {
@@ -120,9 +120,8 @@ func (u *User) Commit(ctx context.Context) error {
 	u.Key = key
 	u.DeriveProperties()
 
-	// Only index users that are usefully searchable. There's no
-	// point in indexing a user whose name is empty.
-	if u.FirstName != "" {
+	// Only index users that are registered
+	if u.IsRegistered() {
 		_, upsertErr := search.Client.Update().
 			Index("users").
 			Id(u.ID).
@@ -160,6 +159,10 @@ func (u *User) DeriveProperties() {
 	u.IsPasswordSet = u.PasswordDigest != ""
 	u.IsGoogleLinked = u.OAuthGoogleID != ""
 	u.IsFacebookLinked = u.OAuthFacebookID != ""
+}
+
+func (u *User) IsRegistered() bool {
+	return u.IsGoogleLinked || u.IsFacebookLinked || u.IsPasswordSet
 }
 
 func (u *User) SendPasswordResetEmail() error {
@@ -298,11 +301,14 @@ func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 }
 
 func NewIncompleteUser(email string) (User, error) {
+	femail := strings.ToLower(email)
+
 	user := User{
-		Key:      datastore.IncompleteKey("User", nil),
-		Email:    email,
-		Token:    random.Token(),
-		Verified: false,
+		Key:       datastore.IncompleteKey("User", nil),
+		Email:     femail,
+		FirstName: strings.Split(femail, "@")[0],
+		Token:     random.Token(),
+		Verified:  false,
 	}
 
 	return user, nil

@@ -2,7 +2,6 @@ package template
 
 import (
 	"bytes"
-	"fmt"
 	htmltpl "html/template"
 	"os"
 	"path/filepath"
@@ -30,6 +29,16 @@ type Thread struct {
 	Preview  string
 }
 
+type Event struct {
+	Name        string
+	Address     string
+	Time        string
+	Description string
+	Preview     string
+	FromName    string
+	MagicLink   string
+}
+
 type message struct {
 	Body   htmltpl.HTML
 	Name   string
@@ -41,6 +50,16 @@ type thread struct {
 	Subject  string
 	Messages []message
 	Preview  string
+}
+
+type event struct {
+	Name        string
+	Address     string
+	Time        string
+	Description htmltpl.HTML
+	Preview     string
+	FromName    string
+	MagicLink   string
 }
 
 var templates map[string]*htmltpl.Template
@@ -72,14 +91,22 @@ func init() {
 		files := append(includes, layout)
 		templates[filepath.Base(layout)] = htmltpl.Must(htmltpl.ParseFiles(files...))
 	}
+
+	// Make sure the expected templates are there
+	_, ok := templates["thread.html"]
+	if !ok {
+		panic("template thread.html not loaded")
+	}
+
+	_, ok = templates["event.html"]
+	if !ok {
+		panic("template event.html not loaded")
+	}
 }
 
-func renderTemplate(name string, data Thread) (string, error) {
-	// Ensure the template exists in the map.
-	tmpl, ok := templates[name]
-	if !ok {
-		return "", fmt.Errorf("the template %s does not exist", name)
-	}
+// RenderThread returns the email message rendered to a string.
+func RenderThread(data Thread) (string, error) {
+	tmpl, _ := templates["thread.html"]
 
 	t := thread{
 		Subject:  data.Subject,
@@ -108,7 +135,27 @@ func renderTemplate(name string, data Thread) (string, error) {
 	return html, nil
 }
 
-// Render returns the email message rendered to a string.
-func Render(data Thread) (string, error) {
-	return renderTemplate("thread.html", data)
+func RenderEvent(data Event) (string, error) {
+	tmpl, _ := templates["event.html"]
+
+	e := event{
+		Name:        data.Name,
+		Address:     data.Address,
+		Time:        data.Time,
+		Description: htmltpl.HTML(blackfriday.Run([]byte(data.Description))),
+		FromName:    data.FromName,
+		MagicLink:   data.MagicLink,
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, "base.html", e); err != nil {
+		return "", err
+	}
+
+	html, err := inliner.Inline(buf.String())
+	if err != nil {
+		return html, err
+	}
+
+	return html, nil
 }
