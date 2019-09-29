@@ -180,10 +180,10 @@ func GetEvent(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type updateEventPayload struct {
-	Name        string `validate:"max=255,nonzero"`
-	PlaceID     string `validate:"max=255,nonzero"`
-	Timestamp   string `validate:"max=255,nonzero"`
-	Description string `validate:"max=1023,nonzero"`
+	Name        string `validate:"max=255"`
+	PlaceID     string `validate:"max=255"`
+	Timestamp   string `validate:"max=255"`
+	Description string `validate:"max=1023"`
 }
 
 // UpdateEvent allows the owner to change the event name and location
