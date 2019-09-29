@@ -51,11 +51,20 @@ type UserPartial struct {
 }
 
 func MapUserToUserPartial(u *User) *UserPartial {
+	// If this is an unregistered user, show the part of their email
+	// before the "@"
+	var fullName string
+	if u.FirstName == "" || u.LastName == "" || u.FullName == "" {
+		fullName = strings.Split(u.Email, "@")[0]
+	} else {
+		fullName = u.FullName
+	}
+
 	return &UserPartial{
 		ID:        u.ID,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
-		FullName:  u.FullName,
+		FullName:  fullName,
 		Avatar:    u.Avatar,
 	}
 }

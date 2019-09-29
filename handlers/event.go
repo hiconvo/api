@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"html"
 	"net/http"
 	"strconv"
 	"time"
@@ -101,7 +102,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	// the original requestor `ou` as the owner.
 	event, err := models.NewEvent(
 		payload.Name,
-		payload.Description,
+		html.UnescapeString(payload.Description),
 		place.PlaceID,
 		place.Address,
 		place.Lat,
@@ -211,7 +212,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if payload.Description != "" && payload.Description != event.Description {
-		event.Description = payload.Description
+		event.Description = html.UnescapeString(payload.Description)
 	}
 
 	if payload.Timestamp != "" {
