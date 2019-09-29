@@ -31,7 +31,7 @@ var (
 type createEventPayload struct {
 	Name        string `validate:"max=255,nonzero"`
 	PlaceID     string `validate:"max=255,nonzero"`
-	Time        string `validate:"max=255,nonzero"`
+	Timestamp   string `validate:"max=255,nonzero"`
 	Description string `validate:"max=1023,nonzero"`
 	Users       []interface{}
 }
@@ -56,7 +56,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	timestamp, err := time.Parse(time.RFC3339, payload.Time)
+	timestamp, err := time.Parse(time.RFC3339, payload.Timestamp)
 	if err != nil {
 		bjson.WriteJSON(w, map[string]string{
 			"time": "Invalid time",
@@ -101,6 +101,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	// the original requestor `ou` as the owner.
 	event, err := models.NewEvent(
 		payload.Name,
+		payload.Description,
 		place.PlaceID,
 		place.Address,
 		place.Lat,
@@ -179,9 +180,10 @@ func GetEvent(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type updateEventPayload struct {
-	Name    string `validate:"max=255"`
-	PlaceID string `validate:"max=255"`
-	Time    string `validate:"max=255"`
+	Name        string `validate:"max=255,nonzero"`
+	PlaceID     string `validate:"max=255,nonzero"`
+	Timestamp   string `validate:"max=255,nonzero"`
+	Description string `validate:"max=1023,nonzero"`
 }
 
 // UpdateEvent allows the owner to change the event name and location
@@ -208,8 +210,12 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Name = payload.Name
 	}
 
-	if payload.Time != "" {
-		timestamp, err := time.Parse(time.RFC3339, payload.Time)
+	if payload.Description != "" && payload.Description != event.Description {
+		event.Description = payload.Description
+	}
+
+	if payload.Timestamp != "" {
+		timestamp, err := time.Parse(time.RFC3339, payload.Timestamp)
 		if err != nil {
 			bjson.WriteJSON(w, map[string]string{
 				"time": "Invalid time",
@@ -217,7 +223,9 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		event.Time = timestamp
+		if !timestamp.Equal(event.Timestamp) {
+			event.Timestamp = timestamp
+		}
 	}
 
 	if payload.PlaceID != "" && payload.PlaceID != event.PlaceID {

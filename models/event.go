@@ -23,7 +23,8 @@ type Event struct {
 	Lat          float64          `json:"lat"      datastore:",noindex"`
 	Lng          float64          `json:"lng"      datastore:",noindex"`
 	Name         string           `json:"name"     datastore:",noindex"`
-	Time         time.Time        `json:"time"     datastore:",noindex"`
+	Description  string           `json:"description"     datastore:",noindex"`
+	Timestamp    time.Time        `json:"timestamp"     datastore:",noindex"`
 }
 
 func (e *Event) LoadKey(k *datastore.Key) error {
@@ -162,7 +163,7 @@ func (e *Event) SendInvites(ctx context.Context) error {
 }
 
 func NewEvent(
-	name, placeID, address string,
+	name, placeID, address, description string,
 	lat, lng float64,
 	timestamp time.Time,
 	owner *User,
@@ -201,7 +202,8 @@ func NewEvent(
 		Address:      address,
 		Lat:          lat,
 		Lng:          lng,
-		Time:         timestamp,
+		Timestamp:    timestamp,
+		Description:  description,
 	}, nil
 }
 
