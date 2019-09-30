@@ -103,6 +103,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.SendVerifyEmail()
+	user.Welcome(ctx)
 
 	bjson.WriteJSON(w, user, http.StatusCreated)
 }
@@ -279,6 +280,8 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
 	}
+
+	u.Welcome(ctx)
 
 	bjson.WriteJSON(w, u, http.StatusOK)
 }

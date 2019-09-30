@@ -54,7 +54,7 @@ func MapUserToUserPartial(u *User) *UserPartial {
 	// If the user does not have any name info, show the part of their email
 	// before the "@"
 	var fullName string
-	if u.FirstName == "" || u.LastName == "" || u.FullName == "" {
+	if u.FirstName == "" && u.LastName == "" && u.FullName == "" {
 		fullName = strings.Split(u.Email, "@")[0]
 	} else {
 		fullName = u.FullName
@@ -267,6 +267,32 @@ func (u *User) HasEvent(e *Event) bool {
 	}
 
 	return false
+}
+
+func (u *User) Welcome(ctx context.Context) {
+	thread, err := NewThread("Welcome", supportUser, []*User{u})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
+
+	if err := thread.Commit(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
+
+	u.AddThread(&thread)
+
+	if err := u.Commit(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
+
+	message, err := NewMessage(supportUser, &thread, welcomeMessage)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
+
+	if err := message.Commit(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
 }
 
 func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {

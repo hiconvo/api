@@ -86,6 +86,7 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 			if err != nil {
 				return []models.User{}, []*datastore.Key{}, errors.New("Could not save user")
 			}
+			u.Welcome(ctx)
 		}
 
 		userStructs[i] = u
