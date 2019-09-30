@@ -37,6 +37,13 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["userID"]
 
+	if !u.IsRegistered() {
+		bjson.WriteJSON(w, map[string]string{
+			"message": "You must register before you can add contacts",
+		}, http.StatusBadRequest)
+		return
+	}
+
 	userToBeAdded, err := models.GetUserByID(ctx, userID)
 	if err != nil {
 		bjson.WriteJSON(w, errMsgGetContact, http.StatusNotFound)

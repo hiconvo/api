@@ -421,6 +421,7 @@ func TestUpdatePassword(t *testing.T) {
 
 func TestVerifyEmail(t *testing.T) {
 	existingUser, _ := createTestUser(t)
+	existingUser.Verified = false
 	link := magic.NewLink(existingUser.Key, strconv.FormatBool(existingUser.Verified), "verify")
 	split := strings.Split(link, "/")
 	kenc := split[len(split)-3]
@@ -428,10 +429,14 @@ func TestVerifyEmail(t *testing.T) {
 	sig := split[len(split)-1]
 
 	existingUser2, _ := createTestUser(t)
+	existingUser2.Verified = false
 	link2 := magic.NewLink(existingUser2.Key, strconv.FormatBool(existingUser2.Verified), "verify")
 	split2 := strings.Split(link2, "/")
 	kenc2 := split2[len(split2)-3]
 	b64ts2 := split2[len(split2)-2]
+
+	existingUser.Commit(tc)
+	existingUser2.Commit(tc)
 
 	type test struct {
 		AuthHeader map[string]string

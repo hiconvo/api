@@ -57,6 +57,8 @@ func createTestUser(t *testing.T) (models.User, string) {
 		t.Fatal(err)
 	}
 
+	u.Verified = true
+
 	key, err := tclient.Put(tc, u.Key, &u)
 	if err != nil {
 		t.Fatal(err)

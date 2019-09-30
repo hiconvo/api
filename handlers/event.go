@@ -43,6 +43,13 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	ou := middleware.UserFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 
+	if !ou.Verified {
+		bjson.WriteJSON(w, map[string]string{
+			"message": "You must verify your account before you can create events",
+		}, http.StatusBadRequest)
+		return
+	}
+
 	// Validate raw data
 	var payload createEventPayload
 	if err := validate.Do(&payload, body); err != nil {

@@ -225,6 +225,26 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 			u.OAuthFacebookID = oauthPayload.ID
 		}
 
+		// Add missing user data
+		if u.FirstName == "" || u.LastName == "" {
+			u.FirstName = oauthPayload.FirstName
+			u.LastName = oauthPayload.LastName
+			u.FullName = strings.Join([]string{
+				oauthPayload.FirstName,
+				oauthPayload.LastName,
+			}, " ")
+		}
+
+		if u.Avatar == "" {
+			avatarURI, err := oauth.CacheAvatar(ctx, oauthPayload.TempAvatar)
+			if err != nil {
+				// Print error but keep going. User might not have a profile pic.
+				fmt.Fprintln(os.Stderr, err.Error())
+			}
+			u.Avatar = avatarURI
+		}
+
+		// Save
 		if err := u.Commit(ctx); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSave)
 			return
