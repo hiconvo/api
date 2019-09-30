@@ -36,7 +36,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 	ou := middleware.UserFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 
-	if !ou.Verified {
+	if !ou.IsRegistered() {
 		bjson.WriteJSON(w, map[string]string{
 			"message": "You must verify your account before you can create convos",
 		}, http.StatusBadRequest)
