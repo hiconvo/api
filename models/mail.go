@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -193,7 +194,11 @@ func renderEvent(event *Event, user *User) (string, string, error) {
 		Description: event.Description,
 		Preview:     preview,
 		FromName:    event.Owner.FullName,
-		MagicLink:   magic.NewLink(event.Key, user.Key.Encode(), "rsvp"),
+		MagicLink: magic.NewLink(
+			user.Key,
+			strconv.FormatBool(event.HasRSVP(user)),
+			fmt.Sprintf("rsvp/%s",
+				event.Key.Encode())),
 	})
 	if err != nil {
 		return "", "", err

@@ -243,6 +243,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Address = place.Address
 		event.Lat = place.Lat
 		event.Lng = place.Lng
+		event.UTCOffset = place.UTCOffset
 	}
 
 	if err := event.Commit(ctx); err != nil {
