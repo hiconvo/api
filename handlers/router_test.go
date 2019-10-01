@@ -159,6 +159,22 @@ func createTestEvent(t *testing.T, owner *models.User, users []*models.User) mod
 	return event
 }
 
+func createTestEventMessage(t *testing.T, user *models.User, event *models.Event) models.Message {
+	message, merr := models.NewEventMessage(user, event, random.String(50))
+	if merr != nil {
+		t.Fatal(merr)
+	}
+
+	key, kErr := tclient.Put(tc, message.Key, &message)
+	if kErr != nil {
+		t.Fatal(kErr)
+	}
+	message.Key = key
+	message.ID = key.Encode()
+
+	return message
+}
+
 func getAuthHeader(token string) map[string]string {
 	return map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
 }

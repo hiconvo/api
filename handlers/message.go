@@ -90,3 +90,67 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 
 	bjson.WriteJSON(w, message, http.StatusCreated)
 }
+
+// GetMessagesByThread Endpoint: GET /threads/{id}/messages
+
+// GetMessagesByThread gets the messages from the given thread.
+func GetMessagesByEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	event := middleware.EventFromContext(ctx)
+
+	if !(event.OwnerIs(&u) || event.HasUser(&u)) {
+		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		return
+	}
+
+	// TODO: Paginate
+	messages, merr := models.GetMessagesByEvent(ctx, &event)
+	if merr != nil {
+		bjson.HandleInternalServerError(w, merr, errMsgGetMessages)
+		return
+	}
+
+	bjson.WriteJSON(w, map[string][]*models.Message{"messages": messages}, http.StatusOK)
+}
+
+// AddMessageToEvent Endpoint: POST /events/:id/messages
+
+// AddMessageToEvent adds a message to the given thread.
+func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	event := middleware.EventFromContext(ctx)
+	body := bjson.BodyFromContext(ctx)
+
+	// Validate raw data
+	var payload createMessagePayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	// Check permissions
+	if !(event.OwnerIs(&u) || event.HasUser(&u)) {
+		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		return
+	}
+
+	message, err := models.NewEventMessage(&u, &event, html.UnescapeString(payload.Body))
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
+		return
+	}
+
+	if err := message.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
+		return
+	}
+
+	if err := event.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
+		return
+	}
+
+	bjson.WriteJSON(w, message, http.StatusCreated)
+}
