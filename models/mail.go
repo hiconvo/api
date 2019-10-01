@@ -133,6 +133,26 @@ func sendEvent(event *Event, isUpdate bool) error {
 	return nil
 }
 
+func sendEventInvitation(event *Event, user *User) error {
+	plainText, html, rerr := renderEvent(event, user)
+	if rerr != nil {
+		return rerr
+	}
+	email := mail.EmailMessage{
+		FromName:    event.Owner.FullName,
+		FromEmail:   event.GetEmail(),
+		ToName:      user.FullName,
+		ToEmail:     user.Email,
+		Subject:     fmt.Sprintf("Invitation to %s", event.Name),
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	mail.Send(email)
+
+	return nil
+}
+
 func renderThread(thread *Thread, messages []*Message, user *User) (string, string, error) {
 	var lastFive []*Message
 	if len(messages) > 5 {

@@ -178,6 +178,10 @@ func (e *Event) SendUpdatedInvites(ctx context.Context) error {
 	return sendEvent(e, true)
 }
 
+func (e *Event) SendInviteToUser(ctx context.Context, user *User) error {
+	return sendEventInvitation(e, user)
+}
+
 func NewEvent(
 	name, description, placeID, address string,
 	lat, lng float64,

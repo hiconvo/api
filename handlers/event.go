@@ -349,6 +349,8 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	event.SendInviteToUser(ctx, &userToBeAdded)
+
 	bjson.WriteJSON(w, event, http.StatusOK)
 }
 
