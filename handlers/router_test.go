@@ -107,7 +107,7 @@ func createTestThread(t *testing.T, owner *models.User, users []*models.User) mo
 	return thread
 }
 
-func createTestMessage(t *testing.T, user *models.User, thread *models.Thread) models.Message {
+func createTestThreadMessage(t *testing.T, user *models.User, thread *models.Thread) models.Message {
 	message, merr := models.NewThreadMessage(user, thread, random.String(50))
 	if merr != nil {
 		t.Fatal(merr)

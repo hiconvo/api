@@ -70,8 +70,8 @@ func TestGetThreadMessages(t *testing.T) {
 	member2, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
 	thread := createTestThread(t, &owner, []*models.User{&member1, &member2})
-	message1 := createTestMessage(t, &owner, &thread)
-	message2 := createTestMessage(t, &member1, &thread)
+	message1 := createTestThreadMessage(t, &owner, &thread)
+	message2 := createTestThreadMessage(t, &member1, &thread)
 	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
 	type test struct {
