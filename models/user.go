@@ -285,7 +285,7 @@ func (u *User) Welcome(ctx context.Context) {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
 
-	message, err := NewMessage(supportUser, &thread, welcomeMessage)
+	message, err := NewThreadMessage(supportUser, &thread, welcomeMessage)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}

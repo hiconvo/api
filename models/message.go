@@ -15,8 +15,8 @@ type Message struct {
 	ID        string         `json:"id"       datastore:"-"`
 	UserKey   *datastore.Key `json:"-"`
 	User      *UserPartial   `json:"user"     datastore:"-"`
-	ThreadKey *datastore.Key `json:"-"`
-	ThreadID  string         `json:"threadId" datastore:"-"`
+	ParentKey *datastore.Key `json:"-"`
+	ParentID  string         `json:"parentId" datastore:"-"`
 	Body      string         `json:"body"     datastore:",noindex"`
 	Timestamp time.Time      `json:"timestamp"`
 }
@@ -36,14 +36,20 @@ func (m *Message) Save() ([]datastore.Property, error) {
 
 func (m *Message) Load(ps []datastore.Property) error {
 	if err := datastore.LoadStruct(m, ps); err != nil {
-		return err
+		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
+			if mismatch.FieldName != "ThreadKey" {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	for _, p := range ps {
-		if p.Name == "ThreadKey" {
+		if p.Name == "ThreadKey" || p.Name == "ParentKey" {
 			k := p.Value.(*datastore.Key)
-			m.ThreadID = k.Encode()
-			break
+			m.ParentKey = k
+			m.ParentID = k.Encode()
 		}
 	}
 
@@ -60,15 +66,15 @@ func (m *Message) Commit(ctx context.Context) error {
 	return nil
 }
 
-func NewMessage(u *User, t *Thread, body string) (Message, error) {
+func NewThreadMessage(u *User, t *Thread, body string) (Message, error) {
 	ts := time.Now()
 
 	message := Message{
 		Key:       datastore.IncompleteKey("Message", nil),
 		UserKey:   u.Key,
 		User:      MapUserToUserPartial(u),
-		ThreadKey: t.Key,
-		ThreadID:  t.ID,
+		ParentKey: t.Key,
+		ParentID:  t.ID,
 		Body:      body,
 		Timestamp: ts,
 	}
@@ -82,9 +88,33 @@ func NewMessage(u *User, t *Thread, body string) (Message, error) {
 	return message, nil
 }
 
+func NewEventMessage(u *User, e *Event, body string) (Message, error) {
+	ts := time.Now()
+
+	message := Message{
+		Key:       datastore.IncompleteKey("Message", nil),
+		UserKey:   u.Key,
+		User:      MapUserToUserPartial(u),
+		ParentKey: e.Key,
+		ParentID:  e.ID,
+		Body:      body,
+		Timestamp: ts,
+	}
+
+	return message, nil
+}
+
 func GetMessagesByThread(ctx context.Context, t *Thread) ([]*Message, error) {
+	return GetMessagesByKey(ctx, t.Key)
+}
+
+func GetMessagesByEvent(ctx context.Context, e *Event) ([]*Message, error) {
+	return GetMessagesByKey(ctx, e.Key)
+}
+
+func GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*Message, error) {
 	var messages []*Message
-	q := datastore.NewQuery("Message").Filter("ThreadKey =", t.Key)
+	q := datastore.NewQuery("Message").Filter("ParentKey =", k)
 	// TODO: Paginate to avoid potential memory overflow.
 	if _, err := db.Client.GetAll(ctx, q, &messages); err != nil {
 		return messages, err

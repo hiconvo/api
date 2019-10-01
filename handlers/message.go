@@ -67,7 +67,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := models.NewMessage(&u, &thread, html.UnescapeString(payload.Body))
+	message, err := models.NewThreadMessage(&u, &thread, html.UnescapeString(payload.Body))
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
 		return

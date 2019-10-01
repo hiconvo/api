@@ -52,7 +52,7 @@ func TestAddMessageToThread(t *testing.T) {
 		}
 
 		thelpers.AssertEqual(t, respData["body"], testCase.Body)
-		thelpers.AssertEqual(t, respData["threadId"], thread.ID)
+		thelpers.AssertEqual(t, respData["parentId"], thread.ID)
 
 		gotMessageUser := respData["user"].(map[string]interface{})
 		thelpers.AssertEqual(t, gotMessageUser["fullName"], testCase.Author.FullName)
