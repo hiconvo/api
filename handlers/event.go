@@ -108,7 +108,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	// With userPointers in hand, we can now create the event object. We set
 	// the original requestor `ou` as the owner.
 	event, err := models.NewEvent(
-		payload.Name,
+		html.UnescapeString(payload.Name),
 		html.UnescapeString(payload.Description),
 		place.PlaceID,
 		place.Address,
