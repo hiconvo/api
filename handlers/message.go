@@ -91,9 +91,9 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, message, http.StatusCreated)
 }
 
-// GetMessagesByThread Endpoint: GET /threads/{id}/messages
+// GetMessagesByEvent Endpoint: GET /events/{id}/messages
 
-// GetMessagesByThread gets the messages from the given thread.
+// GetMessagesByEvent gets the messages from the given thread.
 func GetMessagesByEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)

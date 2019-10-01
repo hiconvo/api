@@ -171,7 +171,11 @@ func (e *Event) GetEmail() string {
 }
 
 func (e *Event) SendInvites(ctx context.Context) error {
-	return sendEvent(e)
+	return sendEvent(e, false)
+}
+
+func (e *Event) SendUpdatedInvites(ctx context.Context) error {
+	return sendEvent(e, true)
 }
 
 func NewEvent(

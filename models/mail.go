@@ -98,8 +98,14 @@ func sendThread(thread *Thread, messages []*Message) error {
 	return nil
 }
 
-func sendEvent(event *Event) error {
+func sendEvent(event *Event, isUpdate bool) error {
 	users := event.Users
+	var fmtStr string
+	if isUpdate {
+		fmtStr = "Updated invitation to %s"
+	} else {
+		fmtStr = "Invitation to %s"
+	}
 
 	// Loop through all participants and generate emails
 	emailMessages := make([]mail.EmailMessage, len(users))
@@ -114,7 +120,7 @@ func sendEvent(event *Event) error {
 			FromEmail:   event.GetEmail(),
 			ToName:      currentUser.FullName,
 			ToEmail:     currentUser.Email,
-			Subject:     fmt.Sprintf("Invitation to %s", event.Name),
+			Subject:     fmt.Sprintf(fmtStr, event.Name),
 			TextContent: plainText,
 			HTMLContent: html,
 		}
@@ -174,7 +180,7 @@ func renderThread(thread *Thread, messages []*Message, user *User) (string, stri
 
 func renderEvent(event *Event, user *User) (string, string, error) {
 	loc := time.FixedZone("Given", event.UTCOffset)
-	timestamp := event.Timestamp.In(loc).Format("Jan 2 @ 3:04 PM")
+	timestamp := event.Timestamp.In(loc).Format("Monday, January 2nd @ 3:04 PM")
 
 	var builder strings.Builder
 	fmt.Fprintf(&builder, eventTplStr,

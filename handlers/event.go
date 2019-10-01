@@ -258,6 +258,11 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := event.SendUpdatedInvites(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSendEvent)
+		return
+	}
+
 	bjson.WriteJSON(w, event, http.StatusOK)
 }
 
