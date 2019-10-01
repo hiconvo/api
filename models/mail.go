@@ -70,6 +70,12 @@ func sendThread(thread *Thread, messages []*Message) error {
 	emailMessages := make([]mail.EmailMessage, len(users))
 	for i := range users {
 		currentUser := users[i]
+
+		// Don't send an email to the sender.
+		if currentUser.Key.Equal(sender.Key) {
+			continue
+		}
+
 		plainText, html, rerr := renderThread(thread, messages, currentUser)
 		if rerr != nil {
 			return rerr
