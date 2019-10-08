@@ -136,6 +136,14 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Only allow registered users to post
+	if !u.IsRegistered() {
+		bjson.WriteJSON(w, map[string]string{
+			"message": "You must register your account to post a message",
+		}, http.StatusBadRequest)
+		return
+	}
+
 	message, err := models.NewEventMessage(&u, &event, html.UnescapeString(payload.Body))
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
