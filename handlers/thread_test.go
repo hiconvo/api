@@ -289,6 +289,7 @@ func TestAddToThread(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	memberToAdd, _ := createTestUser(t)
+	secondMemberToAdd, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
 	thread := createTestThread(t, &owner, []*models.User{&member})
 
@@ -297,13 +298,43 @@ func TestAddToThread(t *testing.T) {
 		OutCode    int
 		InID       string
 		ShouldPass bool
+		OutNames   []string
 	}
 
 	tests := []test{
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, InID: memberToAdd.ID},
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, InID: memberToAdd.ID},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, InID: memberToAdd.ID},
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, InID: memberToAdd.ID},
+		{
+			AuthHeader: getAuthHeader(nonmember.Token),
+			OutCode:    http.StatusNotFound,
+			InID:       memberToAdd.ID,
+		},
+		{
+			AuthHeader: getAuthHeader(member.Token),
+			OutCode:    http.StatusNotFound,
+			InID:       memberToAdd.ID,
+		},
+		{
+			AuthHeader: map[string]string{"boop": "beep"},
+			OutCode:    http.StatusUnauthorized,
+			InID:       memberToAdd.ID,
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			OutCode:    http.StatusOK,
+			InID:       memberToAdd.ID,
+			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName},
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			OutCode:    http.StatusOK,
+			InID:       "addedOnThe@fly.com",
+			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthe"},
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			OutCode:    http.StatusOK,
+			InID:       secondMemberToAdd.Email,
+			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthe", secondMemberToAdd.FullName},
+		},
 	}
 
 	for _, testCase := range tests {
@@ -312,7 +343,7 @@ func TestAddToThread(t *testing.T) {
 
 		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 
-		if testCase.OutCode >= 400 {
+		if rr.Code >= 400 {
 			continue
 		}
 
@@ -323,8 +354,7 @@ func TestAddToThread(t *testing.T) {
 		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
 
 		gotThreadUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member.ID, memberToAdd.ID}, gotThreadUsers)
-		thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member.FullName, memberToAdd.FullName}, gotThreadUsers)
+		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutNames, gotThreadUsers)
 	}
 }
 

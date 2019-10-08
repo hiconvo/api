@@ -304,6 +304,7 @@ func TestAddToEvent(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	memberToAdd, _ := createTestUser(t)
+	secondMemberToAdd, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
 	event := createTestEvent(t, &owner, []*models.User{&member})
 
@@ -312,13 +313,43 @@ func TestAddToEvent(t *testing.T) {
 		OutCode    int
 		InID       string
 		ShouldPass bool
+		OutNames   []string
 	}
 
 	tests := []test{
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, InID: memberToAdd.ID},
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, InID: memberToAdd.ID},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, InID: memberToAdd.ID},
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, InID: memberToAdd.ID},
+		{
+			AuthHeader: getAuthHeader(nonmember.Token),
+			OutCode:    http.StatusNotFound,
+			InID:       memberToAdd.ID,
+		},
+		{
+			AuthHeader: getAuthHeader(member.Token),
+			OutCode:    http.StatusNotFound,
+			InID:       memberToAdd.ID,
+		},
+		{
+			AuthHeader: map[string]string{"boop": "beep"},
+			OutCode:    http.StatusUnauthorized,
+			InID:       memberToAdd.ID,
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			OutCode:    http.StatusOK,
+			InID:       memberToAdd.ID,
+			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName},
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			OutCode:    http.StatusOK,
+			InID:       "addedOnTheFly@again.com",
+			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthefly"},
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			OutCode:    http.StatusOK,
+			InID:       secondMemberToAdd.Email,
+			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName},
+		},
 	}
 
 	for _, testCase := range tests {
@@ -327,7 +358,7 @@ func TestAddToEvent(t *testing.T) {
 
 		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 
-		if testCase.OutCode >= 400 {
+		if rr.Code >= 400 {
 			continue
 		}
 
@@ -338,8 +369,7 @@ func TestAddToEvent(t *testing.T) {
 		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
 
 		gotEventUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member.ID, memberToAdd.ID}, gotEventUsers)
-		thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member.FullName, memberToAdd.FullName}, gotEventUsers)
+		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutNames, gotEventUsers)
 	}
 }
 

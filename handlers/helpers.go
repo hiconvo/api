@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"errors"
+	"regexp"
+	"strings"
 
 	"cloud.google.com/go/datastore"
 
@@ -72,21 +74,33 @@ func extractUsers(ctx context.Context, owner models.User, users []interface{}) (
 	return userStructs, userKeys, emails, nil
 }
 
+// createUserByEmail is a bit of a misnomer since we actually get or create
+// the user.
+func createUserByEmail(ctx context.Context, email string) (models.User, error) {
+	u, created, err := models.GetOrCreateUserByEmail(ctx, email)
+	if err != nil {
+		return models.User{}, errors.New("Could not create user")
+	}
+	if created {
+		err = u.Commit(ctx)
+		if err != nil {
+			return models.User{}, errors.New("Could not save user")
+		}
+
+		u.Welcome(ctx)
+	}
+
+	return u, nil
+}
+
 func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []*datastore.Key, error) {
 	userStructs := make([]models.User, len(emails))
 	userKeys := make([]*datastore.Key, len(emails))
 	// Handle members indicated by email.
 	for i := range emails {
-		u, created, err := models.GetOrCreateUserByEmail(ctx, emails[i])
+		u, err := createUserByEmail(ctx, emails[i])
 		if err != nil {
-			return []models.User{}, []*datastore.Key{}, errors.New("Could not create user")
-		}
-		if created {
-			err = u.Commit(ctx)
-			if err != nil {
-				return []models.User{}, []*datastore.Key{}, errors.New("Could not save user")
-			}
-			u.Welcome(ctx)
+			return []models.User{}, []*datastore.Key{}, err
 		}
 
 		userStructs[i] = u
@@ -94,4 +108,9 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 	}
 
 	return userStructs, userKeys, nil
+}
+
+func isEmail(email string) bool {
+	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	return re.MatchString(strings.ToLower(email))
 }

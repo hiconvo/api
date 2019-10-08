@@ -228,7 +228,7 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
 	vars := mux.Vars(r)
-	userID := vars["userID"]
+	maybeUserID := vars["userID"]
 
 	// If the requestor is not the owner, throw an error.
 	if !thread.OwnerIs(&u) {
@@ -236,9 +236,17 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userToBeAdded, uErr := models.GetUserByID(ctx, userID)
-	if uErr != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+	// Either get the user if we got an ID or, if we got an email, get or
+	// create the user by email.
+	var userToBeAdded models.User
+	var err error
+	if isEmail(maybeUserID) {
+		userToBeAdded, err = createUserByEmail(ctx, maybeUserID)
+	} else {
+		userToBeAdded, err = models.GetUserByID(ctx, maybeUserID)
+	}
+	if err != nil {
+		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
 		return
 	}
 

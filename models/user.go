@@ -346,9 +346,11 @@ func NewUserWithPassword(email, firstname, lastname, password string) (User, err
 		return User{}, err
 	}
 
+	femail := strings.ToLower(email)
+
 	user := User{
 		Key:             datastore.IncompleteKey("User", nil),
-		Email:           email,
+		Email:           femail,
 		FirstName:       firstname,
 		LastName:        lastname,
 		FullName:        "",
@@ -370,9 +372,12 @@ func NewUserWithOAuth(email, firstname, lastname, avatar, oauthprovider, oauthto
 	} else {
 		facebookID = oauthtoken
 	}
+
+	femail := strings.ToLower(email)
+
 	user := User{
 		Key:             datastore.IncompleteKey("User", nil),
-		Email:           email,
+		Email:           femail,
 		FirstName:       firstname,
 		LastName:        lastname,
 		FullName:        "",
@@ -403,7 +408,7 @@ func GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 func GetUserByEmail(ctx context.Context, email string) (User, bool, error) {
-	return getUserByField(ctx, "Email", email)
+	return getUserByField(ctx, "Email", strings.ToLower(email))
 }
 
 func GetUserByToken(ctx context.Context, token string) (User, bool, error) {

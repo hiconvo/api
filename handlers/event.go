@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"html"
 	"net/http"
 	"strconv"
@@ -316,12 +317,13 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 // AddUserToEvent Endpoint: POST /events/{eventID}/users/{userID}
 
 // AddUserToEvent adds a user to the event. Only owners can add participants.
+// Email addresses are also supported.
 func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
 	vars := mux.Vars(r)
-	userID := vars["userID"]
+	maybeUserID := vars["userID"]
 
 	// If the requestor is not the owner, throw an error.
 	if !event.OwnerIs(&u) {
@@ -329,8 +331,17 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userToBeAdded, uErr := models.GetUserByID(ctx, userID)
-	if uErr != nil {
+	// Either get the user if we got an ID or, if we got an email, get or
+	// create the user by email.
+	var userToBeAdded models.User
+	var err error
+	if isEmail(maybeUserID) {
+		userToBeAdded, err = createUserByEmail(ctx, maybeUserID)
+	} else {
+		userToBeAdded, err = models.GetUserByID(ctx, maybeUserID)
+	}
+	if err != nil {
+		fmt.Println(err.Error())
 		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
 		return
 	}
