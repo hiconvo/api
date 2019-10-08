@@ -182,6 +182,10 @@ func (e *Event) SendInviteToUser(ctx context.Context, user *User) error {
 	return sendEventInvitation(e, user)
 }
 
+func (e *Event) IsInFuture() bool {
+	return e.Timestamp.After(time.Now())
+}
+
 func NewEvent(
 	name, description, placeID, address string,
 	lat, lng float64,

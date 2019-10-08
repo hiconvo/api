@@ -24,6 +24,7 @@ var (
 	errMsgGetEvent    = map[string]string{"message": "Could not get event"}
 	errMsgDeleteEvent = map[string]string{"message": "Could not delete event"}
 	errMsgSendEvent   = map[string]string{"message": "Could not send event invitations"}
+	errMsgUpdateEvent = map[string]string{"message": "You cannot update past events"}
 )
 
 // CreateEvent Endpoint: POST /events
@@ -205,6 +206,12 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	// If the requestor is not the owner, throw an error
 	if !event.OwnerIs(&u) {
 		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		return
+	}
+
+	// Only allow updating future events
+	if !event.IsInFuture() {
+		bjson.WriteJSON(w, errMsgUpdateEvent, http.StatusBadRequest)
 		return
 	}
 
