@@ -129,7 +129,6 @@
       h1 {
         font-size: 35px;
         font-weight: 300;
-        text-align: center;
         text-transform: capitalize;
       }
       p,
@@ -168,6 +167,7 @@
         background-color: #ffffff;
         border-radius: 5px;
         text-align: center;
+        margin: 0 auto;
       }
       .btn a {
         background-color: #ffffff;
@@ -188,8 +188,8 @@
         background-color: #3498db;
       }
       .btn-primary a {
-        background-color: #006556;
-        border-color: #006556;
+        background-color: #00bfa2;
+        border-color: #00bfa2;
         color: #ffffff;
       }
       /* -------------------------------------
@@ -218,6 +218,9 @@
       }
       .mb0 {
         margin-bottom: 0;
+      }
+      .ml10 {
+        margin-left: 10px;
       }
       .preheader {
         color: transparent;
@@ -333,6 +336,24 @@
           <div class="content">
             <!-- START CENTERED WHITE CONTAINER -->
             {{ template "content" .}}
+
+            <!-- START FOOTER -->
+            <div class="footer">
+              <table
+                role="presentation"
+                border="0"
+                cellpadding="0"
+                cellspacing="0"
+              >
+                <tr>
+                  <td class="content-block">
+                    {{ template "footer" .}}
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <!-- END FOOTER -->
+
             <!-- END CENTERED WHITE CONTAINER -->
           </div>
         </td>

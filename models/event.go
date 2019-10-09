@@ -182,6 +182,10 @@ func (e *Event) SendInviteToUser(ctx context.Context, user *User) error {
 	return sendEventInvitation(e, user)
 }
 
+func (e *Event) SendCancellation(ctx context.Context) error {
+	return sendCancellation(e)
+}
+
 func (e *Event) IsInFuture() bool {
 	return e.Timestamp.After(time.Now())
 }

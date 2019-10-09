@@ -1,6 +1,6 @@
 <!-- START TITLE DEF -->
 {{ define "title" }}
-<title>{{ .Name }}</title>
+<title>Cancelled: {{ .Name }}</title>
 {{ end }}
 <!-- END TITLE DEF -->
 
@@ -15,7 +15,7 @@
           <td>
             <!-- START EVENT DATA -->
             <p>Hello,</p>
-            <p>{{ .FromName }} has invited you to the following event:</p>
+            <p>The following event has been <strong>cancelled</strong>:</p>
             <p>
               <strong>{{ .Name }}</strong>
               <br />
@@ -24,14 +24,6 @@
               <span>{{ .Address }}</span>
             </p>
             <!-- END EVENT DATA -->
-
-            <!-- START CTA -->
-            {{ template "button" .}}
-            <!-- END CTA -->
-
-            <!-- START DESCRIPTION -->
-            {{ .Description }}
-            <!-- END DESCRIPTION -->
           </td>
         </tr>
       </table>

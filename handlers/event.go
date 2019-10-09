@@ -306,6 +306,11 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := event.SendCancellation(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
 	if err := event.Delete(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return

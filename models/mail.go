@@ -15,10 +15,11 @@ const (
 	fromEmail = "robots@mail.hiconvo.com"
 	fromName  = "ConvoBot"
 
-	passwordReset = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />ConvoBot"
-	verifyEmail   = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />ConvoBot"
-	messageTplStr = "%s said:\n\n%s\n\n"
-	eventTplStr   = "%s invited you to:\n\n%s\n\n%s\n\n%s\n\n%s\n"
+	passwordReset      = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />ConvoBot"
+	verifyEmail        = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />ConvoBot"
+	messageTplStr      = "%s said:\n\n%s\n\n"
+	eventTplStr        = "%s invited you to:\n\n%s\n\n%s\n\n%s\n\n%s\n"
+	cancellationTplStr = "%s has cancelled:\n\n%s\n\n%s\n\n%s\n"
 )
 
 func sendPasswordResetEmail(u *User, magicLink string) error {
@@ -153,6 +154,35 @@ func sendEventInvitation(event *Event, user *User) error {
 	return nil
 }
 
+func sendCancellation(event *Event) error {
+	users := event.Users
+
+	// Loop through all participants and generate emails
+	emailMessages := make([]mail.EmailMessage, len(users))
+	for i := range users {
+		currentUser := users[i]
+		plainText, html, rerr := renderCancellation(event, currentUser)
+		if rerr != nil {
+			return rerr
+		}
+		emailMessages[i] = mail.EmailMessage{
+			FromName:    event.Owner.FullName,
+			FromEmail:   event.GetEmail(),
+			ToName:      currentUser.FullName,
+			ToEmail:     currentUser.Email,
+			Subject:     fmt.Sprintf("Cancelled: %s", event.Name),
+			TextContent: plainText,
+			HTMLContent: html,
+		}
+	}
+
+	for i := range emailMessages {
+		mail.Send(emailMessages[i])
+	}
+
+	return nil
+}
+
 func renderThread(thread *Thread, messages []*Message, user *User) (string, string, error) {
 	var lastFive []*Message
 	if len(messages) > 5 {
@@ -173,8 +203,6 @@ func renderThread(thread *Thread, messages []*Message, user *User) (string, stri
 			ToID:   user.ID,
 		}
 	}
-
-	// TODO: append convobot controls at the end
 
 	plainText := builder.String()
 
@@ -231,6 +259,40 @@ func renderEvent(event *Event, user *User) (string, string, error) {
 			strconv.FormatBool(event.HasRSVP(user)),
 			fmt.Sprintf("rsvp/%s",
 				event.Key.Encode())),
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	return plainText, html, nil
+}
+
+func renderCancellation(event *Event, user *User) (string, string, error) {
+	loc := time.FixedZone("Given", event.UTCOffset)
+	timestamp := event.Timestamp.In(loc).Format("Monday, January 2nd @ 3:04 PM")
+
+	var builder strings.Builder
+	fmt.Fprintf(&builder, cancellationTplStr,
+		event.Owner.FullName,
+		event.Name,
+		event.Address,
+		timestamp)
+	plainText := builder.String()
+
+	// Use the first 200 chars as the preview
+	var preview string
+	if len(plainText) > 200 {
+		preview = plainText[:200] + "..."
+	} else {
+		preview = plainText
+	}
+
+	html, err := template.RenderCancellation(template.Event{
+		Name:     event.Name,
+		Address:  event.Address,
+		Time:     timestamp,
+		Preview:  preview,
+		FromName: event.Owner.FullName,
 	})
 	if err != nil {
 		return "", "", err

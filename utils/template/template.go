@@ -2,6 +2,7 @@ package template
 
 import (
 	"bytes"
+	"fmt"
 	htmltpl "html/template"
 	"os"
 	"path/filepath"
@@ -93,14 +94,11 @@ func init() {
 	}
 
 	// Make sure the expected templates are there
-	_, ok := templates["thread.html"]
-	if !ok {
-		panic("template thread.html not loaded")
-	}
-
-	_, ok = templates["event.html"]
-	if !ok {
-		panic("template event.html not loaded")
+	for _, tplName := range []string{"thread.html", "event.html", "cancellation.html"} {
+		_, ok := templates[tplName]
+		if !ok {
+			panic(fmt.Sprintf("Template '%v' not found", tplName))
+		}
 	}
 }
 
@@ -145,6 +143,29 @@ func RenderEvent(data Event) (string, error) {
 		Description: htmltpl.HTML(blackfriday.Run([]byte(data.Description))),
 		FromName:    data.FromName,
 		MagicLink:   data.MagicLink,
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, "base.html", e); err != nil {
+		return "", err
+	}
+
+	html, err := inliner.Inline(buf.String())
+	if err != nil {
+		return html, err
+	}
+
+	return html, nil
+}
+
+func RenderCancellation(data Event) (string, error) {
+	tmpl, _ := templates["cancellation.html"]
+
+	e := event{
+		Name:     data.Name,
+		Address:  data.Address,
+		Time:     data.Time,
+		FromName: data.FromName,
 	}
 
 	var buf bytes.Buffer
