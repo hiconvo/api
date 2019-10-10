@@ -41,9 +41,7 @@ jobs:
       - save_cache:
           key: pkg-cache-{{ checksum "go.mod" }}
           paths:
-            - "/usr/local/go/src"
-            - "/usr/local/go/pkg"
-            - "/usr/local/go/bin"
+            - "/go/pkg"
 
   deploy:
     docker:
