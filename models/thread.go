@@ -20,6 +20,8 @@ type Thread struct {
 	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
 	Subject      string           `json:"subject"  datastore:",noindex"`
 	Preview      *Preview         `json:"preview"  datastore:",noindex"`
+	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
+	reads        []*Read          `datastore:",noindex"`
 }
 
 func (t *Thread) LoadKey(k *datastore.Key) error {
@@ -58,6 +60,14 @@ func (t *Thread) Delete(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (t *Thread) Reads() []*Read {
+	return t.reads
+}
+
+func (t *Thread) SetReads(newReads []*Read) {
+	t.reads = newReads
 }
 
 func (t *Thread) GetEmail() string {
@@ -267,6 +277,7 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 		threads[i].Users = threadUsers
 		threads[i].Owner = MapUserToUserPartial(owner)
 		threads[i].UserPartials = MapUsersToUserPartials(threadUsers)
+		threads[i].UserReads = MapReadsToUserPartials(&threads[i], threadUsers)
 
 		start += idxs[i]
 		tptrs[i] = &threads[i]
@@ -297,6 +308,7 @@ func handleGetThread(ctx context.Context, key *datastore.Key, t Thread) (Thread,
 
 	t.Users = userPointers
 	t.UserPartials = MapUsersToUserPartials(userPointers)
+	t.UserReads = MapReadsToUserPartials(&t, userPointers)
 	t.Owner = MapUserToUserPartial(&owner)
 
 	return t, nil

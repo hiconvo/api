@@ -69,6 +69,8 @@ func CreateRouter() http.Handler {
 	threadSubrouter.HandleFunc("/threads/{threadID}/messages", GetMessagesByThread).Methods("GET")
 	threadSubrouter.HandleFunc("/threads/{threadID}/messages", AddMessageToThread).Methods("POST")
 
+	threadSubrouter.HandleFunc("/threads/{threadID}/reads", MarkThreadAsRead).Methods("POST")
+
 	// JSON + Auth + Event endpoints
 	eventSubrouter := authSubrouter.NewRoute().Subrouter()
 	eventSubrouter.Use(middleware.WithEvent)
@@ -79,10 +81,14 @@ func CreateRouter() http.Handler {
 
 	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", AddUserToEvent).Methods("POST")
 	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE")
+
 	eventSubrouter.HandleFunc("/events/{eventID}/rsvps", AddRSVPToEvent).Methods("POST")
 	eventSubrouter.HandleFunc("/events/{eventID}/rsvps", RemoveRSVPFromEvent).Methods("DELETE")
+
 	eventSubrouter.HandleFunc("/events/{eventID}/messages", GetMessagesByEvent).Methods("GET")
 	eventSubrouter.HandleFunc("/events/{eventID}/messages", AddMessageToEvent).Methods("POST")
+
+	eventSubrouter.HandleFunc("/events/{eventID}/reads", MarkEventAsRead).Methods("POST")
 
 	return middleware.WithLogging(middleware.WithCORS(router))
 }

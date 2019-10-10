@@ -29,6 +29,8 @@ type Event struct {
 	Description  string           `json:"description"  datastore:",noindex"`
 	Timestamp    time.Time        `json:"timestamp"    datastore:",noindex"`
 	UTCOffset    int              `json:"-"        datastore:",noindex"`
+	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
+	reads        []*Read          `datastore:",noindex"`
 }
 
 func (e *Event) LoadKey(k *datastore.Key) error {
@@ -67,6 +69,14 @@ func (e *Event) Delete(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (e *Event) Reads() []*Read {
+	return e.reads
+}
+
+func (e *Event) SetReads(newReads []*Read) {
+	e.reads = newReads
 }
 
 func (e *Event) HasUser(u *User) bool {
@@ -319,6 +329,7 @@ func GetEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
 		events[i].UserPartials = MapUsersToUserPartials(eventUsers)
 		events[i].Users = eventUsers
 		events[i].RSVPs = MapUsersToUserPartials(eventRSVPs)
+		events[i].UserReads = MapReadsToUserPartials(&events[i], eventUsers)
 
 		start += idxs[i]
 		eventPtrs[i] = &events[i]
@@ -356,6 +367,7 @@ func handleGetEvent(ctx context.Context, key *datastore.Key, e Event) (Event, er
 	e.Users = userPointers
 	e.Owner = MapUserToUserPartial(&owner)
 	e.RSVPs = MapUsersToUserPartials(rsvpPointers)
+	e.UserReads = MapReadsToUserPartials(&e, userPointers)
 
 	return e, nil
 }

@@ -19,7 +19,7 @@ func CreateTestDatastoreClient(ctx context.Context) *datastore.Client {
 }
 
 func ClearDatastore(ctx context.Context, client *datastore.Client) {
-	for _, tp := range []string{"User", "Thread", "Message"} {
+	for _, tp := range []string{"User", "Thread", "Event", "Message"} {
 		q := datastore.NewQuery(tp).KeysOnly()
 		keys, err := client.GetAll(ctx, q, nil)
 		if err != nil {

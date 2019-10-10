@@ -2,6 +2,8 @@ package models
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/hiconvo/api/utils/secrets"
 )
@@ -23,10 +25,13 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
+
 		err = u.Commit(ctx)
 		if err != nil {
 			panic(err)
 		}
+
+		fmt.Fprintf(os.Stderr, "Created new support user\n")
 	}
 
 	supportUser = &u
