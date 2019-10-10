@@ -19,7 +19,7 @@ type Message struct {
 	ParentID  string         `json:"parentId" datastore:"-"`
 	Body      string         `json:"body"     datastore:",noindex"`
 	Timestamp time.Time      `json:"timestamp"`
-	reads     []*Read        `datastore:",noindex"`
+	Reads     []*Read        `json:"-"        datastore:",noindex"`
 }
 
 func (m *Message) LoadKey(k *datastore.Key) error {
@@ -57,12 +57,12 @@ func (m *Message) Load(ps []datastore.Property) error {
 	return nil
 }
 
-func (m *Message) Reads() []*Read {
-	return m.reads
+func (m *Message) GetReads() []*Read {
+	return m.Reads
 }
 
 func (m *Message) SetReads(newReads []*Read) {
-	m.reads = newReads
+	m.Reads = newReads
 }
 
 func (m *Message) Commit(ctx context.Context) error {

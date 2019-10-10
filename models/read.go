@@ -7,26 +7,24 @@ import (
 )
 
 type Read struct {
-	Key       *datastore.Key `datastore:"__key__"`
 	UserKey   *datastore.Key
 	Timestamp time.Time
 }
 
 type Readable interface {
-	Reads() []*Read
+	GetReads() []*Read
 	SetReads([]*Read)
 }
 
 func NewRead(userKey *datastore.Key) *Read {
 	return &Read{
-		Key:       datastore.IncompleteKey("Read", nil),
 		UserKey:   userKey,
 		Timestamp: time.Now(),
 	}
 }
 
 func MarkAsRead(r Readable, userKey *datastore.Key) {
-	reads := r.Reads()
+	reads := r.GetReads()
 
 	// If this has already been read, skip it
 	for i := range reads {
@@ -45,7 +43,7 @@ func ClearReads(r Readable) {
 }
 
 func MapReadsToUserPartials(r Readable, users []*User) []*UserPartial {
-	reads := r.Reads()
+	reads := r.GetReads()
 	userPartials := make([]*UserPartial, len(reads))
 	for i := range reads {
 		for j := range users {

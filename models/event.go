@@ -30,7 +30,7 @@ type Event struct {
 	Timestamp    time.Time        `json:"timestamp"    datastore:",noindex"`
 	UTCOffset    int              `json:"-"        datastore:",noindex"`
 	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
-	reads        []*Read          `datastore:",noindex"`
+	Reads        []*Read          `json:"-"        datastore:",noindex"`
 }
 
 func (e *Event) LoadKey(k *datastore.Key) error {
@@ -71,12 +71,12 @@ func (e *Event) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (e *Event) Reads() []*Read {
-	return e.reads
+func (e *Event) GetReads() []*Read {
+	return e.Reads
 }
 
 func (e *Event) SetReads(newReads []*Read) {
-	e.reads = newReads
+	e.Reads = newReads
 }
 
 func (e *Event) HasUser(u *User) bool {

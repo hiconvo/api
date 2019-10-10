@@ -21,7 +21,7 @@ type Thread struct {
 	Subject      string           `json:"subject"  datastore:",noindex"`
 	Preview      *Preview         `json:"preview"  datastore:",noindex"`
 	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
-	reads        []*Read          `datastore:",noindex"`
+	Reads        []*Read          `json:"-"        datastore:",noindex"`
 }
 
 func (t *Thread) LoadKey(k *datastore.Key) error {
@@ -62,12 +62,12 @@ func (t *Thread) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (t *Thread) Reads() []*Read {
-	return t.reads
+func (t *Thread) GetReads() []*Read {
+	return t.Reads
 }
 
 func (t *Thread) SetReads(newReads []*Read) {
-	t.reads = newReads
+	t.Reads = newReads
 }
 
 func (t *Thread) GetEmail() string {
