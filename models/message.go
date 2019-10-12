@@ -95,6 +95,7 @@ func NewThreadMessage(u *User, t *Thread, body string) (Message, error) {
 	}
 
 	ClearReads(t)
+	MarkAsRead(t, u.Key)
 
 	return message, nil
 }
@@ -113,6 +114,7 @@ func NewEventMessage(u *User, e *Event, body string) (Message, error) {
 	}
 
 	ClearReads(e)
+	MarkAsRead(e, u.Key)
 
 	return message, nil
 }

@@ -296,11 +296,9 @@ func (u *User) Welcome(ctx context.Context) {
 }
 
 func (u *User) SendDigest(ctx context.Context) error {
-	// Get all of the users threads and events
-	threads, err := GetThreadsByUser(ctx, u)
-	if err != nil {
-		return err
-	}
+	// Get all of the users events. We don't include threads in
+	// the digest email because threads are always emailed when
+	// a new message is added.
 	events, err := GetEventsByUser(ctx, u)
 	if err != nil {
 		return err
@@ -308,11 +306,6 @@ func (u *User) SendDigest(ctx context.Context) error {
 
 	// Convert them into Digestables and filter out read items
 	var digestables []Digestable
-	for i := range threads {
-		if !IsRead(threads[i], u.Key) {
-			digestables = append(digestables, threads[i])
-		}
-	}
 	for i := range events {
 		if !IsRead(events[i], u.Key) {
 			digestables = append(digestables, events[i])

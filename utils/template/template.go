@@ -68,6 +68,11 @@ type event struct {
 	MagicLink   string
 }
 
+type digest struct {
+	Items   []thread
+	Preview string
+}
+
 var templates map[string]*htmltpl.Template
 
 func init() {
@@ -189,8 +194,33 @@ func RenderCancellation(data Event) (string, error) {
 func RenderDigest(data Digest) (string, error) {
 	tmpl, _ := templates["digest.html"]
 
+	var threadList []thread
+
+	for i := range data.Items {
+		var messages []message
+		for j := range data.Items[i].Messages {
+			messages = append(messages, message{
+				Body:   htmltpl.HTML(blackfriday.Run([]byte(data.Items[i].Messages[j].Body))),
+				Name:   data.Items[i].Messages[j].Name,
+				FromID: data.Items[i].Messages[j].FromID,
+				ToID:   data.Items[i].Messages[j].ToID,
+			})
+		}
+
+		threadList = append(threadList, thread{
+			Subject:  data.Items[i].Subject,
+			Preview:  data.Items[i].Preview,
+			Messages: messages,
+		})
+	}
+
+	d := digest{
+		Items:   threadList,
+		Preview: "You have unread messages on convo.",
+	}
+
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "base.html", data); err != nil {
+	if err := tmpl.ExecuteTemplate(&buf, "base.html", d); err != nil {
 		return "", err
 	}
 
