@@ -1,0 +1,4 @@
+cron:
+  - description: "daily digest email"
+    url: "/tasks/digest"
+    schedule: every day 19:00
