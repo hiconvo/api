@@ -35,10 +35,10 @@ type User struct {
 	IsFacebookLinked bool             `json:"isFacebookLinked" datastore:"-"`
 	IsLocked         bool             `json:"-"`
 	Verified         bool             `json:"verified"`
-	Threads          []*datastore.Key `json:"-"        datastore:",noindex"`
-	Events           []*datastore.Key `json:"-"        datastore:",noindex"`
+	Threads          []*datastore.Key `json:"-"`
+	Events           []*datastore.Key `json:"-"`
 	Avatar           string           `json:"avatar"`
-	ContactKeys      []*datastore.Key `json:"-"        datastore:",noindex"`
+	ContactKeys      []*datastore.Key `json:"-"`
 	Contacts         []*UserPartial   `json:"-"        datastore:"-"`
 }
 

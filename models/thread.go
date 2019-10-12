@@ -15,7 +15,7 @@ type Thread struct {
 	ID           string           `json:"id"       datastore:"-"`
 	OwnerKey     *datastore.Key   `json:"-"`
 	Owner        *UserPartial     `json:"owner"    datastore:"-"`
-	UserKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
+	UserKeys     []*datastore.Key `json:"-"`
 	Users        []*User          `json:"-"        datastore:"-"`
 	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
 	Subject      string           `json:"subject"  datastore:",noindex"`
@@ -214,19 +214,11 @@ func GetThreadByInt64ID(ctx context.Context, id int64) (Thread, error) {
 }
 
 func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
-	// Get all of the keys of the threads that the user owns.
-	q := datastore.NewQuery("Thread").Filter("OwnerKey =", u.Key).KeysOnly()
-	ownedThreadKeys, oErr := db.Client.GetAll(ctx, q, nil)
-	if oErr != nil {
-		var tptrs []*Thread
-		return tptrs, oErr
-	}
-
-	// Get all of the threads of which the user is a participant, plus all of
-	// threads that the user owns.
-	threads := make([]Thread, len(u.Threads)+len(ownedThreadKeys))
-	keys := append(ownedThreadKeys, u.Threads...)
-	if err := db.Client.GetMulti(ctx, keys, threads); err != nil {
+	// Get all of the threads of which the user is a member
+	var threads []Thread
+	q := datastore.NewQuery("Thread").Filter("UserKeys =", u.Key)
+	_, err := db.Client.GetAll(ctx, q, &threads)
+	if err != nil {
 		var tptrs []*Thread
 		return tptrs, err
 	}

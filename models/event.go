@@ -16,10 +16,10 @@ type Event struct {
 	ID           string           `json:"id"       datastore:"-"`
 	OwnerKey     *datastore.Key   `json:"-"`
 	Owner        *UserPartial     `json:"owner"    datastore:"-"`
-	UserKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
+	UserKeys     []*datastore.Key `json:"-"`
 	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
 	Users        []*User          `json:"-"        datastore:"-"`
-	RSVPKeys     []*datastore.Key `json:"-"        datastore:",noindex"`
+	RSVPKeys     []*datastore.Key `json:"-"`
 	RSVPs        []*UserPartial   `json:"rsvps"    datastore:"-"`
 	PlaceID      string           `json:"placeID"  datastore:",noindex"`
 	Address      string           `json:"address"  datastore:",noindex"`
@@ -260,19 +260,11 @@ func GetEventByID(ctx context.Context, id string) (Event, error) {
 }
 
 func GetEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
-	// Get all of the keys of the events that the user owns.
-	q := datastore.NewQuery("Event").Filter("OwnerKey =", u.Key).KeysOnly()
-	ownedEventKeys, err := db.Client.GetAll(ctx, q, nil)
+	// Get all of the events of which the user is a member
+	var events []Event
+	q := datastore.NewQuery("Event").Filter("UserKeys =", u.Key)
+	_, err := db.Client.GetAll(ctx, q, &events)
 	if err != nil {
-		var eventPtrs []*Event
-		return eventPtrs, err
-	}
-
-	// Get all of the events to which the user is invited, plus all of
-	// events that the user owns.
-	events := make([]Event, len(u.Events)+len(ownedEventKeys))
-	keys := append(ownedEventKeys, u.Events...)
-	if err := db.Client.GetMulti(ctx, keys, events); err != nil {
 		var eventPtrs []*Event
 		return eventPtrs, err
 	}
