@@ -94,6 +94,8 @@ func NewThreadMessage(u *User, t *Thread, body string) (Message, error) {
 		Timestamp: ts,
 	}
 
+	ClearReads(t)
+
 	return message, nil
 }
 
@@ -109,6 +111,8 @@ func NewEventMessage(u *User, e *Event, body string) (Message, error) {
 		Body:      body,
 		Timestamp: ts,
 	}
+
+	ClearReads(e)
 
 	return message, nil
 }

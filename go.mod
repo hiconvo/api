@@ -36,7 +36,7 @@ require (
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	gocloud.dev v0.15.0
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
-	google.golang.org/api v0.10.0 // indirect
+	google.golang.org/api v0.10.0
 	googlemaps.github.io/maps v0.0.0-20190906051648-24f4c8471353
 	gopkg.in/gographics/imagick.v3 v3.2.0 // indirect
 	gopkg.in/russross/blackfriday.v2 v2.0.1

@@ -1,0 +1,22 @@
+<!-- START TITLE DEF -->
+{{ define "title" }}
+<title>Convo Digest</title>
+{{ end }}
+<!-- END TITLE DEF -->
+
+<!-- START CONTENT DEF -->
+{{ define "content" }}
+<h2>Convo Digest</h2>
+<p>You have unread messages in the following convos and events.</p>
+{{ range .Items }}
+<h3>{{ .Subject }}</h3>
+{{ range .Messages }} {{ template "message" .}} {{ end }} {{ end }} {{ end }}
+<!-- END CONTENT DEF -->
+
+<!-- START FOOTER DEF -->
+{{ define "footer" }}
+<p>
+  <a href="https://app.hiconvo.com">Login to Convo</a>
+</p>
+{{ end }}
+<!-- END FOOTER DEF -->

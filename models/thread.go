@@ -70,6 +70,14 @@ func (t *Thread) SetReads(newReads []*Read) {
 	t.Reads = newReads
 }
 
+func (t *Thread) GetKey() *datastore.Key {
+	return t.Key
+}
+
+func (t *Thread) GetName() string {
+	return t.Subject
+}
+
 func (t *Thread) GetEmail() string {
 	slugified := slug.Make(t.Subject)
 	if len(slugified) > 20 {

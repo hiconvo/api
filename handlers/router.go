@@ -21,6 +21,8 @@ func CreateRouter() http.Handler {
 	// Inbound email webhook
 	router.HandleFunc("/inbound", Inbound).Methods("POST")
 
+	router.HandleFunc("/tasks/digest", CreateDigest)
+
 	// JSON endpoints
 	jsonSubrouter := router.NewRoute().Subrouter()
 	jsonSubrouter.Use(bjson.WithJSON, bjson.WithJSONReqBody)

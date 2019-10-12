@@ -183,6 +183,25 @@ func sendCancellation(event *Event) error {
 	return nil
 }
 
+func sendDigest(digestList []DigestItem, user *User) error {
+	_, html, err := renderDigest(digestList, user)
+	if err != nil {
+		return err
+	}
+
+	email := mail.EmailMessage{
+		FromName:    fromName,
+		FromEmail:   fromEmail,
+		ToName:      user.FullName,
+		ToEmail:     user.Email,
+		Subject:     "[convo] Digest",
+		TextContent: "You have unread messages on Convo.",
+		HTMLContent: html,
+	}
+
+	return mail.Send(email)
+}
+
 func renderThread(thread *Thread, messages []*Message, user *User) (string, string, error) {
 	var lastFive []*Message
 	if len(messages) > 5 {
@@ -299,4 +318,33 @@ func renderCancellation(event *Event, user *User) (string, string, error) {
 	}
 
 	return plainText, html, nil
+}
+
+func renderDigest(digestList []DigestItem, user *User) (string, string, error) {
+	items := make([]template.Thread, len(digestList))
+	for i := range digestList {
+		messages := make([]template.Message, len(digestList[i].Messages))
+		for j := range messages {
+			messages[j] = template.Message{
+				Body:   digestList[i].Messages[j].Body,
+				Name:   digestList[i].Messages[j].User.FullName,
+				FromID: digestList[i].Messages[j].User.ID,
+				ToID:   user.ID,
+			}
+		}
+
+		items[i] = template.Thread{
+			Subject:  digestList[i].Name,
+			Messages: messages,
+		}
+	}
+
+	html, err := template.RenderDigest(template.Digest{
+		Items: items,
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	return "", html, nil
 }

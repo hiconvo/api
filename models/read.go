@@ -27,10 +27,8 @@ func MarkAsRead(r Readable, userKey *datastore.Key) {
 	reads := r.GetReads()
 
 	// If this has already been read, skip it
-	for i := range reads {
-		if reads[i].UserKey.Equal(userKey) {
-			return
-		}
+	if IsRead(r, userKey) {
+		return
 	}
 
 	reads = append(reads, NewRead(userKey))
@@ -40,6 +38,18 @@ func MarkAsRead(r Readable, userKey *datastore.Key) {
 
 func ClearReads(r Readable) {
 	r.SetReads([]*Read{})
+}
+
+func IsRead(r Readable, userKey *datastore.Key) bool {
+	reads := r.GetReads()
+
+	for i := range reads {
+		if reads[i].UserKey.Equal(userKey) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func MapReadsToUserPartials(r Readable, users []*User) []*UserPartial {

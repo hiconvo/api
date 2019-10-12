@@ -40,6 +40,11 @@ type Event struct {
 	MagicLink   string
 }
 
+type Digest struct {
+	Items   []Thread
+	Preview string
+}
+
 type message struct {
 	Body   htmltpl.HTML
 	Name   string
@@ -94,7 +99,7 @@ func init() {
 	}
 
 	// Make sure the expected templates are there
-	for _, tplName := range []string{"thread.html", "event.html", "cancellation.html"} {
+	for _, tplName := range []string{"thread.html", "event.html", "cancellation.html", "digest.html"} {
 		_, ok := templates[tplName]
 		if !ok {
 			panic(fmt.Sprintf("Template '%v' not found", tplName))
@@ -170,6 +175,22 @@ func RenderCancellation(data Event) (string, error) {
 
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "base.html", e); err != nil {
+		return "", err
+	}
+
+	html, err := inliner.Inline(buf.String())
+	if err != nil {
+		return html, err
+	}
+
+	return html, nil
+}
+
+func RenderDigest(data Digest) (string, error) {
+	tmpl, _ := templates["digest.html"]
+
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, "base.html", data); err != nil {
 		return "", err
 	}
 

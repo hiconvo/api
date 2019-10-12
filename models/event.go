@@ -79,6 +79,14 @@ func (e *Event) SetReads(newReads []*Read) {
 	e.Reads = newReads
 }
 
+func (e *Event) GetKey() *datastore.Key {
+	return e.Key
+}
+
+func (e *Event) GetName() string {
+	return e.Name
+}
+
 func (e *Event) HasUser(u *User) bool {
 	for _, k := range e.UserKeys {
 		if k.Equal(u.Key) {

@@ -295,6 +295,48 @@ func (u *User) Welcome(ctx context.Context) {
 	}
 }
 
+func (u *User) SendDigest(ctx context.Context) error {
+	// Get all of the users threads and events
+	threads, err := GetThreadsByUser(ctx, u)
+	if err != nil {
+		return err
+	}
+	events, err := GetEventsByUser(ctx, u)
+	if err != nil {
+		return err
+	}
+
+	// Convert them into Digestables and filter out read items
+	var digestables []Digestable
+	for i := range threads {
+		if !IsRead(threads[i], u.Key) {
+			digestables = append(digestables, threads[i])
+		}
+	}
+	for i := range events {
+		if !IsRead(events[i], u.Key) {
+			digestables = append(digestables, events[i])
+		}
+	}
+
+	digestList, err := GenerateDigestList(ctx, digestables, u)
+	if err != nil {
+		return err
+	}
+
+	if len(digestList) > 0 {
+		if err := sendDigest(digestList, u); err != nil {
+			return err
+		}
+
+		if err := MarkDigestedMessagesAsRead(ctx, digestList, u); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 	skip := 0
 	take := 10
