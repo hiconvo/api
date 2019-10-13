@@ -13,7 +13,7 @@ import (
 
 const (
 	fromEmail = "robots@mail.hiconvo.com"
-	fromName  = "ConvoBot"
+	fromName  = "Convo"
 
 	passwordReset      = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />ConvoBot"
 	verifyEmail        = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />ConvoBot"

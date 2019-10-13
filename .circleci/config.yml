@@ -36,7 +36,12 @@ jobs:
       - run:
           name: run tests
           command: |
-            go test ./...
+            go test ./... -coverprofile=coverage.txt -covermode=atomic
+
+      - run:
+          name: upload coverage report
+          command: |
+            bash <(curl -s https://codecov.io/bash)
 
       - save_cache:
           key: pkg-cache-{{ checksum "go.mod" }}
