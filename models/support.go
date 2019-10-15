@@ -15,7 +15,7 @@ Welcome to Convo! Convo has two main features, **events** and **messaging**.
 
 Convo events make it easy to plan events with real people. Invite your guests by name or email and they can RSVP in one click without having to create accounts of their own.
 
-Convo also allows you to message with people directly via *Convos*. A Convo is a thin abstraction layer over email that makes it easy to connect with people by their real names without revealing any personal contact info.
+Convo also allows you to message with people directly via *Convos*. A Convo is a layer over email that makes it easy to connect with people by their real names without revealing any personal contact info.
 
 Read more about Convo and why I built it on [the blog](https://blog.hiconvo.com/hello-world).
 
