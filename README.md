@@ -1,4 +1,4 @@
-# API
+# Convo API
 
 [![CircleCI](https://img.shields.io/circleci/build/github/hiconvo/api?label=circleci)](https://circleci.com/gh/hiconvo/api) [![codecov](https://img.shields.io/codecov/c/gh/hiconvo/api)](https://codecov.io/gh/hiconvo/api)
 
