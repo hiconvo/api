@@ -107,7 +107,7 @@ func (t *Thread) AddUser(u *User) error {
 		return errors.New("This user is already a member of this convo")
 	}
 
-	if len(t.UserKeys) >= 20 {
+	if len(t.UserKeys) >= 11 {
 		return errors.New("This convo has the maximum number of users")
 	}
 
