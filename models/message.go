@@ -155,3 +155,13 @@ func GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*Message, error)
 
 	return messages, nil
 }
+
+func GetUnhydratedMessagesByUser(ctx context.Context, u *User) ([]*Message, error) {
+	var messages []*Message
+	q := datastore.NewQuery("Message").Filter("UserKey =", u.Key)
+	if _, err := db.Client.GetAll(ctx, q, &messages); err != nil {
+		return messages, err
+	}
+
+	return messages, nil
+}

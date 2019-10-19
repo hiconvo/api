@@ -423,6 +423,80 @@ func (u *User) SendDigest(ctx context.Context) error {
 	return nil
 }
 
+func (u *User) MergeWith(ctx context.Context, tUser *User) error {
+	// Contacts
+	//
+	u.ContactKeys = mergeContacts(u.ContactKeys, tUser.ContactKeys)
+
+	// Messages
+	//
+	tUserMessages, err := GetUnhydratedMessagesByUser(ctx, tUser)
+	if err != nil {
+		return err
+	}
+	// Reassign ownership of messages and save keys to tUserMessageKeys slice
+	tUserMessageKeys := make([]*datastore.Key, len(tUserMessages))
+	for i := range tUserMessages {
+		tUserMessages[i].UserKey = u.Key
+		tUserMessageKeys[i] = tUserMessages[i].Key
+	}
+	// Save the messages
+	_, err = db.Client.PutMulti(ctx, tUserMessageKeys, tUserMessages)
+	if err != nil {
+		return err
+	}
+
+	// Threads
+	//
+	tUserThreads, err := GetUnhydratedThreadsByUser(ctx, tUser)
+	if err != nil {
+		return err
+	}
+	// Reassign ownership of threads and save keys to tUserThreadKeys slice
+	tUserThreadKeys := make([]*datastore.Key, len(tUserThreads))
+	for i := range tUserThreads {
+		tUserThreads[i].RemoveUser(tUser)
+		tUserThreads[i].AddUser(u)
+
+		if tUserThreads[i].OwnerIs(tUser) {
+			tUserThreads[i].OwnerKey = u.Key
+		}
+
+		tUserThreadKeys[i] = tUserThreads[i].Key
+	}
+	// Save the messages
+	_, err = db.Client.PutMulti(ctx, tUserThreadKeys, tUserThreads)
+	if err != nil {
+		return err
+	}
+
+	// Events
+	//
+	tUserEvents, err := GetUnhydratedEventsByUser(ctx, tUser)
+	if err != nil {
+		return err
+	}
+	// Reassign ownership of threads and save keys to tUserEventKeys slice
+	tUserEventKeys := make([]*datastore.Key, len(tUserEvents))
+	for i := range tUserEvents {
+		tUserEvents[i].RemoveUser(tUser)
+		tUserEvents[i].AddUser(u)
+
+		if tUserEvents[i].OwnerIs(tUser) {
+			tUserEvents[i].OwnerKey = u.Key
+		}
+
+		tUserEventKeys[i] = tUserEvents[i].Key
+	}
+	// Save the messages
+	_, err = db.Client.PutMulti(ctx, tUserEventKeys, tUserEvents)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 	skip := 0
 	take := 10

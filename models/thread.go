@@ -227,6 +227,17 @@ func GetThreadByInt64ID(ctx context.Context, id int64) (Thread, error) {
 	return handleGetThread(ctx, key, t)
 }
 
+func GetUnhydratedThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
+	var threads []*Thread
+	q := datastore.NewQuery("Thread").Filter("UserKeys =", u.Key)
+	_, err := db.Client.GetAll(ctx, q, &threads)
+	if err != nil {
+		return threads, err
+	}
+
+	return threads, nil
+}
+
 func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 	// Get all of the threads of which the user is a member
 	var threads []Thread

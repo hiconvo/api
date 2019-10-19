@@ -293,6 +293,17 @@ func GetEventByID(ctx context.Context, id string) (Event, error) {
 	return handleGetEvent(ctx, key, e)
 }
 
+func GetUnhydratedEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
+	var events []*Event
+	q := datastore.NewQuery("Event").Filter("UserKeys =", u.Key)
+	_, err := db.Client.GetAll(ctx, q, &events)
+	if err != nil {
+		return events, err
+	}
+
+	return events, nil
+}
+
 func GetEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
 	// Get all of the events of which the user is a member
 	var events []Event
