@@ -109,9 +109,15 @@ func sendEvent(event *Event, isUpdate bool) error {
 	}
 
 	// Loop through all participants and generate emails
-	emailMessages := make([]mail.EmailMessage, len(users))
+	emailMessages := make([]mail.EmailMessage, len(users)-1)
 	for i := range users {
 		currentUser := users[i]
+
+		// Don't send invitations to the host
+		if event.OwnerIs(currentUser) {
+			continue
+		}
+
 		plainText, html, rerr := renderEvent(event, currentUser)
 		if rerr != nil {
 			return rerr
@@ -183,8 +189,8 @@ func sendCancellation(event *Event) error {
 	return nil
 }
 
-func sendDigest(digestList []DigestItem, user *User) error {
-	_, html, err := renderDigest(digestList, user)
+func sendDigest(digestList []DigestItem, upcomingEvents []*Event, user *User) error {
+	_, html, err := renderDigest(digestList, upcomingEvents, user)
 	if err != nil {
 		return err
 	}
@@ -246,15 +252,12 @@ func renderThread(thread *Thread, messages []*Message, user *User) (string, stri
 }
 
 func renderEvent(event *Event, user *User) (string, string, error) {
-	loc := time.FixedZone("Given", event.UTCOffset)
-	timestamp := event.Timestamp.In(loc).Format("Monday, January 2nd @ 3:04 PM")
-
 	var builder strings.Builder
 	fmt.Fprintf(&builder, eventTplStr,
 		event.Owner.FullName,
 		event.Name,
 		event.Address,
-		timestamp,
+		event.GetFormatedTime(),
 		event.Description)
 	plainText := builder.String()
 
@@ -269,7 +272,7 @@ func renderEvent(event *Event, user *User) (string, string, error) {
 	html, err := template.RenderEvent(template.Event{
 		Name:        event.Name,
 		Address:     event.Address,
-		Time:        timestamp,
+		Time:        event.GetFormatedTime(),
 		Description: event.Description,
 		Preview:     preview,
 		FromName:    event.Owner.FullName,
@@ -320,7 +323,8 @@ func renderCancellation(event *Event, user *User) (string, string, error) {
 	return plainText, html, nil
 }
 
-func renderDigest(digestList []DigestItem, user *User) (string, string, error) {
+func renderDigest(digestList []DigestItem, events []*Event, user *User) (string, string, error) {
+	// Convert all the DigestItems into template.Threads with their messages
 	items := make([]template.Thread, len(digestList))
 	for i := range digestList {
 		messages := make([]template.Message, len(digestList[i].Messages))
@@ -339,8 +343,20 @@ func renderDigest(digestList []DigestItem, user *User) (string, string, error) {
 		}
 	}
 
+	// Convert all of the upcomingEvents to template.Events
+	templateEvents := make([]template.Event, len(events))
+	for i := range events {
+		templateEvents[i] = template.Event{
+			Name:    events[i].Name,
+			Address: events[i].Address,
+			Time:    events[i].GetFormatedTime(),
+		}
+	}
+
+	// Render all the stuff
 	html, err := template.RenderDigest(template.Digest{
-		Items: items,
+		Items:  items,
+		Events: templateEvents,
 	})
 	if err != nil {
 		return "", "", err

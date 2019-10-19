@@ -1,45 +1,39 @@
 <!-- START TITLE DEF -->
 {{ define "title" }}
-<title>Cancelled: {{ .Name }}</title>
+  <title>Cancelled: {{ .Name }}</title>
 {{ end }}
 <!-- END TITLE DEF -->
 
 <!-- START CONTENT DEF -->
 {{ define "content" }}
-<table role="presentation" class="message">
-  <!-- START MESSAGE CONTENT AREA -->
-  <tr>
-    <td class="wrapper">
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-        <tr>
-          <td>
-            <!-- START EVENT DATA -->
-            <p>Hello,</p>
-            <p>The following event has been <strong>cancelled</strong>:</p>
-            <p>
-              <strong>{{ .Name }}</strong>
-              <br />
-              <span>{{ .Time }}</span>
-              <br />
-              <span>{{ .Address }}</span>
-            </p>
-            <!-- END EVENT DATA -->
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-
-  <!-- END MESSAGE CONTENT AREA -->
-</table>
-
+  <table role="presentation" class="message">
+    <tr>
+      <td class="wrapper">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td>
+              <p>Hello,</p>
+              <p>The following event has been <strong>cancelled</strong>:</p>
+              <p>
+                <strong>{{ .Name }}</strong>
+                <br />
+                <span>{{ .Time }}</span>
+                <br />
+                <span>{{ .Address }}</span>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 {{ end }}
 <!-- END CONTENT DEF -->
 
 <!-- START FOOTER DEF -->
 {{ define "footer" }}
-<p>
-  <a href="https://app.hiconvo.com">Login to Convo</a>
-</p>
+  <p>
+    <a href="https://app.hiconvo.com">Login to Convo</a>
+  </p>
 {{ end }}
 <!-- END FOOTER DEF -->

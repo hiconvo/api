@@ -43,6 +43,7 @@ type Event struct {
 type Digest struct {
 	Items   []Thread
 	Preview string
+	Events  []Event
 }
 
 type message struct {
@@ -71,6 +72,7 @@ type event struct {
 type digest struct {
 	Items   []thread
 	Preview string
+	Events  []event
 }
 
 var templates map[string]*htmltpl.Template
@@ -195,7 +197,6 @@ func RenderDigest(data Digest) (string, error) {
 	tmpl, _ := templates["digest.html"]
 
 	var threadList []thread
-
 	for i := range data.Items {
 		var messages []message
 		for j := range data.Items[i].Messages {
@@ -214,9 +215,19 @@ func RenderDigest(data Digest) (string, error) {
 		})
 	}
 
+	var eventList []event
+	for i := range data.Events {
+		eventList = append(eventList, event{
+			Name:    data.Events[i].Name,
+			Address: data.Events[i].Address,
+			Time:    data.Events[i].Time,
+		})
+	}
+
 	d := digest{
 		Items:   threadList,
-		Preview: "You have unread messages on convo.",
+		Events:  eventList,
+		Preview: "You have notifications on Convo.",
 	}
 
 	var buf bytes.Buffer

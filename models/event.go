@@ -87,6 +87,11 @@ func (e *Event) GetName() string {
 	return e.Name
 }
 
+func (e *Event) GetFormatedTime() string {
+	loc := time.FixedZone("Given", e.UTCOffset)
+	return e.Timestamp.In(loc).Format("Monday, January 2nd @ 3:04 PM")
+}
+
 func (e *Event) HasUser(u *User) bool {
 	for _, k := range e.UserKeys {
 		if k.Equal(u.Key) {
@@ -206,6 +211,22 @@ func (e *Event) SendCancellation(ctx context.Context) error {
 
 func (e *Event) IsInFuture() bool {
 	return e.Timestamp.After(time.Now())
+}
+
+func (e *Event) IsUpcoming() bool {
+	start, err := time.ParseDuration("6h")
+	if err != nil {
+		return false
+	}
+	end, err := time.ParseDuration("30h")
+	if err != nil {
+		return false
+	}
+
+	windowStart := time.Now().Add(start)
+	windowEnd := time.Now().Add(end)
+
+	return e.Timestamp.After(windowStart) && e.Timestamp.Before(windowEnd)
 }
 
 func NewEvent(

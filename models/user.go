@@ -304,11 +304,17 @@ func (u *User) SendDigest(ctx context.Context) error {
 		return err
 	}
 
-	// Convert them into Digestables and filter out read items
+	// Convert the events into Digestables and filter out read items
 	var digestables []Digestable
+	// Save the upcoming events to a slice at the same time
+	var upcoming []*Event
 	for i := range events {
 		if !IsRead(events[i], u.Key) {
 			digestables = append(digestables, events[i])
+		}
+
+		if events[i].IsUpcoming() {
+			upcoming = append(upcoming, events[i])
 		}
 	}
 
@@ -317,8 +323,8 @@ func (u *User) SendDigest(ctx context.Context) error {
 		return err
 	}
 
-	if len(digestList) > 0 {
-		if err := sendDigest(digestList, u); err != nil {
+	if len(digestList) > 0 || len(upcoming) > 0 {
+		if err := sendDigest(digestList, upcoming, u); err != nil {
 			return err
 		}
 

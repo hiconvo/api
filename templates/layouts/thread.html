@@ -1,19 +1,22 @@
 <!-- START TITLE DEF -->
 {{ define "title" }}
-<title>{{ .Subject }}</title>
+  <title>{{ .Subject }}</title>
 {{ end }}
 <!-- END TITLE DEF -->
 
 <!-- START CONTENT DEF -->
-{{ define "content" }} {{ range .Messages }} {{ template "message" .}} {{ end }}
+{{ define "content" }}
+  {{ range .Messages }}
+    {{ template "message" .}}
+  {{ end }}
 {{ end }}
 <!-- END CONTENT DEF -->
 
 <!-- START FOOTER DEF -->
 {{ define "footer" }}
-<p>
-  This email is a <a href="https://app.hiconvo.com">Convo</a>. You can reply to
-  this email as you would any other.
-</p>
+  <p>
+    This email is a <a href="https://app.hiconvo.com">Convo</a>. You can reply to
+    this email as you would any other.
+  </p>
 {{ end }}
 <!-- END FOOTER DEF -->
