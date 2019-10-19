@@ -293,6 +293,11 @@ func (u *User) Welcome(ctx context.Context) {
 	if err := message.Commit(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
+
+	// We have to save the thread again, which is annoying
+	if err := thread.Commit(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
 }
 
 func (u *User) SendDigest(ctx context.Context) error {
