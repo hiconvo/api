@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"cloud.google.com/go/datastore"
 	"github.com/gosimple/slug"
@@ -22,6 +23,7 @@ type Thread struct {
 	Preview      *Preview         `json:"preview"  datastore:",noindex"`
 	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
 	Reads        []*Read          `json:"-"        datastore:",noindex"`
+	CreatedAt    time.Time        `json:"-"`
 }
 
 func (t *Thread) LoadKey(k *datastore.Key) error {
@@ -46,6 +48,10 @@ func (t *Thread) Load(ps []datastore.Property) error {
 }
 
 func (t *Thread) Commit(ctx context.Context) error {
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = time.Now()
+	}
+
 	key, kErr := db.Client.Put(ctx, t.Key, t)
 	if kErr != nil {
 		return kErr

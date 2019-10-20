@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/datastore"
 	"github.com/olivere/elastic/v7"
@@ -40,6 +41,7 @@ type User struct {
 	Avatar           string           `json:"avatar"`
 	ContactKeys      []*datastore.Key `json:"-"`
 	Contacts         []*UserPartial   `json:"-"        datastore:"-"`
+	CreatedAt        time.Time        `json:"-"`
 }
 
 type UserPartial struct {
@@ -111,6 +113,10 @@ func (u *User) Load(ps []datastore.Property) error {
 }
 
 func (u *User) Commit(ctx context.Context) error {
+	if u.CreatedAt.IsZero() {
+		u.CreatedAt = time.Now()
+	}
+
 	key, kErr := db.Client.Put(ctx, u.Key, u)
 	if kErr != nil {
 		return kErr

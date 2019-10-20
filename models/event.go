@@ -31,6 +31,7 @@ type Event struct {
 	UTCOffset    int              `json:"-"        datastore:",noindex"`
 	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
 	Reads        []*Read          `json:"-"        datastore:",noindex"`
+	CreatedAt    time.Time        `json:"-"`
 }
 
 func (e *Event) LoadKey(k *datastore.Key) error {
@@ -55,6 +56,10 @@ func (e *Event) Load(ps []datastore.Property) error {
 }
 
 func (e *Event) Commit(ctx context.Context) error {
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = time.Now()
+	}
+
 	key, kErr := db.Client.Put(ctx, e.Key, e)
 	if kErr != nil {
 		return kErr
