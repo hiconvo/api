@@ -15,8 +15,8 @@ const (
 	fromEmail = "robots@mail.hiconvo.com"
 	fromName  = "Convo"
 
-	passwordReset      = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />ConvoBot"
-	verifyEmail        = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />ConvoBot"
+	passwordReset      = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />Convo Support"
+	verifyEmail        = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />Convo Support"
 	messageTplStr      = "%s said:\n\n%s\n\n"
 	eventTplStr        = "%s invited you to:\n\n%s\n\n%s\n\n%s\n\n%s\n"
 	cancellationTplStr = "%s has cancelled:\n\n%s\n\n%s\n\n%s\n"

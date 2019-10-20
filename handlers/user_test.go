@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/thelpers"
 )
@@ -288,7 +289,7 @@ func TestUpdateUser(t *testing.T) {
 
 	tests := []test{
 		{
-			AuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			AuthHeader: getAuthHeader(existingUser.Token),
 			InData: map[string]interface{}{
 				"firstName": "Sir",
 				"lastName":  "Malebranche",
@@ -302,14 +303,6 @@ func TestUpdateUser(t *testing.T) {
 				"verified":  existingUser.Verified,
 				"email":     existingUser.Email,
 			},
-		},
-		{
-			AuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
-			InData: map[string]interface{}{
-				"email": "asdf",
-			},
-			OutCode:   http.StatusBadRequest,
-			OutPaylod: `{"email":"This is not a valid email"}`,
 		},
 	}
 
@@ -419,23 +412,31 @@ func TestUpdatePassword(t *testing.T) {
 // POST /users/verify
 ///////////////////////
 
-func TestVerifyEmail(t *testing.T) {
-	existingUser, _ := createTestUser(t)
-	existingUser.Verified = false
-	link := magic.NewLink(existingUser.Key, strconv.FormatBool(existingUser.Verified), "verify")
+func createVerifyLink(u models.User, email string) (string, string, string) {
+	salt := email + strconv.FormatBool(u.HasEmail(email))
+
+	link := magic.NewLink(u.Key, salt, "verify")
+
 	split := strings.Split(link, "/")
 	kenc := split[len(split)-3]
 	b64ts := split[len(split)-2]
 	sig := split[len(split)-1]
 
+	return kenc, b64ts, sig
+}
+
+func TestVerifyEmail(t *testing.T) {
+	existingUser1, _ := createTestUser(t)
+	existingUser1.Emails = []string{}
+	existingUser1.Verified = false
+	existingUser1.Commit(tc)
+	kenc1, b64ts1, sig1 := createVerifyLink(existingUser1, existingUser1.Email)
+
 	existingUser2, _ := createTestUser(t)
 	existingUser2.Verified = false
-	link2 := magic.NewLink(existingUser2.Key, strconv.FormatBool(existingUser2.Verified), "verify")
-	split2 := strings.Split(link2, "/")
-	kenc2 := split2[len(split2)-3]
-	b64ts2 := split2[len(split2)-2]
+	kenc2, b64ts2, _ := createVerifyLink(existingUser2, existingUser2.Email)
 
-	existingUser.Commit(tc)
+	existingUser1.Commit(tc)
 	existingUser2.Commit(tc)
 
 	type test struct {
@@ -449,27 +450,27 @@ func TestVerifyEmail(t *testing.T) {
 	tests := []test{
 		{
 			InData: map[string]interface{}{
-				"signature": sig,
-				"timestamp": b64ts,
-				"userID":    kenc,
-				"password":  "12345678",
+				"signature": sig1,
+				"timestamp": b64ts1,
+				"userID":    kenc1,
+				"email":     existingUser1.Email,
 			},
 			OutCode: http.StatusOK,
 			OutData: map[string]interface{}{
-				"id":        existingUser.ID,
-				"firstName": existingUser.FirstName,
-				"lastName":  existingUser.LastName,
-				"token":     existingUser.Token,
+				"id":        existingUser1.ID,
+				"firstName": existingUser1.FirstName,
+				"lastName":  existingUser1.LastName,
+				"token":     existingUser1.Token,
 				"verified":  true,
-				"email":     existingUser.Email,
+				"email":     existingUser1.Email,
 			},
 		},
 		{
 			InData: map[string]interface{}{
-				"signature": sig,
-				"timestamp": b64ts,
-				"userID":    kenc,
-				"password":  "12345678",
+				"signature": sig1,
+				"timestamp": b64ts1,
+				"userID":    kenc1,
+				"email":     existingUser1.Email,
 			},
 			OutCode:   http.StatusUnauthorized,
 			OutPaylod: `{"message":"This link is not valid anymore"}`,
@@ -479,7 +480,7 @@ func TestVerifyEmail(t *testing.T) {
 				"signature": "not a valid signature",
 				"timestamp": b64ts2,
 				"userID":    kenc2,
-				"password":  "12345678",
+				"email":     existingUser2.Email,
 			},
 			OutCode:   http.StatusUnauthorized,
 			OutPaylod: `{"message":"This link is not valid anymore"}`,

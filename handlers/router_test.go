@@ -57,34 +57,28 @@ func createTestUser(t *testing.T) (models.User, string) {
 		t.Fatal(err)
 	}
 
+	// Mark the user as verified by default
 	u.Verified = true
 
-	key, err := tclient.Put(tc, u.Key, &u)
-	if err != nil {
+	// Save the user
+	if err := u.Commit(tc); err != nil {
 		t.Fatal(err)
 	}
-
-	u.Key = key
-	u.ID = key.Encode()
-	u.DeriveProperties()
 
 	return u, password
 }
 
 func createTestThread(t *testing.T, owner *models.User, users []*models.User) models.Thread {
 	// Create the thread.
-	thread, tErr := models.NewThread("test", owner, users)
-	if tErr != nil {
-		t.Fatal(tErr)
+	thread, err := models.NewThread("test", owner, users)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	// Save the thread and extract the key and ID.
-	key, kErr := tclient.Put(tc, thread.Key, &thread)
-	if kErr != nil {
-		t.Fatal(kErr)
+	// Save the thread
+	if err := thread.Commit(tc); err != nil {
+		t.Fatal(err)
 	}
-	thread.ID = key.Encode()
-	thread.Key = key
 
 	// Add the thread to the user objects.
 	for i := range thread.Users {
@@ -99,33 +93,30 @@ func createTestThread(t *testing.T, owner *models.User, users []*models.User) mo
 	}
 
 	// Save the users.
-	_, uErr := tclient.PutMulti(tc, userKeys, thread.Users)
-	if uErr != nil {
-		t.Fatal(uErr)
+	if _, err := tclient.PutMulti(tc, userKeys, thread.Users); err != nil {
+		t.Fatal(err)
 	}
 
 	return thread
 }
 
 func createTestThreadMessage(t *testing.T, user *models.User, thread *models.Thread) models.Message {
-	message, merr := models.NewThreadMessage(user, thread, random.String(50))
-	if merr != nil {
-		t.Fatal(merr)
+	message, err := models.NewThreadMessage(user, thread, random.String(50))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	key, kErr := tclient.Put(tc, message.Key, &message)
-	if kErr != nil {
-		t.Fatal(kErr)
+	// Save the message
+	if err := message.Commit(tc); err != nil {
+		t.Fatal(err)
 	}
-	message.Key = key
-	message.ID = key.Encode()
 
 	return message
 }
 
 func createTestEvent(t *testing.T, owner *models.User, users []*models.User) models.Event {
 	// Create the thread.
-	event, tErr := models.NewEvent(
+	event, err := models.NewEvent(
 		"test",
 		"locKey",
 		"loc",
@@ -136,17 +127,14 @@ func createTestEvent(t *testing.T, owner *models.User, users []*models.User) mod
 		-7*60*60,
 		owner,
 		users)
-	if tErr != nil {
-		t.Fatal(tErr)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	// Save the event and extract the key and ID.
-	key, kErr := tclient.Put(tc, event.Key, &event)
-	if kErr != nil {
-		t.Fatal(kErr)
+	// Save the event.
+	if err := event.Commit(tc); err != nil {
+		t.Fatal(err)
 	}
-	event.ID = key.Encode()
-	event.Key = key
 
 	// Add the event to the user objects.
 	for i := range users {
@@ -161,26 +149,24 @@ func createTestEvent(t *testing.T, owner *models.User, users []*models.User) mod
 	}
 
 	// Save the users.
-	_, uErr := tclient.PutMulti(tc, userKeys, users)
-	if uErr != nil {
-		t.Fatal(uErr)
+	_, err = tclient.PutMulti(tc, userKeys, users)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	return event
 }
 
 func createTestEventMessage(t *testing.T, user *models.User, event *models.Event) models.Message {
-	message, merr := models.NewEventMessage(user, event, random.String(50))
-	if merr != nil {
-		t.Fatal(merr)
+	message, err := models.NewEventMessage(user, event, random.String(50))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	key, kErr := tclient.Put(tc, message.Key, &message)
-	if kErr != nil {
-		t.Fatal(kErr)
+	// Save the message
+	if err := message.Commit(tc); err != nil {
+		t.Fatal(err)
 	}
-	message.Key = key
-	message.ID = key.Encode()
 
 	return message
 }
