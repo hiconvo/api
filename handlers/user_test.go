@@ -442,12 +442,22 @@ func TestVerifyEmail(t *testing.T) {
 	existingUser3, _ := createTestUser(t)
 	kenc3, b64ts3, sig3 := createVerifyLink(existingUser3, "new@email.com")
 
+	// Merging accounts
+	existingUser4, _ := createTestUser(t)
+	existingUser5, _ := createTestUser(t)
+	event := createTestEvent(t, &existingUser2, []*models.User{&existingUser5})
+	eventMessage := createTestEventMessage(t, &existingUser5, &event)
+	thread := createTestThread(t, &existingUser5, []*models.User{&existingUser4, &existingUser3})
+	threadMessage := createTestThreadMessage(t, &existingUser5, &thread)
+	kenc4, b64ts4, sig4 := createVerifyLink(existingUser4, existingUser5.Email)
+
 	type test struct {
 		AuthHeader map[string]string
 		InData     map[string]interface{}
 		OutCode    int
 		OutData    map[string]interface{}
 		OutPaylod  string
+		VerifyFunc func() bool
 	}
 
 	tests := []test{
@@ -469,6 +479,7 @@ func TestVerifyEmail(t *testing.T) {
 				"email":     existingUser1.Email,
 				"emails":    []string{existingUser1.Email},
 			},
+			VerifyFunc: func() bool { return true },
 		},
 
 		// Already used magic link (applying standard case second time)
@@ -491,8 +502,9 @@ func TestVerifyEmail(t *testing.T) {
 				"userID":    kenc2,
 				"email":     existingUser2.Email,
 			},
-			OutCode:   http.StatusUnauthorized,
-			OutPaylod: `{"message":"This link is not valid anymore"}`,
+			OutCode:    http.StatusUnauthorized,
+			OutPaylod:  `{"message":"This link is not valid anymore"}`,
+			VerifyFunc: func() bool { return true },
 		},
 
 		// Adding an email
@@ -512,6 +524,90 @@ func TestVerifyEmail(t *testing.T) {
 				"verified":  true,
 				"email":     existingUser3.Email,
 				"emails":    []string{existingUser3.Email, "new@email.com"},
+			},
+			VerifyFunc: func() bool { return true },
+		},
+
+		// Merging accounts
+		{
+			InData: map[string]interface{}{
+				"signature": sig4,
+				"timestamp": b64ts4,
+				"userID":    kenc4,
+				"email":     existingUser5.Email,
+			},
+			OutCode: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser4.ID,
+				"firstName": existingUser4.FirstName,
+				"lastName":  existingUser4.LastName,
+				"token":     existingUser4.Token,
+				"verified":  true,
+				"email":     existingUser4.Email,
+				"emails":    []string{existingUser4.Email, existingUser5.Email},
+			},
+			VerifyFunc: func() bool {
+				// Make sure that existingUser5 was deleted
+				_, err := models.GetUserByID(tc, existingUser5.ID)
+				if err == nil {
+					return false
+				}
+
+				// Make sure that existingUser5's events were transfered to
+				// existingUser4
+				events, err := models.GetEventsByUser(tc, &existingUser4)
+				if err != nil {
+					return false
+				}
+
+				found := false
+				for i := range events {
+					if events[i].ID == event.ID {
+						found = true
+					}
+				}
+				if !found {
+					return false
+				}
+
+				// Make sure that existingUser5's threads were transfered to
+				// existingUser4
+				threads, err := models.GetThreadsByUser(tc, &existingUser4)
+				if err != nil {
+					return false
+				}
+
+				found = false
+				for i := range threads {
+					if threads[i].ID == thread.ID {
+						found = true
+					}
+				}
+				if !found {
+					return false
+				}
+
+				// Make sure that existingUser5's messages were transferred too
+				messages, err := models.GetUnhydratedMessagesByUser(tc, &existingUser4)
+				if err != nil {
+					return false
+				}
+
+				foundEventMessage := false
+				fountThreadMessage := false
+				for i := range messages {
+					if messages[i].Key.Equal(eventMessage.Key) {
+						foundEventMessage = true
+					}
+					if messages[i].Key.Equal(threadMessage.Key) {
+						fountThreadMessage = true
+					}
+				}
+				if !foundEventMessage || !fountThreadMessage {
+					return false
+				}
+
+				return true
 			},
 		},
 	}
@@ -542,6 +638,10 @@ func TestVerifyEmail(t *testing.T) {
 
 			if !reflect.DeepEqual(gotEmails, wantedEmails) {
 				t.Errorf("Expected emails did not match got emails")
+			}
+
+			if !testCase.VerifyFunc() {
+				t.Errorf("Customer verifier failed")
 			}
 		}
 	}
