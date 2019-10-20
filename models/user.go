@@ -168,7 +168,7 @@ func (u *User) DeriveProperties() {
 }
 
 func (u *User) IsRegistered() bool {
-	return u.IsGoogleLinked || u.IsFacebookLinked || u.IsPasswordSet
+	return (u.IsGoogleLinked || u.IsFacebookLinked || u.IsPasswordSet) && u.Verified
 }
 
 func (u *User) SendPasswordResetEmail() error {

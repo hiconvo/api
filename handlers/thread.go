@@ -38,7 +38,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 
 	if !ou.IsRegistered() {
 		bjson.WriteJSON(w, map[string]string{
-			"message": "You must verify your account before you can create convos",
+			"message": "You must verify your account before you can create Convos",
 		}, http.StatusBadRequest)
 		return
 	}
