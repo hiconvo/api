@@ -245,6 +245,9 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 			u.Avatar = avatarURI
 		}
 
+		u.AddEmail(oauthPayload.Email)
+		u.DeriveProperties()
+
 		// Save
 		if err := u.Commit(ctx); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSave)
