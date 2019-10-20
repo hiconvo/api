@@ -50,9 +50,9 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(payload.Users) > 20 {
+	if len(payload.Users) > 11 {
 		bjson.WriteJSON(w, map[string]string{
-			"message": "Convos have a maximum of 20 members",
+			"message": "Convos have a maximum of 11 members",
 		}, http.StatusBadRequest)
 		return
 	}

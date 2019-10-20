@@ -35,7 +35,7 @@ type createEventPayload struct {
 	Name        string `validate:"max=255,nonzero"`
 	PlaceID     string `validate:"max=255,nonzero"`
 	Timestamp   string `validate:"max=255,nonzero"`
-	Description string `validate:"max=1023,nonzero"`
+	Description string `validate:"max=4097,nonzero"`
 	Users       []interface{}
 }
 
