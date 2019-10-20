@@ -166,6 +166,19 @@ func (u *User) DeriveProperties() {
 	u.IsPasswordSet = u.PasswordDigest != ""
 	u.IsGoogleLinked = u.OAuthGoogleID != ""
 	u.IsFacebookLinked = u.OAuthFacebookID != ""
+
+	// For handling transition from single to multi-email model. If the single email was
+	// verified, add it to the users Emails list.
+	if u.Verified && !u.HasEmail(u.Email) {
+		u.AddEmail(u.Email)
+	}
+
+	// Make the user's primary email one that is verified if possible.
+	if !u.Verified && !u.HasEmail(u.Email) && len(u.Emails) > 0 {
+		u.Email = u.Emails[0]
+	}
+
+	u.Verified = u.HasEmail(u.Email)
 }
 
 func (u *User) IsRegistered() bool {
@@ -177,8 +190,10 @@ func (u *User) SendPasswordResetEmail() error {
 	return sendPasswordResetEmail(u, magicLink)
 }
 
-func (u *User) SendVerifyEmail() error {
-	magicLink := magic.NewLink(u.Key, strconv.FormatBool(u.Verified), "verify")
+func (u *User) SendVerifyEmail(email string) error {
+	femail := strings.ToLower(email)
+	salt := femail + strconv.FormatBool(u.HasEmail(femail))
+	magicLink := magic.NewLink(u.Key, salt, "verify/"+femail)
 	return sendVerifyEmail(u, magicLink)
 }
 
@@ -302,15 +317,38 @@ func (u *User) AddEmail(email string) {
 }
 
 // RemoveEmail removes the given email from the user's Emails field, if the email is present.
-func (u *User) RemoveEmail(email string) {
+func (u *User) RemoveEmail(email string) error {
+	femail := strings.ToLower(email)
+
 	if !u.HasEmail(email) {
-		return
+		return nil
+	}
+
+	if u.Email == femail {
+		return errors.New("You cannot remove your primary email")
 	}
 
 	for i := range u.Emails {
 		u.Emails[i] = u.Emails[len(u.Emails)-1]
 		u.Emails = u.Emails[:len(u.Emails)-1]
 	}
+
+	return nil
+}
+
+func (u *User) MakeEmailPrimary(email string) error {
+	if !u.HasEmail(email) {
+		return errors.New("You cannot make an unverified email primary")
+	}
+
+	u.Email = strings.ToLower(email)
+	u.Verified = true
+
+	return nil
+}
+
+func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
+	return nil
 }
 
 func (u *User) Welcome(ctx context.Context) {
@@ -468,6 +506,7 @@ func NewUserWithOAuth(email, firstname, lastname, avatar, oauthprovider, oauthto
 	user := User{
 		Key:             datastore.IncompleteKey("User", nil),
 		Email:           femail,
+		Emails:          []string{femail},
 		FirstName:       firstname,
 		LastName:        lastname,
 		FullName:        "",
@@ -498,7 +537,14 @@ func GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 func GetUserByEmail(ctx context.Context, email string) (User, bool, error) {
-	return getUserByField(ctx, "Email", strings.ToLower(email))
+	femail := strings.ToLower(email)
+
+	u, found, err := getUserByField(ctx, "Email", femail)
+	if !found && err == nil {
+		return getUserByField(ctx, "Emails", femail)
+	}
+
+	return u, found, err
 }
 
 func GetUserByToken(ctx context.Context, token string) (User, bool, error) {

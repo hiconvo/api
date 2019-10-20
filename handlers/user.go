@@ -102,7 +102,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.SendVerifyEmail()
+	user.SendVerifyEmail(user.Email)
 	user.Welcome(ctx)
 
 	bjson.WriteJSON(w, user, http.StatusCreated)
@@ -163,7 +163,7 @@ func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 
 	if u.CheckPassword(payload.Password) {
 		if u.IsLocked {
-			u.SendVerifyEmail()
+			u.SendVerifyEmail(u.Email)
 
 			bjson.WriteJSON(w, map[string]string{
 				"message": "You must verify your email before you can login",
@@ -290,7 +290,6 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type updateUserPayload struct {
-	Email     string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
 	FirstName string
 	LastName  string
 	Password  bool
@@ -298,7 +297,6 @@ type updateUserPayload struct {
 
 // UpdateUser is an endpoint that can do three things. It can
 //   - update FirstName and LastName fields on a user
-//   - initiate an email update which requires email based validation
 //   - initiate a password update which requires email based validation
 //
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -314,23 +312,6 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if payload.Password {
 		u.SendPasswordResetEmail()
-	}
-
-	if payload.Email != "" && payload.Email != u.Email {
-		// Make sure the user is not already registered
-		_, found, err := models.GetUserByEmail(ctx, payload.Email)
-		if err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgCreate)
-			return
-		} else if found {
-			bjson.WriteJSON(w, errMsgReg, http.StatusBadRequest)
-			return
-		}
-
-		// Update email and send verification email
-		u.Email = payload.Email
-		u.Verified = false
-		u.SendVerifyEmail()
 	}
 
 	// TODO: Come up with something better than this.
@@ -404,6 +385,7 @@ type verifyEmailPayload struct {
 	Signature string `validate:"nonzero"`
 	Timestamp string `validate:"nonzero"`
 	UserID    string `validate:"nonzero"`
+	Email     string `validate:"nonzero"`
 }
 
 // VerifyEmail verifies that the user's email is really hers. It is secured
@@ -424,18 +406,38 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	femail := strings.ToLower(payload.Email)
+	salt := femail + strconv.FormatBool(u.HasEmail(femail))
+
 	if !magic.Verify(
 		payload.UserID,
 		payload.Timestamp,
-		strconv.FormatBool(u.Verified),
+		salt,
 		payload.Signature,
 	) {
 		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
 		return
 	}
 
-	u.Verified = true
-	u.IsLocked = false
+	// If there is already an account associated with this email, merge the two accounts.
+	dupUser, found, err := models.GetUserByEmail(ctx, femail)
+	if found {
+		err := u.MergeWith(ctx, &dupUser)
+		if err != nil {
+			bjson.HandleInternalServerError(w, err, map[string]string{
+				"message": "Could not merge accounts",
+			})
+			return
+		}
+	}
+
+	u.AddEmail(femail)
+	u.DeriveProperties()
+
+	if u.Email == femail {
+		u.IsLocked = false
+	}
+
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
@@ -482,11 +484,70 @@ func ForgotPassword(w http.ResponseWriter, r *http.Request) {
 // SendVerifyEmail resends the email verification email.
 func SendVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(r.Context())
-	err := u.SendVerifyEmail()
+	err := u.SendVerifyEmail(u.Email)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSend)
 		return
 	}
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// AddEmail Endpoint: POST /users/emails
+//
+// Request payload:
+type addEmailPayload struct {
+	Email string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+}
+
+// AddEmail sends a verification email to the given email with a magic link that,
+// when clicked, adds the new email to the user's account.
+func AddEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	body := bjson.BodyFromContext(ctx)
+
+	var payload addEmailPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	err := u.SendVerifyEmail(payload.Email)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSend)
+		return
+	}
+
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// RemoveEmail Endpoint: POST /users/emails
+//
+// Request payload:
+type removeEmailPayload struct {
+	Email string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+}
+
+// RemoveEmail removes the given email from the user's account.
+func RemoveEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	body := bjson.BodyFromContext(ctx)
+
+	var payload removeEmailPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	err := u.RemoveEmail(payload.Email)
+	if err != nil {
+		bjson.WriteJSON(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusBadRequest)
+		return
+	}
+
 	bjson.WriteJSON(w, u, http.StatusOK)
 }
 
