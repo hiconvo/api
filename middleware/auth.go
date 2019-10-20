@@ -23,7 +23,7 @@ func UserFromContext(ctx context.Context) models.User {
 // found, then a 401 unauthorized reponse is returned.
 func WithUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token, ok := getToken(r.Header); ok {
+		if token, ok := GetAuthToken(r.Header); ok {
 			octx := r.Context()
 			user, ok, err := models.GetUserByToken(octx, token)
 			if err != nil {
@@ -46,7 +46,9 @@ func WithUser(next http.Handler) http.Handler {
 	})
 }
 
-func getToken(h http.Header) (string, bool) {
+// GetAuthToken extracts the Authorization Bearer token from request
+// headers if present.
+func GetAuthToken(h http.Header) (string, bool) {
 	if val := h.Get("Authorization"); val != "" {
 		if strings.ToLower(val[:7]) == "bearer " {
 			return val[7:], true

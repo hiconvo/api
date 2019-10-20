@@ -213,8 +213,8 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to find the user by email. If found, associate the new token
-	// with the existing user.
+	// This user hasn't used Oauth before. Try to find the user by email.
+	// If found, associate the new token with the existing user.
 	u, found, err = models.GetUserByEmail(ctx, oauthPayload.Email)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgGet)
@@ -255,8 +255,8 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Finally at new user case
-
+	// Finally at new user case. Cache the avatar from the Oauth payload and
+	// create a new account with the Oauth payload.
 	avatarURI, err := oauth.CacheAvatar(ctx, oauthPayload.TempAvatar)
 	if err != nil {
 		// Print error but keep going. User might not have a profile pic.
@@ -275,12 +275,11 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save the user
+	// Save the user and create the welcome convo.
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
 	}
-
 	u.Welcome(ctx)
 
 	bjson.WriteJSON(w, u, http.StatusOK)
