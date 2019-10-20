@@ -347,10 +347,6 @@ func (u *User) MakeEmailPrimary(email string) error {
 	return nil
 }
 
-func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
-	return nil
-}
-
 func (u *User) Welcome(ctx context.Context) {
 	thread, err := NewThread("Welcome", supportUser, []*User{u})
 	if err != nil {
@@ -423,30 +419,50 @@ func (u *User) SendDigest(ctx context.Context) error {
 	return nil
 }
 
-func (u *User) MergeWith(ctx context.Context, tUser *User) error {
+func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 	// Contacts
-	u.ContactKeys = mergeContacts(u.ContactKeys, tUser.ContactKeys)
+	u.ContactKeys = mergeContacts(u.ContactKeys, oldUser.ContactKeys)
 
 	// Messages
-	err := reassignMessageUsers(ctx, tUser, u)
+	err := reassignMessageUsers(ctx, oldUser, u)
 	if err != nil {
 		return err
 	}
 
 	// Threads
-	err = reassignThreadUsers(ctx, tUser, u)
+	err = reassignThreadUsers(ctx, oldUser, u)
 	if err != nil {
 		return err
 	}
 
 	// Events
-	err = reassignEventUsers(ctx, tUser, u)
+	err = reassignEventUsers(ctx, oldUser, u)
 	if err != nil {
 		return err
 	}
 
+	// User details
+	if oldUser.Avatar != "" && u.Avatar == "" {
+		u.Avatar = oldUser.Avatar
+	}
+	if oldUser.FirstName != "" && u.FirstName == "" {
+		u.FirstName = oldUser.FirstName
+	}
+	if oldUser.LastName != "" && u.LastName == "" {
+		u.LastName = oldUser.LastName
+	}
+	for _, email := range oldUser.Emails {
+		u.AddEmail(email)
+	}
+
 	// Save user
 	err = u.Commit(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Delete the old user
+	err = db.Client.Delete(ctx, oldUser.Key)
 	if err != nil {
 		return err
 	}

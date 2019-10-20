@@ -511,8 +511,7 @@ func AddEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := u.SendVerifyEmail(payload.Email)
-	if err != nil {
+	if err := u.SendVerifyEmail(payload.Email); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSend)
 		return
 	}
@@ -539,11 +538,49 @@ func RemoveEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := u.RemoveEmail(payload.Email)
-	if err != nil {
+	if err := u.RemoveEmail(payload.Email); err != nil {
 		bjson.WriteJSON(w, map[string]string{
 			"message": err.Error(),
 		}, http.StatusBadRequest)
+		return
+	}
+
+	if err := u.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
+		return
+	}
+
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// MakeEmailPrimary Endpoint: POST /users/emails
+//
+// Request payload:
+type makePrimaryEmailPayload struct {
+	Email string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+}
+
+// MakeEmailPrimary removes the given email from the user's account.
+func MakeEmailPrimary(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	body := bjson.BodyFromContext(ctx)
+
+	var payload makePrimaryEmailPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	if err := u.MakeEmailPrimary(payload.Email); err != nil {
+		bjson.WriteJSON(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusBadRequest)
+		return
+	}
+
+	if err := u.Commit(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
 	}
 
