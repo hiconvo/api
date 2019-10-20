@@ -61,6 +61,26 @@ func mergeContacts(a, b []*datastore.Key) []*datastore.Key {
 	return merged
 }
 
+func reassignContacts(ctx context.Context, oldUser, newUser *User) error {
+	var users []*User
+	q := datastore.NewQuery("User").Filter("ContactKeys =", oldUser.Key)
+	keys, err := db.Client.GetAll(ctx, q, &users)
+	if err != nil {
+		return err
+	}
+
+	for i := range users {
+		swapKeys(users[i].ContactKeys, oldUser.Key, newUser.Key)
+	}
+
+	_, err = db.Client.PutMulti(ctx, keys, users)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func reassignMessageUsers(ctx context.Context, old, newUser *User) error {
 	userMessages, err := GetUnhydratedMessagesByUser(ctx, old)
 	if err != nil {

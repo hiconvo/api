@@ -443,12 +443,18 @@ func TestVerifyEmail(t *testing.T) {
 	kenc3, b64ts3, sig3 := createVerifyLink(existingUser3, "new@email.com")
 
 	// Merging accounts
-	existingUser4, _ := createTestUser(t)
-	existingUser5, _ := createTestUser(t)
+	existingUser4, _ := createTestUser(t) // User to merge into
+	existingUser5, _ := createTestUser(t) // User to be merged
+	// Assign test event, thread, and messages to user to be merged
 	event := createTestEvent(t, &existingUser2, []*models.User{&existingUser5})
 	eventMessage := createTestEventMessage(t, &existingUser5, &event)
 	thread := createTestThread(t, &existingUser5, []*models.User{&existingUser4, &existingUser3})
 	threadMessage := createTestThreadMessage(t, &existingUser5, &thread)
+	// Add reference to user to be merged in existingUser2's contacts
+	existingUser2.AddContact(&existingUser5)
+	if err := existingUser2.Commit(tc); err != nil {
+		t.Error(err.Error())
+	}
 	kenc4, b64ts4, sig4 := createVerifyLink(existingUser4, existingUser5.Email)
 
 	type test struct {
@@ -607,6 +613,26 @@ func TestVerifyEmail(t *testing.T) {
 					return false
 				}
 
+				// Make sure that existingUser2's contacts were updated
+				refreshedExistingUser2, err := models.GetUserByID(tc, existingUser2.ID)
+				if err != nil {
+					return false
+				}
+				contacts, err := models.GetContactsByUser(tc, &refreshedExistingUser2)
+				if err != nil {
+					return false
+				}
+
+				found = false
+				for i := range contacts {
+					if contacts[i].ID == existingUser4.ID {
+						found = true
+					}
+				}
+				if !found {
+					return false
+				}
+
 				return true
 			},
 		},
@@ -641,7 +667,7 @@ func TestVerifyEmail(t *testing.T) {
 			}
 
 			if !testCase.VerifyFunc() {
-				t.Errorf("Customer verifier failed")
+				t.Errorf("Custom verifier failed")
 			}
 		}
 	}

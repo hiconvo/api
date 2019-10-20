@@ -421,10 +421,13 @@ func (u *User) SendDigest(ctx context.Context) error {
 
 func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 	// Contacts
-	u.ContactKeys = mergeContacts(u.ContactKeys, oldUser.ContactKeys)
+	err := reassignContacts(ctx, oldUser, u)
+	if err != nil {
+		return err
+	}
 
 	// Messages
-	err := reassignMessageUsers(ctx, oldUser, u)
+	err = reassignMessageUsers(ctx, oldUser, u)
 	if err != nil {
 		return err
 	}
@@ -454,6 +457,8 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 	for _, email := range oldUser.Emails {
 		u.AddEmail(email)
 	}
+	u.ContactKeys = mergeContacts(u.ContactKeys, oldUser.ContactKeys)
+	u.RemoveContact(oldUser)
 
 	// Save user
 	err = u.Commit(ctx)
