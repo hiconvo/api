@@ -24,6 +24,7 @@ type User struct {
 	Key              *datastore.Key   `json:"-"        datastore:"__key__"`
 	ID               string           `json:"id"       datastore:"-"`
 	Email            string           `json:"email"`
+	Emails           []string         `json:"emails"`
 	FirstName        string           `json:"firstName"`
 	LastName         string           `json:"lastName"`
 	FullName         string           `json:"fullName" datastore:"-"`
@@ -275,6 +276,43 @@ func (u *User) HasEvent(e *Event) bool {
 	return false
 }
 
+// HasEmail returns true when the user has the given email and it it verified.
+func (u *User) HasEmail(email string) bool {
+	femail := strings.ToLower(email)
+
+	for i := range u.Emails {
+		if u.Emails[i] == femail {
+			return true
+		}
+	}
+
+	return false
+}
+
+// AddEmail adds a verified email to the user's Emails field. Only verified emails
+// should be added.
+func (u *User) AddEmail(email string) {
+	femail := strings.ToLower(email)
+
+	if u.HasEmail(femail) {
+		return
+	}
+
+	u.Emails = append(u.Emails, femail)
+}
+
+// RemoveEmail removes the given email from the user's Emails field, if the email is present.
+func (u *User) RemoveEmail(email string) {
+	if !u.HasEmail(email) {
+		return
+	}
+
+	for i := range u.Emails {
+		u.Emails[i] = u.Emails[len(u.Emails)-1]
+		u.Emails = u.Emails[:len(u.Emails)-1]
+	}
+}
+
 func (u *User) Welcome(ctx context.Context) {
 	thread, err := NewThread("Welcome", supportUser, []*User{u})
 	if err != nil {
@@ -438,7 +476,7 @@ func NewUserWithOAuth(email, firstname, lastname, avatar, oauthprovider, oauthto
 		Token:           random.Token(),
 		OAuthGoogleID:   googleID,
 		OAuthFacebookID: facebookID,
-		Verified:        false,
+		Verified:        true,
 	}
 
 	return user, nil
