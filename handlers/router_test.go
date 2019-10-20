@@ -27,6 +27,7 @@ func TestMain(m *testing.M) {
 	os.Chdir("..")
 	ctx := thelpers.CreateTestContext()
 	client := thelpers.CreateTestDatastoreClient(ctx)
+	thelpers.ClearDatastore(ctx, client)
 
 	// Set globals to be used by tests below
 	tc = ctx

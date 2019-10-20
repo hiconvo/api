@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -426,18 +427,20 @@ func createVerifyLink(u models.User, email string) (string, string, string) {
 }
 
 func TestVerifyEmail(t *testing.T) {
+	// Standard case of verifying email after account creation
 	existingUser1, _ := createTestUser(t)
 	existingUser1.Emails = []string{}
 	existingUser1.Verified = false
 	existingUser1.Commit(tc)
 	kenc1, b64ts1, sig1 := createVerifyLink(existingUser1, existingUser1.Email)
 
+	// Bad signature case
 	existingUser2, _ := createTestUser(t)
-	existingUser2.Verified = false
 	kenc2, b64ts2, _ := createVerifyLink(existingUser2, existingUser2.Email)
 
-	existingUser1.Commit(tc)
-	existingUser2.Commit(tc)
+	// Adding a new email
+	existingUser3, _ := createTestUser(t)
+	kenc3, b64ts3, sig3 := createVerifyLink(existingUser3, "new@email.com")
 
 	type test struct {
 		AuthHeader map[string]string
@@ -448,6 +451,7 @@ func TestVerifyEmail(t *testing.T) {
 	}
 
 	tests := []test{
+		// Standard case
 		{
 			InData: map[string]interface{}{
 				"signature": sig1,
@@ -463,8 +467,11 @@ func TestVerifyEmail(t *testing.T) {
 				"token":     existingUser1.Token,
 				"verified":  true,
 				"email":     existingUser1.Email,
+				"emails":    []string{existingUser1.Email},
 			},
 		},
+
+		// Already used magic link (applying standard case second time)
 		{
 			InData: map[string]interface{}{
 				"signature": sig1,
@@ -475,6 +482,8 @@ func TestVerifyEmail(t *testing.T) {
 			OutCode:   http.StatusUnauthorized,
 			OutPaylod: `{"message":"This link is not valid anymore"}`,
 		},
+
+		// Bad signature
 		{
 			InData: map[string]interface{}{
 				"signature": "not a valid signature",
@@ -484,6 +493,26 @@ func TestVerifyEmail(t *testing.T) {
 			},
 			OutCode:   http.StatusUnauthorized,
 			OutPaylod: `{"message":"This link is not valid anymore"}`,
+		},
+
+		// Adding an email
+		{
+			InData: map[string]interface{}{
+				"signature": sig3,
+				"timestamp": b64ts3,
+				"userID":    kenc3,
+				"email":     "new@email.com",
+			},
+			OutCode: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser3.ID,
+				"firstName": existingUser3.FirstName,
+				"lastName":  existingUser3.LastName,
+				"token":     existingUser3.Token,
+				"verified":  true,
+				"email":     existingUser3.Email,
+				"emails":    []string{existingUser3.Email, "new@email.com"},
+			},
 		},
 	}
 
@@ -501,6 +530,19 @@ func TestVerifyEmail(t *testing.T) {
 			thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
 			thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
 			thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
+
+			emails := respData["emails"].([]interface{})
+			var gotEmails []string
+			for _, email := range emails {
+				strEmail := email.(string)
+				gotEmails = append(gotEmails, strEmail)
+			}
+
+			wantedEmails := testCase.OutData["emails"].([]string)
+
+			if !reflect.DeepEqual(gotEmails, wantedEmails) {
+				t.Errorf("Expected emails did not match got emails")
+			}
 		}
 	}
 }
