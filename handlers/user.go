@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	uuid "github.com/gofrs/uuid"
 	"github.com/gorilla/mux"
@@ -421,6 +422,18 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the link is more than 30 min old, don't trust it.
+	ts, err := magic.GetTimeFromB64(payload.Timestamp)
+	if err != nil {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		return
+	}
+	diff := time.Now().Sub(ts)
+	if diff.Minutes() > float64(30) {
+		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		return
+	}
+
 	// If there is already an account associated with this email, merge the two accounts.
 	dupUser, found, err := models.GetUserByEmail(ctx, femail)
 	if found {
@@ -514,9 +527,25 @@ func AddEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := u.SendVerifyEmail(payload.Email); err != nil {
+	_, found, err := models.GetUserByEmail(ctx, payload.Email)
+	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSend)
 		return
+	}
+
+	if found {
+		// There's already an account associated with the email that the user
+		// is attempting to add. Send an email to this address with some details
+		// about what's going on.
+		if err := u.SendMergeAccountsEmail(payload.Email); err != nil {
+			bjson.HandleInternalServerError(w, err, errMsgSend)
+			return
+		}
+	} else {
+		if err := u.SendVerifyEmail(payload.Email); err != nil {
+			bjson.HandleInternalServerError(w, err, errMsgSend)
+			return
+		}
 	}
 
 	bjson.WriteJSON(w, u, http.StatusOK)

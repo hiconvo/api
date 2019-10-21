@@ -194,7 +194,14 @@ func (u *User) SendVerifyEmail(email string) error {
 	femail := strings.ToLower(email)
 	salt := femail + strconv.FormatBool(u.HasEmail(femail))
 	magicLink := magic.NewLink(u.Key, salt, "verify/"+femail)
-	return sendVerifyEmail(u, magicLink)
+	return sendVerifyEmail(u, email, magicLink)
+}
+
+func (u *User) SendMergeAccountsEmail(emailToMerge string) error {
+	femail := strings.ToLower(emailToMerge)
+	salt := femail + strconv.FormatBool(u.HasEmail(femail))
+	magicLink := magic.NewLink(u.Key, salt, "verify/"+femail)
+	return sendMergeAccountsEmail(u, femail, magicLink)
 }
 
 func (u *User) AddThread(t *Thread) error {
@@ -329,8 +336,11 @@ func (u *User) RemoveEmail(email string) error {
 	}
 
 	for i := range u.Emails {
-		u.Emails[i] = u.Emails[len(u.Emails)-1]
-		u.Emails = u.Emails[:len(u.Emails)-1]
+		if u.Emails[i] == femail {
+			u.Emails[i] = u.Emails[len(u.Emails)-1]
+			u.Emails = u.Emails[:len(u.Emails)-1]
+			break
+		}
 	}
 
 	return nil

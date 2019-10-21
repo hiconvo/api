@@ -15,24 +15,33 @@ const (
 	fromEmail = "robots@mail.hiconvo.com"
 	fromName  = "Convo"
 
-	passwordReset      = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />Convo Support"
-	verifyEmail        = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />Convo Support"
+	passwordReset = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />Convo Support"
+
+	verifyEmail = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />Convo Support"
+
+	mergeAccounts = "Hello,\n\nPlease [click here]( %s ) to verify your email address. This will merge your account with %s into your account with %s. If you did not attempt to add a new email to your account, it might be a good idea to notifiy support@hiconvo.com. \n\nThanks,<br />Convo Support"
+
 	messageTplStr      = "%s said:\n\n%s\n\n"
 	eventTplStr        = "%s invited you to:\n\n%s\n\n%s\n\n%s\n\n%s\n"
 	cancellationTplStr = "%s has cancelled:\n\n%s\n\n%s\n\n%s\n"
 )
 
 func sendPasswordResetEmail(u *User, magicLink string) error {
-	return sendAdministrativeEmail(u, passwordReset, "[convo] Set Password", magicLink)
+	plainText := fmt.Sprintf(passwordReset, magicLink)
+	return sendAdministrativeEmail(u, u.Email, "[convo] Set Password", plainText)
 }
 
-func sendVerifyEmail(u *User, magicLink string) error {
-	return sendAdministrativeEmail(u, verifyEmail, "[convo] Verify Email", magicLink)
+func sendVerifyEmail(u *User, email, magicLink string) error {
+	plainText := fmt.Sprintf(verifyEmail, magicLink)
+	return sendAdministrativeEmail(u, email, "[convo] Verify Email", plainText)
 }
 
-func sendAdministrativeEmail(u *User, strTpl, subject, magicLink string) error {
-	plainText := fmt.Sprintf(strTpl, magicLink)
+func sendMergeAccountsEmail(u *User, emailToMerge, magicLink string) error {
+	plainText := fmt.Sprintf(mergeAccounts, magicLink, emailToMerge, u.Email)
+	return sendAdministrativeEmail(u, emailToMerge, "[convo] Verify Email", plainText)
+}
 
+func sendAdministrativeEmail(u *User, toEmail, subject, plainText string) error {
 	html, err := template.RenderThread(template.Thread{
 		Subject: subject,
 		Messages: []template.Message{
@@ -50,7 +59,7 @@ func sendAdministrativeEmail(u *User, strTpl, subject, magicLink string) error {
 		FromName:    fromName,
 		FromEmail:   fromEmail,
 		ToName:      u.FullName,
-		ToEmail:     u.Email,
+		ToEmail:     toEmail,
 		Subject:     subject,
 		TextContent: plainText,
 		HTMLContent: html,

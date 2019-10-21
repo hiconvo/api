@@ -78,7 +78,7 @@ func BodyFromContext(ctx context.Context) map[string]interface{} {
 // then a 500 error is returned
 func WithJSONReqBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
+		if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" || r.Method == "DELETE" {
 			decoder := json.NewDecoder(r.Body)
 
 			var body map[string]interface{}

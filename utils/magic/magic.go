@@ -1,6 +1,7 @@
 package magic
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -31,6 +32,24 @@ func NewLink(k *datastore.Key, salt, action string) string {
 
 func Verify(kenc, b64ts, salt, sig string) bool {
 	return sig == getSignature(kenc, b64ts, salt)
+}
+
+func GetTimeFromB64(b64ts string) (time.Time, error) {
+	byteTime, err := base64.URLEncoding.DecodeString(b64ts)
+	if err != nil {
+		return time.Now(), err
+	}
+
+	stringTime := bytes.NewBuffer(byteTime).String()
+
+	intTime, err := strconv.Atoi(stringTime)
+	if err != nil {
+		return time.Now(), err
+	}
+
+	timestamp := time.Unix(int64(intTime), 0)
+
+	return timestamp, nil
 }
 
 func getSignature(uid, b64ts, salt string) string {
