@@ -183,10 +183,12 @@ func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload: oauth.UserPayload
 
-// OAuth is an endpoint that can do three things. It can
+// OAuth is an endpoint that can do four things. It can
 //   1. create a user with oauth based authentication
 //   2. associate an existing user with an oauth token
 //   3. authenticate a user via oauth
+//   4. merge an oauth based account with an unregestered account
+//      that was created as a result of an email-based invitation
 //
 func OAuth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -198,10 +200,30 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oauthPayload, oerr := oauth.Verify(ctx, payload)
-	if oerr != nil {
+	oauthPayload, err := oauth.Verify(ctx, payload)
+	if err != nil {
 		bjson.WriteJSON(w, errMsgCreds, http.StatusBadRequest)
 		return
+	}
+
+	// If this request includes a token, then it could be from a user
+	// who RSVP'd and then tried to connect an oauth account. If the
+	// token user is not fully registered, this user was made as a
+	// result of an email-based invitation. In this case, we mark
+	// canMergeTokenUser as true and attempt to merge the token user
+	// into the oauth user if all else goes well below.
+	token, includesToken := middleware.GetAuthToken(r.Header)
+	var tokenUser models.User
+	var canMergeTokenUser bool = false
+	if includesToken {
+		tokenUser, foundTokenUser, err := models.GetUserByToken(ctx, token)
+		if err != nil {
+			bjson.HandleInternalServerError(w, err, errMsgSave)
+			return
+		}
+		if foundTokenUser {
+			canMergeTokenUser = !tokenUser.IsRegistered()
+		}
 	}
 
 	// Get the user and return if found
@@ -210,6 +232,14 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		bjson.HandleInternalServerError(w, err, errMsgGet)
 		return
 	} else if found {
+		// If the user associated with the token is different from the user
+		// received via oauth, merge the token user into the oauth user.
+		if canMergeTokenUser && u.Token != tokenUser.Token {
+			if err := u.MergeWith(ctx, &tokenUser); err != nil {
+				bjson.HandleInternalServerError(w, err, errMsgSave)
+				return
+			}
+		}
 		bjson.WriteJSON(w, u, http.StatusOK)
 		return
 	}
@@ -253,6 +283,16 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		if err := u.Commit(ctx); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSave)
 			return
+		}
+
+		// Same as above:
+		// If the user associated with the token is different from the user
+		// received via oauth, merge the token user into the oauth user.
+		if canMergeTokenUser && u.Token != tokenUser.Token {
+			if err := u.MergeWith(ctx, &tokenUser); err != nil {
+				bjson.HandleInternalServerError(w, err, errMsgSave)
+				return
+			}
 		}
 
 		bjson.WriteJSON(w, u, http.StatusOK)
