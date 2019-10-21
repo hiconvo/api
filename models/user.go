@@ -477,12 +477,14 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 	}
 
 	// Remove the old user from search
-	_, err = search.Client.Delete().
-		Index("users").
-		Id(oldUser.ID).
-		Do(ctx)
-	if err != nil {
-		return err
+	if oldUser.IsRegistered() {
+		_, err = search.Client.Delete().
+			Index("users").
+			Id(oldUser.ID).
+			Do(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to remove user from elasticsearch: %s", err)
+		}
 	}
 
 	// Delete the old user
