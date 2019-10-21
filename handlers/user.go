@@ -567,13 +567,13 @@ func AddEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, found, err := models.GetUserByEmail(ctx, payload.Email)
+	foundUser, found, err := models.GetUserByEmail(ctx, payload.Email)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSend)
 		return
 	}
 
-	if found {
+	if found && foundUser.IsRegistered() {
 		// There's already an account associated with the email that the user
 		// is attempting to add. Send an email to this address with some details
 		// about what's going on.
