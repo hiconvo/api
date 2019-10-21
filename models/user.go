@@ -476,6 +476,15 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 		return err
 	}
 
+	// Remove the old user from search
+	_, err = search.Client.Delete().
+		Index("users").
+		Id(oldUser.ID).
+		Do(ctx)
+	if err != nil {
+		return err
+	}
+
 	// Delete the old user
 	err = db.Client.Delete(ctx, oldUser.Key)
 	if err != nil {
