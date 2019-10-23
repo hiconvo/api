@@ -132,17 +132,18 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Check permissions
 	if !(event.OwnerIs(&u) || event.HasUser(&u)) {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
 		return
 	}
 
-	// Only allow registered users to post
-	if !u.IsRegistered() {
-		bjson.WriteJSON(w, map[string]string{
-			"message": "You must register your account to post a message",
-		}, http.StatusBadRequest)
-		return
-	}
+	// Allowing this for now. Want to encorage use.
+	//
+	// if !u.IsRegistered() {
+	// 	bjson.WriteJSON(w, map[string]string{
+	// 		"message": "You must register your account to post a message",
+	// 	}, http.StatusBadRequest)
+	// 	return
+	// }
 
 	message, err := models.NewEventMessage(&u, &event, html.UnescapeString(payload.Body))
 	if err != nil {
