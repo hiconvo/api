@@ -1,8 +1,11 @@
-{{ define "message" }} {{if eq (.FromID) (.ToID)}}
-<table role="presentation" class="message blue">
-  {{- else}}
+{{ define "message" }}
+
+{{if eq (.FromID) (.ToID)}}
+  <table role="presentation" class="message blue">
+{{- else}}
   <table role="presentation" class="message">
-    {{- end}}
+{{- end}}
+
     <!-- START MESSAGE CONTENT AREA -->
     <tr>
       <td class="wrapper">
@@ -14,16 +17,14 @@
               <!-- END PROFILE -->
 
               <!-- START BODY -->
-              {{ .Body }}
+              {{ .RenderedBody }}
               <!-- END BODY -->
             </td>
           </tr>
         </table>
       </td>
     </tr>
-
     <!-- END MESSAGE CONTENT AREA -->
-  </table>
 
-  {{ end }}
-</table>
+  </table>
+{{ end }}
