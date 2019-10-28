@@ -3,6 +3,7 @@ module github.com/hiconvo/api
 require (
 	cloud.google.com/go v0.43.0
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
+	github.com/arran4/golang-ical v0.0.0-20191011054615-fb8af82a1cf8
 	github.com/aymerick/douceur v0.2.0
 	github.com/certifi/gocertifi v0.0.0-20190506164543-d2eda7129713 // indirect
 	github.com/fatih/color v1.7.0 // indirect

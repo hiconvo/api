@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/hiconvo/api/utils/magic"
@@ -139,7 +140,13 @@ func sendThread(thread *Thread, messages []*Message) error {
 	}
 
 	for i := range emailMessages {
-		mail.Send(emailMessages[i])
+		if emailMessages[i].FromEmail == "" {
+			continue
+		}
+
+		if err := mail.Send(emailMessages[i]); err != nil {
+			fmt.Fprintf(os.Stderr, err.Error())
+		}
 	}
 
 	return nil
@@ -179,18 +186,25 @@ func sendEvent(event *Event, isUpdate bool) error {
 		}
 
 		emailMessages[i] = mail.EmailMessage{
-			FromName:    event.Owner.FullName,
-			FromEmail:   event.GetEmail(),
-			ToName:      curUser.FullName,
-			ToEmail:     curUser.Email,
-			Subject:     fmt.Sprintf(fmtStr, event.Name),
-			TextContent: plainText,
-			HTMLContent: html,
+			FromName:      event.Owner.FullName,
+			FromEmail:     event.GetEmail(),
+			ToName:        curUser.FullName,
+			ToEmail:       curUser.Email,
+			Subject:       fmt.Sprintf(fmtStr, event.Name),
+			TextContent:   plainText,
+			HTMLContent:   html,
+			ICSAttachment: event.GetICS(),
 		}
 	}
 
 	for i := range emailMessages {
-		mail.Send(emailMessages[i])
+		if emailMessages[i].FromEmail == "" {
+			continue
+		}
+
+		if err := mail.Send(emailMessages[i]); err != nil {
+			fmt.Fprintf(os.Stderr, err.Error())
+		}
 	}
 
 	return nil
@@ -215,18 +229,17 @@ func sendEventInvitation(event *Event, user *User) error {
 	}
 
 	email := mail.EmailMessage{
-		FromName:    event.Owner.FullName,
-		FromEmail:   event.GetEmail(),
-		ToName:      user.FullName,
-		ToEmail:     user.Email,
-		Subject:     fmt.Sprintf("Invitation to %s", event.Name),
-		TextContent: plainText,
-		HTMLContent: html,
+		FromName:      event.Owner.FullName,
+		FromEmail:     event.GetEmail(),
+		ToName:        user.FullName,
+		ToEmail:       user.Email,
+		Subject:       fmt.Sprintf("Invitation to %s", event.Name),
+		TextContent:   plainText,
+		HTMLContent:   html,
+		ICSAttachment: event.GetICS(),
 	}
 
-	mail.Send(email)
-
-	return nil
+	return mail.Send(email)
 }
 
 func sendCancellation(event *Event) error {
@@ -255,7 +268,13 @@ func sendCancellation(event *Event) error {
 	}
 
 	for i := range emailMessages {
-		mail.Send(emailMessages[i])
+		if emailMessages[i].FromEmail == "" {
+			continue
+		}
+
+		if err := mail.Send(emailMessages[i]); err != nil {
+			fmt.Fprintf(os.Stderr, err.Error())
+		}
 	}
 
 	return nil

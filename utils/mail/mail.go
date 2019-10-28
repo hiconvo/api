@@ -1,7 +1,9 @@
 package mail
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -23,13 +25,14 @@ type sender interface {
 // are strings. No additional processing or rendering is done
 // in this package.
 type EmailMessage struct {
-	FromName    string
-	FromEmail   string
-	ToName      string
-	ToEmail     string
-	Subject     string
-	HTMLContent string
-	TextContent string
+	FromName      string
+	FromEmail     string
+	ToName        string
+	ToEmail       string
+	Subject       string
+	HTMLContent   string
+	TextContent   string
+	ICSAttachment string
 }
 
 func init() {
@@ -48,12 +51,22 @@ func Send(e EmailMessage) error {
 		from, e.Subject, to, e.TextContent, e.HTMLContent,
 	)
 
+	if e.ICSAttachment != "" {
+		attachment := smail.NewAttachment()
+		attachment.SetContent(base64.StdEncoding.EncodeToString([]byte(e.ICSAttachment)))
+		attachment.SetType("text/calendar")
+		attachment.SetFilename("event.ics")
+
+		email.AddAttachment(attachment)
+	}
+
 	resp, err := client.Send(email)
 	if err != nil {
 		return err
 	}
 
 	if resp.StatusCode != http.StatusAccepted {
+		fmt.Fprintln(os.Stderr, resp.Body)
 		return errors.New("Did not recieve OK status code response")
 	}
 

@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
+	"github.com/arran4/golang-ical"
 	"github.com/gosimple/slug"
+
 	"github.com/hiconvo/api/db"
 )
 
@@ -233,6 +235,26 @@ func (e *Event) IsUpcoming() bool {
 	windowEnd := time.Now().Add(end)
 
 	return e.Timestamp.After(windowStart) && e.Timestamp.Before(windowEnd)
+}
+
+func (e *Event) GetICS() string {
+	cal := ics.NewCalendar()
+
+	ev := cal.AddEvent(e.ID)
+
+	ev.SetCreatedTime(e.CreatedAt)
+	ev.SetStartAt(e.Timestamp)
+	ev.SetEndAt(e.Timestamp.Add(time.Hour))
+	ev.SetSummary(e.Name)
+	ev.SetLocation(e.Address)
+	ev.SetDescription(e.Description)
+	ev.SetOrganizer(e.GetEmail(), ics.WithCN(e.Owner.FullName))
+
+	for _, u := range e.Users {
+		ev.AddAttendee(e.GetEmail(), ics.WithCN(u.FullName))
+	}
+
+	return cal.Serialize()
 }
 
 func NewEvent(
