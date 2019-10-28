@@ -166,6 +166,7 @@ func (e *Event) AddRSVP(u *User) error {
 
 	e.RSVPKeys = append(e.RSVPKeys, u.Key)
 	e.RSVPs = append(e.RSVPs, MapUserToUserPartial(u))
+	e.SetReads([]*Read{})
 
 	return nil
 }
