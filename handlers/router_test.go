@@ -81,11 +81,6 @@ func createTestThread(t *testing.T, owner *models.User, users []*models.User) mo
 		t.Fatal(err)
 	}
 
-	// Add the thread to the user objects.
-	for i := range thread.Users {
-		thread.Users[i].AddThread(&thread)
-	}
-
 	// Create a slice of keys corresponding to users so that the
 	// users can be updated with their new thread membership in the db.
 	userKeys := make([]*datastore.Key, len(thread.Users))
@@ -135,11 +130,6 @@ func createTestEvent(t *testing.T, owner *models.User, users []*models.User) mod
 	// Save the event.
 	if err := event.Commit(tc); err != nil {
 		t.Fatal(err)
-	}
-
-	// Add the event to the user objects.
-	for i := range users {
-		users[i].AddEvent(&event)
 	}
 
 	// Create a slice of keys corresponding to users so that the

@@ -37,8 +37,6 @@ type User struct {
 	IsFacebookLinked bool             `json:"isFacebookLinked" datastore:"-"`
 	IsLocked         bool             `json:"-"`
 	Verified         bool             `json:"verified"`
-	Threads          []*datastore.Key `json:"-"`
-	Events           []*datastore.Key `json:"-"`
 	Avatar           string           `json:"avatar"`
 	ContactKeys      []*datastore.Key `json:"-"`
 	Contacts         []*UserPartial   `json:"-"        datastore:"-"`
@@ -105,7 +103,13 @@ func (u *User) Save() ([]datastore.Property, error) {
 
 func (u *User) Load(ps []datastore.Property) error {
 	if err := datastore.LoadStruct(u, ps); err != nil {
-		return err
+		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
+			if !(mismatch.FieldName == "Threads" || mismatch.FieldName == "Events") {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	u.DeriveProperties()
@@ -204,24 +208,6 @@ func (u *User) SendMergeAccountsEmail(emailToMerge string) error {
 	return sendMergeAccountsEmail(u, femail, magicLink)
 }
 
-func (u *User) AddThread(t *Thread) error {
-	u.Threads = append(u.Threads, t.Key)
-
-	return nil
-}
-
-func (u *User) RemoveThread(t *Thread) error {
-	for i, k := range u.Threads {
-		if k.Equal(t.Key) {
-			u.Threads[i] = u.Threads[len(u.Threads)-1]
-			u.Threads = u.Threads[:len(u.Threads)-1]
-			return nil
-		}
-	}
-
-	return nil
-}
-
 func (u *User) AddContact(c *User) error {
 	if u.HasContact(c) {
 		return errors.New("You already have this contact")
@@ -252,45 +238,9 @@ func (u *User) RemoveContact(c *User) error {
 	return nil
 }
 
-func (u *User) AddEvent(e *Event) error {
-	if u.HasEvent(e) {
-		return errors.New("You already have this event")
-	}
-
-	if u.Key.Equal(e.Key) {
-		return errors.New("You cannot add yourself to an event")
-	}
-
-	u.Events = append(u.Events, e.Key)
-
-	return nil
-}
-
-func (u *User) RemoveEvent(e *Event) error {
-	for i, k := range u.Events {
-		if k.Equal(e.Key) {
-			u.Events[i] = u.Events[len(u.Events)-1]
-			u.Events = u.Events[:len(u.Events)-1]
-			return nil
-		}
-	}
-
-	return nil
-}
-
 func (u *User) HasContact(c *User) bool {
 	for _, k := range u.ContactKeys {
 		if k.Equal(c.Key) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (u *User) HasEvent(e *Event) bool {
-	for _, k := range u.Events {
-		if k.Equal(e.Key) {
 			return true
 		}
 	}
@@ -366,8 +316,6 @@ func (u *User) Welcome(ctx context.Context) {
 	if err := thread.Commit(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
-
-	u.AddThread(&thread)
 
 	if err := u.Commit(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())

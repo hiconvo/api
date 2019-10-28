@@ -6,7 +6,6 @@ import (
 	"cloud.google.com/go/datastore"
 	"github.com/gorilla/mux"
 
-	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
@@ -91,21 +90,6 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := thread.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
-		return
-	}
-
-	// Save the thread to the corresponding users.
-	//
-	// Add the thread key to the userStructs.
-	for _, u := range userPointers {
-		u.AddThread(&thread)
-	}
-	// We can use userPointers here because they point to the user structs
-	// which we just modified.
-	if _, err := db.Client.PutMulti(ctx, userKeys, userPointers); err != nil {
-		// This error would be very bad. It would mean our data is
-		// inconsistent.
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
@@ -197,19 +181,9 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Remove the thread from all of the thread's users
-	for i := range thread.Users {
-		thread.Users[i].RemoveThread(&thread)
-	}
-
 	userKeys := make([]*datastore.Key, len(thread.Users))
 	for i := range thread.Users {
 		userKeys[i] = thread.Users[i].Key
-	}
-
-	// Save the updated users
-	if _, err := db.Client.PutMulti(ctx, userKeys, thread.Users); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 	}
 
 	if err := thread.Delete(ctx); err != nil {
@@ -257,14 +231,6 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userToBeAdded.AddThread(&thread)
-
-	// Save the user.
-	if err := userToBeAdded.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
-		return
-	}
-
 	// Save the thread.
 	if err := thread.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
@@ -304,15 +270,8 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 		}
 
 		thread.RemoveUser(&userToBeRemoved)
-		userToBeRemoved.RemoveThread(&thread)
 	} else {
 		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
-		return
-	}
-
-	// Save the user.
-	if err := userToBeRemoved.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
 

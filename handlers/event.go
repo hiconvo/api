@@ -130,21 +130,6 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save the event to the corresponding users.
-	//
-	// Add the event key to the userStructs.
-	for _, u := range userPointers {
-		u.AddEvent(&event)
-	}
-	// We can use userPointers here because they point to the user structs
-	// which we just modified.
-	if _, err := db.Client.PutMulti(ctx, userKeys, userPointers); err != nil {
-		// This error would be very bad. It would mean our data is
-		// inconsistent.
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
-		return
-	}
-
 	if err := event.SendInvites(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSendEvent)
 		return
@@ -295,17 +280,6 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Remove the event from all of the event's users
-	for i := range users {
-		users[i].RemoveEvent(&event)
-	}
-
-	// Save the updated users
-	if _, err := db.Client.PutMulti(ctx, event.UserKeys, users); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
-		return
-	}
-
 	if event.IsInFuture() {
 		if err := event.SendCancellation(ctx); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
@@ -360,14 +334,6 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userToBeAdded.AddEvent(&event)
-
-	// Save the user.
-	if err := userToBeAdded.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
-		return
-	}
-
 	// Save the event.
 	if err := event.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
@@ -409,15 +375,8 @@ func RemoveUserFromEvent(w http.ResponseWriter, r *http.Request) {
 		}
 
 		event.RemoveUser(&userToBeRemoved)
-		userToBeRemoved.RemoveEvent(&event)
 	} else {
 		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
-		return
-	}
-
-	// Save the user.
-	if err := userToBeRemoved.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
 	}
 
