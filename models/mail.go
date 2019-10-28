@@ -154,7 +154,7 @@ func sendEvent(event *Event, isUpdate bool) error {
 	}
 
 	// Loop through all participants and generate emails
-	emailMessages := make([]mail.EmailMessage, len(event.Users)-1)
+	emailMessages := make([]mail.EmailMessage, len(event.Users))
 	for i, curUser := range event.Users {
 		// Don't send invitations to the host
 		if event.OwnerIs(curUser) {
