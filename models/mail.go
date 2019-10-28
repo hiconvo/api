@@ -3,8 +3,6 @@ package models
 import (
 	"fmt"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/mail"
@@ -12,42 +10,32 @@ import (
 )
 
 const (
-	fromEmail = "robots@mail.hiconvo.com"
-	fromName  = "Convo"
-
-	passwordReset = "Hello,\n\nPlease [click here]( %s ) to set your password.\n\nThanks,<br />Convo Support"
-
-	verifyEmail = "Hello,\n\nPlease [click here]( %s ) to verify your email address.\n\nThanks,<br />Convo Support"
-
-	mergeAccounts = "Hello,\n\nPlease [click here]( %s ) to verify your email address. This will merge your account with %s into your account with %s. If you did not attempt to add a new email to your account, it might be a good idea to notifiy support@hiconvo.com. \n\nThanks,<br />Convo Support"
-
-	messageTplStr      = "%s said:\n\n%s\n\n"
-	eventTplStr        = "%s invited you to:\n\n%s\n\n%s\n\n%s\n\n%s\n"
-	cancellationTplStr = "%s has cancelled:\n\n%s\n\n%s\n\n%s\n"
+	_fromEmail = "robots@mail.hiconvo.com"
+	_fromName  = "Convo"
 )
 
 func sendPasswordResetEmail(u *User, magicLink string) error {
-	plainText := fmt.Sprintf(passwordReset, magicLink)
-	return sendAdministrativeEmail(u, u.Email, "[convo] Set Password", plainText)
+	body := fmt.Sprintf(_tplStrPasswordReset, magicLink)
+	return sendAdministrativeEmail(u, u.Email, "[convo] Set Password", body)
 }
 
 func sendVerifyEmail(u *User, email, magicLink string) error {
-	plainText := fmt.Sprintf(verifyEmail, magicLink)
-	return sendAdministrativeEmail(u, email, "[convo] Verify Email", plainText)
+	body := fmt.Sprintf(_tplStrVerifyEmail, magicLink)
+	return sendAdministrativeEmail(u, email, "[convo] Verify Email", body)
 }
 
 func sendMergeAccountsEmail(u *User, emailToMerge, magicLink string) error {
-	plainText := fmt.Sprintf(mergeAccounts, magicLink, emailToMerge, u.Email)
-	return sendAdministrativeEmail(u, emailToMerge, "[convo] Verify Email", plainText)
+	body := fmt.Sprintf(_tplStrMergeAccounts, magicLink, emailToMerge, u.Email)
+	return sendAdministrativeEmail(u, emailToMerge, "[convo] Verify Email", body)
 }
 
-func sendAdministrativeEmail(u *User, toEmail, subject, plainText string) error {
-	html, err := template.RenderThread(template.Thread{
+func sendAdministrativeEmail(u *User, toEmail, subject, body string) error {
+	plainText, html, err := template.RenderThread(template.Thread{
 		Subject: subject,
 		Messages: []template.Message{
 			template.Message{
-				Body: plainText,
-				Name: fromName,
+				Body: body,
+				Name: _fromName,
 			},
 		},
 	})
@@ -56,8 +44,8 @@ func sendAdministrativeEmail(u *User, toEmail, subject, plainText string) error 
 	}
 
 	email := mail.EmailMessage{
-		FromName:    fromName,
-		FromEmail:   fromEmail,
+		FromName:    _fromName,
+		FromEmail:   _fromEmail,
 		ToName:      u.FullName,
 		ToEmail:     toEmail,
 		Subject:     subject,
@@ -69,32 +57,47 @@ func sendAdministrativeEmail(u *User, toEmail, subject, plainText string) error 
 }
 
 func sendThread(thread *Thread, messages []*Message) error {
-	users := thread.Users
-	// From is the most recent message sender.
-	sender, serr := MapUserPartialToUser(messages[0].User, users)
-	if serr != nil {
-		return serr
+	// From is the most recent message sender: messages[0].User.
+	sender, err := MapUserPartialToUser(messages[0].User, thread.Users)
+	if err != nil {
+		return err
 	}
 
-	// Loop through all participants and generate emails
-	emailMessages := make([]mail.EmailMessage, len(users))
-	for i := range users {
-		currentUser := users[i]
-
+	// Loop through all participants and generate emails.
+	//
+	emailMessages := make([]mail.EmailMessage, len(thread.Users))
+	// Get the last five messages to be included in the email.
+	lastFive := getLastFive(messages)
+	for i, curUser := range thread.Users {
 		// Don't send an email to the sender.
-		if currentUser.Key.Equal(sender.Key) {
+		if curUser.Key.Equal(sender.Key) {
 			continue
 		}
 
-		plainText, html, rerr := renderThread(thread, messages, currentUser)
-		if rerr != nil {
-			return rerr
+		// Generate messages
+		tplMessages := make([]template.Message, len(lastFive))
+		for _, m := range lastFive {
+			tplMessages[i] = template.Message{
+				Body:   m.Body,
+				Name:   m.User.FirstName,
+				FromID: m.User.ID,
+				ToID:   curUser.ID,
+			}
 		}
+
+		plainText, html, err := template.RenderThread(template.Thread{
+			Subject:  thread.Subject,
+			Messages: tplMessages,
+		})
+		if err != nil {
+			return err
+		}
+
 		emailMessages[i] = mail.EmailMessage{
 			FromName:    sender.FullName,
 			FromEmail:   thread.GetEmail(),
-			ToName:      currentUser.FullName,
-			ToEmail:     currentUser.Email,
+			ToName:      curUser.FullName,
+			ToEmail:     curUser.Email,
 			Subject:     thread.Subject,
 			TextContent: plainText,
 			HTMLContent: html,
@@ -109,7 +112,6 @@ func sendThread(thread *Thread, messages []*Message) error {
 }
 
 func sendEvent(event *Event, isUpdate bool) error {
-	users := event.Users
 	var fmtStr string
 	if isUpdate {
 		fmtStr = "Updated invitation to %s"
@@ -118,24 +120,34 @@ func sendEvent(event *Event, isUpdate bool) error {
 	}
 
 	// Loop through all participants and generate emails
-	emailMessages := make([]mail.EmailMessage, len(users)-1)
-	for i := range users {
-		currentUser := users[i]
-
+	emailMessages := make([]mail.EmailMessage, len(event.Users)-1)
+	for i, curUser := range event.Users {
 		// Don't send invitations to the host
-		if event.OwnerIs(currentUser) {
+		if event.OwnerIs(curUser) {
 			continue
 		}
 
-		plainText, html, rerr := renderEvent(event, currentUser)
-		if rerr != nil {
-			return rerr
+		plainText, html, err := template.RenderEvent(template.Event{
+			Name:        event.Name,
+			Address:     event.Address,
+			Time:        event.GetFormatedTime(),
+			Description: event.Description,
+			FromName:    event.Owner.FullName,
+			MagicLink: magic.NewLink(
+				curUser.Key,
+				strconv.FormatBool(event.HasRSVP(curUser)),
+				fmt.Sprintf("rsvp/%s",
+					event.Key.Encode())),
+		})
+		if err != nil {
+			return err
 		}
+
 		emailMessages[i] = mail.EmailMessage{
 			FromName:    event.Owner.FullName,
 			FromEmail:   event.GetEmail(),
-			ToName:      currentUser.FullName,
-			ToEmail:     currentUser.Email,
+			ToName:      curUser.FullName,
+			ToEmail:     curUser.Email,
 			Subject:     fmt.Sprintf(fmtStr, event.Name),
 			TextContent: plainText,
 			HTMLContent: html,
@@ -150,10 +162,22 @@ func sendEvent(event *Event, isUpdate bool) error {
 }
 
 func sendEventInvitation(event *Event, user *User) error {
-	plainText, html, rerr := renderEvent(event, user)
-	if rerr != nil {
-		return rerr
+	plainText, html, err := template.RenderEvent(template.Event{
+		Name:        event.Name,
+		Address:     event.Address,
+		Time:        event.GetFormatedTime(),
+		Description: event.Description,
+		FromName:    event.Owner.FullName,
+		MagicLink: magic.NewLink(
+			user.Key,
+			strconv.FormatBool(event.HasRSVP(user)),
+			fmt.Sprintf("rsvp/%s",
+				event.Key.Encode())),
+	})
+	if err != nil {
+		return err
 	}
+
 	email := mail.EmailMessage{
 		FromName:    event.Owner.FullName,
 		FromEmail:   event.GetEmail(),
@@ -170,21 +194,24 @@ func sendEventInvitation(event *Event, user *User) error {
 }
 
 func sendCancellation(event *Event) error {
-	users := event.Users
-
 	// Loop through all participants and generate emails
-	emailMessages := make([]mail.EmailMessage, len(users))
-	for i := range users {
-		currentUser := users[i]
-		plainText, html, rerr := renderCancellation(event, currentUser)
-		if rerr != nil {
-			return rerr
+	emailMessages := make([]mail.EmailMessage, len(event.Users))
+	for i, curUser := range event.Users {
+		plainText, html, err := template.RenderCancellation(template.Event{
+			Name:     event.Name,
+			Address:  event.Address,
+			Time:     event.GetFormatedTime(),
+			FromName: event.Owner.FullName,
+		})
+		if err != nil {
+			return err
 		}
+
 		emailMessages[i] = mail.EmailMessage{
 			FromName:    event.Owner.FullName,
 			FromEmail:   event.GetEmail(),
-			ToName:      currentUser.FullName,
-			ToEmail:     currentUser.Email,
+			ToName:      curUser.FullName,
+			ToEmail:     curUser.Email,
 			Subject:     fmt.Sprintf("Cancelled: %s", event.Name),
 			TextContent: plainText,
 			HTMLContent: html,
@@ -199,140 +226,6 @@ func sendCancellation(event *Event) error {
 }
 
 func sendDigest(digestList []DigestItem, upcomingEvents []*Event, user *User) error {
-	_, html, err := renderDigest(digestList, upcomingEvents, user)
-	if err != nil {
-		return err
-	}
-
-	email := mail.EmailMessage{
-		FromName:    fromName,
-		FromEmail:   fromEmail,
-		ToName:      user.FullName,
-		ToEmail:     user.Email,
-		Subject:     "[convo] Digest",
-		TextContent: "You have unread messages on Convo.",
-		HTMLContent: html,
-	}
-
-	return mail.Send(email)
-}
-
-func renderThread(thread *Thread, messages []*Message, user *User) (string, string, error) {
-	var lastFive []*Message
-	if len(messages) > 5 {
-		lastFive = messages[:5]
-	} else {
-		lastFive = messages
-	}
-
-	tplMessages := make([]template.Message, len(lastFive))
-	var builder strings.Builder
-
-	for i, m := range lastFive {
-		fmt.Fprintf(&builder, messageTplStr, m.User.FirstName, m.Body)
-		tplMessages[i] = template.Message{
-			Body:   m.Body,
-			Name:   m.User.FirstName,
-			FromID: m.User.ID,
-			ToID:   user.ID,
-		}
-	}
-
-	plainText := builder.String()
-
-	// Use the first 200 chars as the preview
-	var preview string
-	if len(plainText) > 200 {
-		preview = plainText[:200] + "..."
-	} else {
-		preview = plainText
-	}
-
-	html, err := template.RenderThread(template.Thread{
-		Subject:  thread.Subject,
-		Messages: tplMessages,
-		Preview:  preview,
-	})
-	if err != nil {
-		return "", "", err
-	}
-
-	return plainText, html, nil
-}
-
-func renderEvent(event *Event, user *User) (string, string, error) {
-	var builder strings.Builder
-	fmt.Fprintf(&builder, eventTplStr,
-		event.Owner.FullName,
-		event.Name,
-		event.Address,
-		event.GetFormatedTime(),
-		event.Description)
-	plainText := builder.String()
-
-	// Use the first 200 chars as the preview
-	var preview string
-	if len(plainText) > 200 {
-		preview = plainText[:200] + "..."
-	} else {
-		preview = plainText
-	}
-
-	html, err := template.RenderEvent(template.Event{
-		Name:        event.Name,
-		Address:     event.Address,
-		Time:        event.GetFormatedTime(),
-		Description: event.Description,
-		Preview:     preview,
-		FromName:    event.Owner.FullName,
-		MagicLink: magic.NewLink(
-			user.Key,
-			strconv.FormatBool(event.HasRSVP(user)),
-			fmt.Sprintf("rsvp/%s",
-				event.Key.Encode())),
-	})
-	if err != nil {
-		return "", "", err
-	}
-
-	return plainText, html, nil
-}
-
-func renderCancellation(event *Event, user *User) (string, string, error) {
-	loc := time.FixedZone("Given", event.UTCOffset)
-	timestamp := event.Timestamp.In(loc).Format("Monday, January 2nd @ 3:04 PM")
-
-	var builder strings.Builder
-	fmt.Fprintf(&builder, cancellationTplStr,
-		event.Owner.FullName,
-		event.Name,
-		event.Address,
-		timestamp)
-	plainText := builder.String()
-
-	// Use the first 200 chars as the preview
-	var preview string
-	if len(plainText) > 200 {
-		preview = plainText[:200] + "..."
-	} else {
-		preview = plainText
-	}
-
-	html, err := template.RenderCancellation(template.Event{
-		Name:     event.Name,
-		Address:  event.Address,
-		Time:     timestamp,
-		Preview:  preview,
-		FromName: event.Owner.FullName,
-	})
-	if err != nil {
-		return "", "", err
-	}
-
-	return plainText, html, nil
-}
-
-func renderDigest(digestList []DigestItem, events []*Event, user *User) (string, string, error) {
 	// Convert all the DigestItems into template.Threads with their messages
 	items := make([]template.Thread, len(digestList))
 	for i := range digestList {
@@ -353,23 +246,41 @@ func renderDigest(digestList []DigestItem, events []*Event, user *User) (string,
 	}
 
 	// Convert all of the upcomingEvents to template.Events
-	templateEvents := make([]template.Event, len(events))
-	for i := range events {
+	templateEvents := make([]template.Event, len(upcomingEvents))
+	for i := range upcomingEvents {
 		templateEvents[i] = template.Event{
-			Name:    events[i].Name,
-			Address: events[i].Address,
-			Time:    events[i].GetFormatedTime(),
+			Name:    upcomingEvents[i].Name,
+			Address: upcomingEvents[i].Address,
+			Time:    upcomingEvents[i].GetFormatedTime(),
 		}
 	}
 
 	// Render all the stuff
-	html, err := template.RenderDigest(template.Digest{
+	plainText, html, err := template.RenderDigest(template.Digest{
 		Items:  items,
 		Events: templateEvents,
 	})
 	if err != nil {
-		return "", "", err
+		return err
 	}
 
-	return "", html, nil
+	email := mail.EmailMessage{
+		FromName:    _fromName,
+		FromEmail:   _fromEmail,
+		ToName:      user.FullName,
+		ToEmail:     user.Email,
+		Subject:     "[convo] Digest",
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	return mail.Send(email)
+}
+
+func getLastFive(messages []*Message) []*Message {
+	if len(messages) > 5 {
+		return messages[:5]
+	}
+
+	return messages
 }

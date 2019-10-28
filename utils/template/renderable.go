@@ -30,5 +30,4 @@ func (r renderable) RenderHTML(tplName string, data interface{}) (string, error)
 	}
 
 	return html, nil
-
 }

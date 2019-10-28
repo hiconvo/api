@@ -1,5 +1,10 @@
 package template
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Message is a renderable message. It is always a constituent of a
 // Thread. The Body field accepts markdown. XML is not allowed.
 type Message struct {
@@ -39,35 +44,83 @@ type Digest struct {
 }
 
 // RenderThread returns a rendered thread email.
-func RenderThread(t Thread) (string, error) {
-	for i := range t.Messages {
+func RenderThread(t Thread) (string, string, error) {
+	var builder strings.Builder
+
+	for i, m := range t.Messages {
+		fmt.Fprintf(&builder, _tplStrMessage, m.Name, m.Body)
 		t.Messages[i].RenderMarkdown(t.Messages[i].Body)
 	}
 
-	return t.RenderHTML("thread.html", t)
+	plainText := builder.String()
+	preview := getPreview(plainText)
+
+	t.Preview = preview
+
+	html, err := t.RenderHTML("thread.html", t)
+
+	return plainText, html, err
 }
 
 // RenderEvent returns a rendered event invitation email.
-func RenderEvent(e Event) (string, error) {
+func RenderEvent(e Event) (string, string, error) {
 	e.RenderMarkdown(e.Description)
 
-	return e.RenderHTML("event.html", e)
+	var builder strings.Builder
+	fmt.Fprintf(&builder, _tplStrEvent,
+		e.FromName,
+		e.Name,
+		e.Address,
+		e.Time,
+		e.Description)
+	plainText := builder.String()
+	preview := getPreview(plainText)
+
+	e.Preview = preview
+
+	html, err := e.RenderHTML("event.html", e)
+
+	return plainText, html, err
 }
 
 // RenderCancellation returns a rendered event cancellation email.
-func RenderCancellation(e Event) (string, error) {
-	return e.RenderHTML("cancellation.html", e)
+func RenderCancellation(e Event) (string, string, error) {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, _tplStrCancellation,
+		e.FromName,
+		e.Name,
+		e.Address,
+		e.Time)
+	plainText := builder.String()
+	preview := getPreview(plainText)
+
+	e.Preview = preview
+
+	html, err := e.RenderHTML("cancellation.html", e)
+
+	return plainText, html, err
 }
 
 // RenderDigest returns a rendered digest email.
-func RenderDigest(d Digest) (string, error) {
+func RenderDigest(d Digest) (string, string, error) {
 	for i := range d.Items {
 		for j := range d.Items[i].Messages {
 			d.Items[i].Messages[j].RenderMarkdown(d.Items[i].Messages[j].Body)
 		}
 	}
 
-	d.Preview = "You have notifications on Convo."
+	plainText := "You have notifications on Convo."
+	d.Preview = plainText
 
-	return d.RenderHTML("digest.html", d)
+	html, err := d.RenderHTML("digest.html", d)
+
+	return plainText, html, err
+}
+
+func getPreview(plainText string) string {
+	if len(plainText) > 200 {
+		return plainText[:200] + "..."
+	}
+
+	return plainText
 }
