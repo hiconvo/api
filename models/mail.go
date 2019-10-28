@@ -14,30 +14,17 @@ const (
 	_fromName  = "Convo"
 )
 
+const (
+	_tplStrPasswordReset = "Please click the link below to set your password."
+	_tplStrVerifyEmail   = "Please click the link below to verify your email address."
+	_tplStrMergeAccounts = "Please click the link below to verify your email address. This will merge your account with %s into your account with %s. If you did not attempt to add a new email to your account, it might be a good idea to notifiy support@hiconvo.com."
+)
+
 func sendPasswordResetEmail(u *User, magicLink string) error {
-	body := fmt.Sprintf(_tplStrPasswordReset, magicLink)
-	return sendAdministrativeEmail(u, u.Email, "[convo] Set Password", body)
-}
-
-func sendVerifyEmail(u *User, email, magicLink string) error {
-	body := fmt.Sprintf(_tplStrVerifyEmail, magicLink)
-	return sendAdministrativeEmail(u, email, "[convo] Verify Email", body)
-}
-
-func sendMergeAccountsEmail(u *User, emailToMerge, magicLink string) error {
-	body := fmt.Sprintf(_tplStrMergeAccounts, magicLink, emailToMerge, u.Email)
-	return sendAdministrativeEmail(u, emailToMerge, "[convo] Verify Email", body)
-}
-
-func sendAdministrativeEmail(u *User, toEmail, subject, body string) error {
-	plainText, html, err := template.RenderThread(template.Thread{
-		Subject: subject,
-		Messages: []template.Message{
-			template.Message{
-				Body: body,
-				Name: _fromName,
-			},
-		},
+	plainText, html, err := template.RenderAdminEmail(template.AdminEmail{
+		Body:       _tplStrPasswordReset,
+		ButtonText: "Set password",
+		MagicLink:  magicLink,
 	})
 	if err != nil {
 		return err
@@ -47,8 +34,55 @@ func sendAdministrativeEmail(u *User, toEmail, subject, body string) error {
 		FromName:    _fromName,
 		FromEmail:   _fromEmail,
 		ToName:      u.FullName,
-		ToEmail:     toEmail,
-		Subject:     subject,
+		ToEmail:     u.Email,
+		Subject:     "[convo] Set Password",
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	return mail.Send(email)
+}
+
+func sendVerifyEmail(u *User, emailAddress, magicLink string) error {
+	plainText, html, err := template.RenderAdminEmail(template.AdminEmail{
+		Body:       _tplStrVerifyEmail,
+		ButtonText: "Verify",
+		MagicLink:  magicLink,
+	})
+	if err != nil {
+		return err
+	}
+
+	email := mail.EmailMessage{
+		FromName:    _fromName,
+		FromEmail:   _fromEmail,
+		ToName:      u.FullName,
+		ToEmail:     emailAddress,
+		Subject:     "[convo] Verify Email",
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	return mail.Send(email)
+}
+
+func sendMergeAccountsEmail(u *User, emailToMerge, magicLink string) error {
+	plainText, html, err := template.RenderAdminEmail(template.AdminEmail{
+		Body:       _tplStrMergeAccounts,
+		ButtonText: "Verify",
+		MagicLink:  magicLink,
+		Fargs:      []interface{}{emailToMerge, u.Email},
+	})
+	if err != nil {
+		return err
+	}
+
+	email := mail.EmailMessage{
+		FromName:    _fromName,
+		FromEmail:   _fromEmail,
+		ToName:      u.FullName,
+		ToEmail:     u.Email,
+		Subject:     "[convo] Verify Email",
 		TextContent: plainText,
 		HTMLContent: html,
 	}
@@ -76,8 +110,8 @@ func sendThread(thread *Thread, messages []*Message) error {
 
 		// Generate messages
 		tplMessages := make([]template.Message, len(lastFive))
-		for _, m := range lastFive {
-			tplMessages[i] = template.Message{
+		for j, m := range lastFive {
+			tplMessages[j] = template.Message{
 				Body:   m.Body,
 				Name:   m.User.FirstName,
 				FromID: m.User.ID,
@@ -138,6 +172,7 @@ func sendEvent(event *Event, isUpdate bool) error {
 				strconv.FormatBool(event.HasRSVP(curUser)),
 				fmt.Sprintf("rsvp/%s",
 					event.Key.Encode())),
+			ButtonText: "RSVP",
 		})
 		if err != nil {
 			return err
@@ -173,6 +208,7 @@ func sendEventInvitation(event *Event, user *User) error {
 			strconv.FormatBool(event.HasRSVP(user)),
 			fmt.Sprintf("rsvp/%s",
 				event.Key.Encode())),
+		ButtonText: "RSVP",
 	})
 	if err != nil {
 		return err

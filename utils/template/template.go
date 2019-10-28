@@ -33,6 +33,7 @@ type Event struct {
 	Preview     string
 	FromName    string
 	MagicLink   string
+	ButtonText  string
 }
 
 // Digest is a representation of a renderable email digest.
@@ -41,6 +42,17 @@ type Digest struct {
 	Items   []Thread
 	Preview string
 	Events  []Event
+}
+
+// AdminEmail is a representation of a renderable administrative
+// email which includes a call to action button.
+type AdminEmail struct {
+	renderable
+	Body       string
+	ButtonText string
+	MagicLink  string
+	Fargs      []interface{}
+	Preview    string
 }
 
 // RenderThread returns a rendered thread email.
@@ -113,6 +125,21 @@ func RenderDigest(d Digest) (string, string, error) {
 	d.Preview = plainText
 
 	html, err := d.RenderHTML("digest.html", d)
+
+	return plainText, html, err
+}
+
+// RenderAdminEmail returns a rendered admin email.
+func RenderAdminEmail(a AdminEmail) (string, string, error) {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, a.Body, a.Fargs...)
+	plainText := builder.String()
+	preview := getPreview(plainText)
+
+	a.Preview = preview
+
+	a.RenderMarkdown(plainText)
+	html, err := a.RenderHTML("admin.html", a)
 
 	return plainText, html, err
 }
