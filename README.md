@@ -1,6 +1,6 @@
 # Convo API
 
-[![CircleCI](https://img.shields.io/circleci/build/github/hiconvo/api?label=circleci)](https://circleci.com/gh/hiconvo/api) [![codecov](https://img.shields.io/codecov/c/gh/hiconvo/api)](https://codecov.io/gh/hiconvo/api)
+[![CircleCI](https://img.shields.io/circleci/build/github/hiconvo/api?label=circleci)](https://circleci.com/gh/hiconvo/api) [![codecov](https://img.shields.io/codecov/c/gh/hiconvo/api)](https://codecov.io/gh/hiconvo/api) [![goreportcard](https://goreportcard.com/badge/github.com/hiconvo/api)](https://goreportcard.com/badge/github.com/hiconvo/api)
 
 The repo holds the source code for Convo's RESTful API ([Docs 📑](http://api.hiconvo.com/docs)). Learn more about Convo at [hiconvo.com](https://hiconvo.com). The core technologies and APIs used in the project are:
 
