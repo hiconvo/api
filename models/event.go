@@ -250,10 +250,6 @@ func (e *Event) GetICS() string {
 	ev.SetDescription(e.Description)
 	ev.SetOrganizer(e.GetEmail(), ics.WithCN(e.Owner.FullName))
 
-	for _, u := range e.Users {
-		ev.AddAttendee(e.GetEmail(), ics.WithCN(u.FullName))
-	}
-
 	return cal.Serialize()
 }
 
