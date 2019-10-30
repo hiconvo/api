@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/hiconvo/api/db"
+	notif "github.com/hiconvo/api/notifications"
 	"github.com/hiconvo/api/search"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/random"
@@ -29,6 +30,7 @@ type User struct {
 	LastName         string           `json:"lastName"`
 	FullName         string           `json:"fullName" datastore:"-"`
 	Token            string           `json:"token"`
+	RealtimeToken    string           `json:"realtimeToken"`
 	PasswordDigest   string           `json:"-"        datastore:",noindex"`
 	OAuthGoogleID    string           `json:"-"`
 	OAuthFacebookID  string           `json:"-"`
@@ -93,6 +95,11 @@ func (u *User) LoadKey(k *datastore.Key) error {
 
 	// Add URL safe key
 	u.ID = k.Encode()
+
+	// Generate the streamer token if not already present
+	if u.RealtimeToken == "" {
+		u.RealtimeToken = notif.GenerateToken(u.ID)
+	}
 
 	return nil
 }
@@ -183,6 +190,7 @@ func (u *User) DeriveProperties() {
 	}
 
 	u.Verified = u.HasEmail(u.Email)
+
 }
 
 func (u *User) IsRegistered() bool {

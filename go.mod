@@ -7,6 +7,7 @@ require (
 	github.com/aymerick/douceur v0.2.0
 	github.com/certifi/gocertifi v0.0.0-20190506164543-d2eda7129713 // indirect
 	github.com/fatih/color v1.7.0 // indirect
+	github.com/fatih/structs v1.1.0 // indirect
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-siris/siris v7.4.0+incompatible // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible
@@ -39,6 +40,9 @@ require (
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
 	google.golang.org/api v0.10.0
 	googlemaps.github.io/maps v0.0.0-20190906051648-24f4c8471353
+	gopkg.in/GetStream/stream-go2.v1 v1.14.0
+	gopkg.in/LeisureLink/httpsig.v1 v1.2.0 // indirect
+	gopkg.in/dgrijalva/jwt-go.v3 v3.2.0 // indirect
 	gopkg.in/gographics/imagick.v3 v3.2.0 // indirect
 	gopkg.in/russross/blackfriday.v2 v2.0.1
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8 // indirect

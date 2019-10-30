@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
+	notif "github.com/hiconvo/api/notifications"
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/places"
@@ -415,6 +417,18 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := notif.Put(notif.Notification{
+		UserID:     event.Owner.ID,
+		Actor:      u.FullName,
+		Verb:       notif.AddRSVP,
+		Target:     notif.Event,
+		TargetID:   event.ID,
+		TargetName: event.Name,
+	}); err != nil {
+		// Log the error but don't fail the request
+		fmt.Fprintln(os.Stderr, err)
+	}
+
 	bjson.WriteJSON(w, event, http.StatusOK)
 }
 
@@ -446,6 +460,18 @@ func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 	if err := event.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
+	}
+
+	if err := notif.Put(notif.Notification{
+		UserID:     event.Owner.ID,
+		Actor:      u.FullName,
+		Verb:       notif.RemoveRSVP,
+		Target:     notif.Event,
+		TargetID:   event.ID,
+		TargetName: event.Name,
+	}); err != nil {
+		// Log the error but don't fail the request
+		fmt.Fprintln(os.Stderr, err)
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
