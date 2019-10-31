@@ -39,8 +39,6 @@ Be mindful that this command will *wipe everything from the database*. There is 
 
 ## Architecture
 
-The architecture is very simple.
-
 ![Architecture](architecture.jpg)
 
 ## Code Overview
@@ -49,10 +47,6 @@ The best place to start (after looking at `main/main.go`) is `handlers/router.go
 
 The next place to look is `handlers/*.go`. All of the handlers are standard handler functions of the form `func(http.ResponseWriter, *http.Request)`. I decided not to alter this signature with something more app specific since the context at `http.Request.Context()` makes it easy enough to standardize common operations.
 
-The handlers are focused on request validation, getting data from the database, and mutating models - all through higher-level APIs. Some of these operations are complicated, especially the ones concerned with validating users to be included in events or threads, but the separation of concens between models and handlers is decent enough.
+The handlers are focused on request validation, getting data from the database, and mutating models - all through higher-level APIs. Some of these operations are complicated, especially the ones concerned with validating users to be included in events or threads, but the separation of concens between models and handlers, though admittedly smelly, is decent enough for now.
 
-One code smell in the handlers is validation. Validation is not fully steamlined. Some of it takes place in the handlers and some of it is in the models.
-
-The core business logic is in the models. Most of these files are pretty self explanatory. The messiest of the model files is `mail.go` which handles a portion of the email rendering and sending process. Eventually, it would be nice to break off the email business into its own service, but for now, at this early stage, the current monolithic approach is fine.
-
-
+The core business logic is in the models. Most of these files are pretty self explanatory.
