@@ -14,11 +14,13 @@ The repo holds the source code for Convo's RESTful API ([Docs 📑](http://api.h
 
 ## Development
 
-We use docker based development. In order to run the project locally, you need to create an `.env` file and place it at the root of the project. The `.env` file should contain a Google Maps API key and a Sendgrid API key. It should look something like this:
+We use docker based development. In order to run the project locally, you need to create an `.env` file and place it at the root of the project. The `.env` file should contain a Google Maps API key, Sendgrid API key, and a Stream API key and secret. It should look something like this:
 
 ```
 GOOGLE_MAPS_API_KEY=<YOUR API KEY>
 SENDGRID_API_KEY=<YOUR API KEY>
+STREAM_API_KEY=<YOUR API KEY>
+STREAM_API_SECRET=<YOUR API SECRET>
 ```
 
 If you don't include this file, the app will panic during startup.
@@ -39,7 +41,7 @@ Be mindful that this command will *wipe everything from the database*. There is 
 
 The architecture is very simple.
 
-![Architecture](architecture.png)
+![Architecture](architecture.jpg)
 
 ## Code Overview
 

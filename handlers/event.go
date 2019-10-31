@@ -294,6 +294,18 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := notif.PutMulti(notif.Notification{
+		UserKeys:   event.UserKeys,
+		Actor:      u.FullName,
+		Verb:       notif.DeleteEvent,
+		Target:     notif.Event,
+		TargetID:   event.ID,
+		TargetName: event.Name,
+	}); err != nil {
+		// Log the error but don't fail the request
+		fmt.Fprintln(os.Stderr, err)
+	}
+
 	bjson.WriteJSON(w, event, http.StatusOK)
 }
 
@@ -542,6 +554,18 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
+	}
+
+	if err := notif.Put(notif.Notification{
+		UserID:     e.Owner.ID,
+		Actor:      u.FullName,
+		Verb:       notif.AddRSVP,
+		Target:     notif.Event,
+		TargetID:   e.ID,
+		TargetName: e.Name,
+	}); err != nil {
+		// Log the error but don't fail the request
+		fmt.Fprintln(os.Stderr, err)
 	}
 
 	bjson.WriteJSON(w, u, http.StatusOK)

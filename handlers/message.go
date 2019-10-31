@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"html"
 	"net/http"
+	"os"
 
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
+	notif "github.com/hiconvo/api/notifications"
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/validate"
 )
@@ -136,15 +139,6 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Allowing this for now. Want to encorage use.
-	//
-	// if !u.IsRegistered() {
-	// 	bjson.WriteJSON(w, map[string]string{
-	// 		"message": "You must register your account to post a message",
-	// 	}, http.StatusBadRequest)
-	// 	return
-	// }
-
 	message, err := models.NewEventMessage(&u, &event, html.UnescapeString(payload.Body))
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
@@ -159,6 +153,18 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 	if err := event.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
 		return
+	}
+
+	if err := notif.PutMulti(notif.Notification{
+		UserKeys:   event.UserKeys,
+		Actor:      u.FullName,
+		Verb:       notif.NewMessage,
+		Target:     notif.Event,
+		TargetID:   event.ID,
+		TargetName: event.Name,
+	}); err != nil {
+		// Log the error but don't fail the request
+		fmt.Fprintln(os.Stderr, err)
 	}
 
 	bjson.WriteJSON(w, message, http.StatusCreated)

@@ -3,6 +3,7 @@ package notifications
 import (
 	"fmt"
 
+	"cloud.google.com/go/datastore"
 	"gopkg.in/GetStream/stream-go2.v1"
 
 	"github.com/hiconvo/api/utils/secrets"
@@ -12,10 +13,11 @@ type verb string
 type target string
 
 const (
-	AddRSVP    verb = "AddRSVP"
-	RemoveRSVP verb = "RemoveRSVP"
-	NewMessage verb = "NewMessage"
-	NewEvent   verb = "NewEvent"
+	AddRSVP     verb = "AddRSVP"
+	RemoveRSVP  verb = "RemoveRSVP"
+	NewMessage  verb = "NewMessage"
+	NewEvent    verb = "NewEvent"
+	DeleteEvent verb = "DeleteEvent"
 
 	Thread target = "thread"
 	Event  target = "event"
@@ -23,7 +25,7 @@ const (
 
 type Notification struct {
 	UserID     string
-	UserIDs    []string
+	UserKeys   []*datastore.Key
 	Actor      string
 	Verb       verb
 	Target     target
@@ -67,8 +69,8 @@ func Put(n Notification) error {
 }
 
 func PutMulti(n Notification) error {
-	for _, id := range n.UserIDs {
-		n.UserID = id
+	for _, key := range n.UserIDs {
+		n.UserID = key.Encode()
 
 		if err := Put(n); err != nil {
 			return err
