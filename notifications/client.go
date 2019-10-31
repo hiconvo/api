@@ -69,7 +69,7 @@ func Put(n Notification) error {
 }
 
 func PutMulti(n Notification) error {
-	for _, key := range n.UserIDs {
+	for _, key := range n.UserKeys {
 		n.UserID = key.Encode()
 
 		if err := Put(n); err != nil {
