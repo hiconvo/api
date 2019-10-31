@@ -136,6 +136,7 @@ func (u *User) Commit(ctx context.Context) error {
 
 	u.ID = key.Encode()
 	u.Key = key
+	u.RealtimeToken = notif.GenerateToken(u.ID)
 	u.DeriveProperties()
 
 	// Only index users that are registered
@@ -190,7 +191,6 @@ func (u *User) DeriveProperties() {
 	}
 
 	u.Verified = u.HasEmail(u.Email)
-
 }
 
 func (u *User) IsRegistered() bool {

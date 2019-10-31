@@ -155,8 +155,8 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := notif.PutMulti(notif.Notification{
-		UserKeys:   event.UserKeys,
+	if err := notif.Put(notif.Notification{
+		UserKeys:   notif.FilterKey(event.UserKeys, u.Key),
 		Actor:      u.FullName,
 		Verb:       notif.NewMessage,
 		Target:     notif.Event,

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"cloud.google.com/go/datastore"
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/db"
@@ -294,8 +295,8 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := notif.PutMulti(notif.Notification{
-		UserKeys:   event.UserKeys,
+	if err := notif.Put(notif.Notification{
+		UserKeys:   notif.FilterKey(event.UserKeys, u.Key),
 		Actor:      u.FullName,
 		Verb:       notif.DeleteEvent,
 		Target:     notif.Event,
@@ -430,7 +431,7 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := notif.Put(notif.Notification{
-		UserID:     event.Owner.ID,
+		UserKeys:   []*datastore.Key{event.OwnerKey},
 		Actor:      u.FullName,
 		Verb:       notif.AddRSVP,
 		Target:     notif.Event,
@@ -475,7 +476,7 @@ func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := notif.Put(notif.Notification{
-		UserID:     event.Owner.ID,
+		UserKeys:   []*datastore.Key{event.OwnerKey},
 		Actor:      u.FullName,
 		Verb:       notif.RemoveRSVP,
 		Target:     notif.Event,
@@ -557,7 +558,7 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := notif.Put(notif.Notification{
-		UserID:     e.Owner.ID,
+		UserKeys:   []*datastore.Key{e.OwnerKey},
 		Actor:      u.FullName,
 		Verb:       notif.AddRSVP,
 		Target:     notif.Event,
