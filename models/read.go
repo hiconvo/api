@@ -54,11 +54,11 @@ func IsRead(r Readable, userKey *datastore.Key) bool {
 
 func MapReadsToUserPartials(r Readable, users []*User) []*UserPartial {
 	reads := r.GetReads()
-	userPartials := make([]*UserPartial, len(reads))
+	var userPartials []*UserPartial
 	for i := range reads {
 		for j := range users {
 			if users[j].Key.Equal(reads[i].UserKey) {
-				userPartials[i] = MapUserToUserPartial(users[j])
+				userPartials = append(userPartials, MapUserToUserPartial(users[j]))
 				break
 			}
 		}
