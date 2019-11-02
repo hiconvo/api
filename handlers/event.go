@@ -259,6 +259,18 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := notif.Put(notif.Notification{
+		UserKeys:   notif.FilterKey(event.UserKeys, u.Key),
+		Actor:      u.FullName,
+		Verb:       notif.UpdateEvent,
+		Target:     notif.Event,
+		TargetID:   event.ID,
+		TargetName: event.Name,
+	}); err != nil {
+		// Log the error but don't fail the request
+		fmt.Fprintln(os.Stderr, err)
+	}
+
 	bjson.WriteJSON(w, event, http.StatusOK)
 }
 
@@ -288,23 +300,23 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 			bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 			return
 		}
+
+		if err := notif.Put(notif.Notification{
+			UserKeys:   notif.FilterKey(event.UserKeys, u.Key),
+			Actor:      u.FullName,
+			Verb:       notif.DeleteEvent,
+			Target:     notif.Event,
+			TargetID:   event.ID,
+			TargetName: event.Name,
+		}); err != nil {
+			// Log the error but don't fail the request
+			fmt.Fprintln(os.Stderr, err)
+		}
 	}
 
 	if err := event.Delete(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
-	}
-
-	if err := notif.Put(notif.Notification{
-		UserKeys:   notif.FilterKey(event.UserKeys, u.Key),
-		Actor:      u.FullName,
-		Verb:       notif.DeleteEvent,
-		Target:     notif.Event,
-		TargetID:   event.ID,
-		TargetName: event.Name,
-	}); err != nil {
-		// Log the error but don't fail the request
-		fmt.Fprintln(os.Stderr, err)
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
