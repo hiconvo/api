@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 
-	"cloud.google.com/go/datastore"
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/middleware"
@@ -179,11 +178,6 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 	if !thread.OwnerIs(&u) {
 		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
 		return
-	}
-
-	userKeys := make([]*datastore.Key, len(thread.Users))
-	for i := range thread.Users {
-		userKeys[i] = thread.Users[i].Key
 	}
 
 	if err := thread.Delete(ctx); err != nil {

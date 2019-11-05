@@ -26,6 +26,54 @@ type Thread struct {
 	CreatedAt    time.Time        `json:"-"`
 }
 
+func NewThread(subject string, owner *User, users []*User) (Thread, error) {
+	// Get all of the users' keys, remove duplicates, and check whether
+	// the owner was included in the users slice
+	userKeys := make([]*datastore.Key, 0)
+	seen := make(map[string]struct{})
+	hasOwner := false
+	for _, u := range users {
+		if _, alreadySeen := seen[u.ID]; alreadySeen {
+			continue
+		}
+		seen[u.ID] = struct{}{}
+		if u.Key.Equal(owner.Key) {
+			hasOwner = true
+		}
+		userKeys = append(userKeys, u.Key)
+	}
+
+	// Add the owner to the users if not already present
+	if !hasOwner {
+		userKeys = append(userKeys, owner.Key)
+		users = append(users, owner)
+	}
+
+	// If a subject wasn't given, create one that is a list of the participants'
+	// names.
+	//
+	// TODO: Change this when adding/removing users from threads.
+	if subject == "" {
+		for i, u := range users {
+			if i == len(users)-1 {
+				subject += "and " + u.FirstName
+			} else {
+				subject += u.FirstName + ", "
+			}
+		}
+	}
+
+	return Thread{
+		Key:          datastore.IncompleteKey("Thread", nil),
+		OwnerKey:     owner.Key,
+		Owner:        MapUserToUserPartial(owner),
+		UserKeys:     userKeys,
+		Users:        users,
+		UserPartials: MapUsersToUserPartials(users),
+		Subject:      subject,
+	}, nil
+}
+
 func (t *Thread) LoadKey(k *datastore.Key) error {
 	t.Key = k
 
@@ -160,54 +208,6 @@ func (t *Thread) Send(ctx context.Context) error {
 	return sendThread(t, messages)
 }
 
-func NewThread(subject string, owner *User, users []*User) (Thread, error) {
-	// Get all of the users' keys, remove duplicates, and check whether
-	// the owner was included in the users slice
-	userKeys := make([]*datastore.Key, 0)
-	seen := make(map[string]struct{})
-	hasOwner := false
-	for _, u := range users {
-		if _, alreadySeen := seen[u.ID]; alreadySeen {
-			continue
-		}
-		seen[u.ID] = struct{}{}
-		if u.Key.Equal(owner.Key) {
-			hasOwner = true
-		}
-		userKeys = append(userKeys, u.Key)
-	}
-
-	// Add the owner to the users if not already present
-	if !hasOwner {
-		userKeys = append(userKeys, owner.Key)
-		users = append(users, owner)
-	}
-
-	// If a subject wasn't given, create one that is a list of the participants'
-	// names.
-	//
-	// TODO: Change this when adding/removing users from threads.
-	if subject == "" {
-		for i, u := range users {
-			if i == len(users)-1 {
-				subject += "and " + u.FirstName
-			} else {
-				subject += u.FirstName + ", "
-			}
-		}
-	}
-
-	return Thread{
-		Key:          datastore.IncompleteKey("Thread", nil),
-		OwnerKey:     owner.Key,
-		Owner:        MapUserToUserPartial(owner),
-		UserKeys:     userKeys,
-		Users:        users,
-		UserPartials: MapUsersToUserPartials(users),
-		Subject:      subject,
-	}, nil
-}
-
 func GetThreadByID(ctx context.Context, id string) (Thread, error) {
 	var t Thread
 
@@ -240,36 +240,25 @@ func GetUnhydratedThreadsByUser(ctx context.Context, u *User) ([]*Thread, error)
 
 func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 	// Get all of the threads of which the user is a member
-	var threads []Thread
-	q := datastore.NewQuery("Thread").Filter("UserKeys =", u.Key)
-	_, err := db.Client.GetAll(ctx, q, &threads)
+	threads, err := GetUnhydratedThreadsByUser(ctx, u)
 	if err != nil {
-		var tptrs []*Thread
-		return tptrs, err
+		return threads, err
 	}
 
 	// Now that we have the threads, we need to get the users. We keep track of
 	// where the users of one thread start and another begin by incrementing
 	// an index.
-	var uKeys []*datastore.Key
+	var userKeys []*datastore.Key
 	var idxs []int
 	for _, t := range threads {
-		uKeys = append(uKeys, t.UserKeys...)
+		userKeys = append(userKeys, t.UserKeys...)
 		idxs = append(idxs, len(t.UserKeys))
 	}
 
 	// We get all of the users in one go.
-	us := make([]User, len(uKeys))
-	if err := db.Client.GetMulti(ctx, uKeys, us); err != nil {
-		var tptrs []*Thread
-		return tptrs, err
-	}
-
-	// In order to satisfy MapUsersToUserPartials() and other functions, we map
-	// user objects to pointers to them.
-	uptrs := make([]*User, len(us))
-	for i := range us {
-		uptrs[i] = &us[i]
+	userPtrs := make([]*User, len(userKeys))
+	if err := db.Client.GetMulti(ctx, userKeys, userPtrs); err != nil {
+		return threads, err
 	}
 
 	// We add the just retrieved user objects to their corresponding threads by
@@ -279,9 +268,9 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 	// We also create a new slice of pointers to threads which we'll finally
 	// return.
 	start := 0
-	tptrs := make([]*Thread, len(threads))
+	threadPtrs := make([]*Thread, len(threads))
 	for i := range threads {
-		threadUsers := uptrs[start : start+idxs[i]]
+		threadUsers := userPtrs[start : start+idxs[i]]
 
 		var owner *User
 		for j := range threadUsers {
@@ -294,13 +283,13 @@ func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
 		threads[i].Users = threadUsers
 		threads[i].Owner = MapUserToUserPartial(owner)
 		threads[i].UserPartials = MapUsersToUserPartials(threadUsers)
-		threads[i].UserReads = MapReadsToUserPartials(&threads[i], threadUsers)
+		threads[i].UserReads = MapReadsToUserPartials(threads[i], threadUsers)
 
 		start += idxs[i]
-		tptrs[i] = &threads[i]
+		threadPtrs[i] = threads[i]
 	}
 
-	return tptrs, nil
+	return threadPtrs, nil
 }
 
 func handleGetThread(ctx context.Context, key *datastore.Key, t Thread) (Thread, error) {

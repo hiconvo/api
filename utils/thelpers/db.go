@@ -11,10 +11,11 @@ func CreateTestContext() context.Context {
 }
 
 func CreateTestDatastoreClient(ctx context.Context) *datastore.Client {
-	client, err := datastore.NewClient(ctx, "convo-api")
+	client, err := datastore.NewClient(ctx, "local-convo-api")
 	if err != nil {
 		panic(err)
 	}
+
 	return client
 }
 
@@ -25,9 +26,10 @@ func ClearDatastore(ctx context.Context, client *datastore.Client) {
 		if err != nil {
 			panic(err)
 		}
-		derr := client.DeleteMulti(ctx, keys)
+
+		err = client.DeleteMulti(ctx, keys)
 		if err != nil {
-			panic(derr)
+			panic(err)
 		}
 	}
 }

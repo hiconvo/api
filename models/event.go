@@ -36,6 +36,54 @@ type Event struct {
 	CreatedAt    time.Time        `json:"-"`
 }
 
+func NewEvent(
+	name, description, placeID, address string,
+	lat, lng float64,
+	timestamp time.Time,
+	utcOffset int,
+	owner *User,
+	users []*User,
+) (Event, error) {
+	// Get all of the users' keys, remove duplicates, and check whether
+	// the owner was included in the users slice
+	userKeys := make([]*datastore.Key, 0)
+	seen := make(map[string]struct{})
+	hasOwner := false
+	for _, u := range users {
+		if _, alreadySeen := seen[u.ID]; alreadySeen {
+			continue
+		}
+		seen[u.ID] = struct{}{}
+		if u.Key.Equal(owner.Key) {
+			hasOwner = true
+		}
+		userKeys = append(userKeys, u.Key)
+	}
+
+	// Add the owner to the users if not already present
+	if !hasOwner {
+		userKeys = append(userKeys, owner.Key)
+		users = append(users, owner)
+	}
+
+	return Event{
+		Key:          datastore.IncompleteKey("Event", nil),
+		OwnerKey:     owner.Key,
+		Owner:        MapUserToUserPartial(owner),
+		UserKeys:     userKeys,
+		UserPartials: MapUsersToUserPartials(users),
+		Users:        users,
+		Name:         name,
+		PlaceID:      placeID,
+		Address:      address,
+		Lat:          lat,
+		Lng:          lng,
+		Timestamp:    timestamp,
+		UTCOffset:    utcOffset,
+		Description:  description,
+	}, nil
+}
+
 func (e *Event) LoadKey(k *datastore.Key) error {
 	e.Key = k
 
@@ -253,54 +301,6 @@ func (e *Event) GetICS() string {
 	return cal.Serialize()
 }
 
-func NewEvent(
-	name, description, placeID, address string,
-	lat, lng float64,
-	timestamp time.Time,
-	utcOffset int,
-	owner *User,
-	users []*User,
-) (Event, error) {
-	// Get all of the users' keys, remove duplicates, and check whether
-	// the owner was included in the users slice
-	userKeys := make([]*datastore.Key, 0)
-	seen := make(map[string]struct{})
-	hasOwner := false
-	for _, u := range users {
-		if _, alreadySeen := seen[u.ID]; alreadySeen {
-			continue
-		}
-		seen[u.ID] = struct{}{}
-		if u.Key.Equal(owner.Key) {
-			hasOwner = true
-		}
-		userKeys = append(userKeys, u.Key)
-	}
-
-	// Add the owner to the users if not already present
-	if !hasOwner {
-		userKeys = append(userKeys, owner.Key)
-		users = append(users, owner)
-	}
-
-	return Event{
-		Key:          datastore.IncompleteKey("Event", nil),
-		OwnerKey:     owner.Key,
-		Owner:        MapUserToUserPartial(owner),
-		UserKeys:     userKeys,
-		UserPartials: MapUsersToUserPartials(users),
-		Users:        users,
-		Name:         name,
-		PlaceID:      placeID,
-		Address:      address,
-		Lat:          lat,
-		Lng:          lng,
-		Timestamp:    timestamp,
-		UTCOffset:    utcOffset,
-		Description:  description,
-	}, nil
-}
-
 func GetEventByID(ctx context.Context, id string) (Event, error) {
 	var e Event
 
@@ -325,12 +325,9 @@ func GetUnhydratedEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
 
 func GetEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
 	// Get all of the events of which the user is a member
-	var events []Event
-	q := datastore.NewQuery("Event").Filter("UserKeys =", u.Key)
-	_, err := db.Client.GetAll(ctx, q, &events)
+	events, err := GetUnhydratedEventsByUser(ctx, u)
 	if err != nil {
-		var eventPtrs []*Event
-		return eventPtrs, err
+		return events, err
 	}
 
 	// Now that we have the events, we need to get the users. We keep track of
@@ -344,17 +341,9 @@ func GetEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
 	}
 
 	// We get all of the users in one go.
-	us := make([]User, len(uKeys))
-	if err := db.Client.GetMulti(ctx, uKeys, us); err != nil {
-		var eventPtrs []*Event
-		return eventPtrs, err
-	}
-
-	// In order to satisfy MapUsersToUserPartials() and other functions, we map
-	// user objects to pointers to them.
-	userPtrs := make([]*User, len(us))
-	for i := range us {
-		userPtrs[i] = &us[i]
+	userPtrs := make([]*User, len(uKeys))
+	if err := db.Client.GetMulti(ctx, uKeys, userPtrs); err != nil {
+		return events, err
 	}
 
 	// We add the just retrieved user objects to their corresponding events by
@@ -385,10 +374,10 @@ func GetEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
 		events[i].UserPartials = MapUsersToUserPartials(eventUsers)
 		events[i].Users = eventUsers
 		events[i].RSVPs = MapUsersToUserPartials(eventRSVPs)
-		events[i].UserReads = MapReadsToUserPartials(&events[i], eventUsers)
+		events[i].UserReads = MapReadsToUserPartials(events[i], eventUsers)
 
 		start += idxs[i]
-		eventPtrs[i] = &events[i]
+		eventPtrs[i] = events[i]
 	}
 
 	return eventPtrs, nil

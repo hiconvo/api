@@ -38,6 +38,7 @@ require (
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	gocloud.dev v0.15.0
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
+	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	google.golang.org/api v0.10.0
 	googlemaps.github.io/maps v0.0.0-20190906051648-24f4c8471353
 	gopkg.in/GetStream/stream-go2.v1 v1.14.0
@@ -49,7 +50,6 @@ require (
 	gopkg.in/validator.v2 v2.0.0-20180514200540-135c24b11c19
 )
 
-replace (
-	git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
-	gopkg.in/russross/blackfriday.v2 v2.0.1 => github.com/russross/blackfriday/v2 v2.0.1
-)
+replace gopkg.in/russross/blackfriday.v2 v2.0.1 => github.com/russross/blackfriday/v2 v2.0.1
+
+go 1.13

@@ -45,49 +45,71 @@ type User struct {
 	CreatedAt        time.Time        `json:"-"`
 }
 
-type UserPartial struct {
-	ID        string `json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	FullName  string `json:"fullName"`
-	Avatar    string `json:"avatar"`
+func NewIncompleteUser(email string) (User, error) {
+	femail := strings.ToLower(email)
+
+	user := User{
+		Key:       datastore.IncompleteKey("User", nil),
+		Email:     femail,
+		FirstName: strings.Split(femail, "@")[0],
+		Token:     random.Token(),
+		Verified:  false,
+	}
+
+	return user, nil
 }
 
-func MapUserToUserPartial(u *User) *UserPartial {
-	// If the user does not have any name info, show the part of their email
-	// before the "@"
-	var fullName string
-	if u.FirstName == "" && u.LastName == "" && u.FullName == "" {
-		fullName = strings.Split(u.Email, "@")[0]
+func NewUserWithPassword(email, firstname, lastname, password string) (User, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	if err != nil {
+		return User{}, err
+	}
+
+	femail := strings.ToLower(email)
+
+	user := User{
+		Key:             datastore.IncompleteKey("User", nil),
+		Email:           femail,
+		FirstName:       firstname,
+		LastName:        lastname,
+		FullName:        "",
+		PasswordDigest:  string(hash),
+		Token:           random.Token(),
+		OAuthGoogleID:   "",
+		OAuthFacebookID: "",
+		Verified:        false,
+	}
+
+	return user, nil
+}
+
+func NewUserWithOAuth(email, firstname, lastname, avatar, oauthprovider, oauthtoken string) (User, error) {
+	var googleID string
+	var facebookID string
+	if oauthprovider == "google" {
+		googleID = oauthtoken
 	} else {
-		fullName = u.FullName
+		facebookID = oauthtoken
 	}
 
-	return &UserPartial{
-		ID:        u.ID,
-		FirstName: u.FirstName,
-		LastName:  u.LastName,
-		FullName:  fullName,
-		Avatar:    u.Avatar,
-	}
-}
+	femail := strings.ToLower(email)
 
-func MapUsersToUserPartials(users []*User) []*UserPartial {
-	contacts := make([]*UserPartial, len(users))
-	for i, u := range users {
-		contacts[i] = MapUserToUserPartial(u)
-	}
-	return contacts
-}
-
-func MapUserPartialToUser(c *UserPartial, users []*User) (*User, error) {
-	for _, u := range users {
-		if u.ID == c.ID {
-			return u, nil
-		}
+	user := User{
+		Key:             datastore.IncompleteKey("User", nil),
+		Email:           femail,
+		Emails:          []string{femail},
+		FirstName:       firstname,
+		LastName:        lastname,
+		FullName:        "",
+		Avatar:          avatar,
+		PasswordDigest:  "",
+		Token:           random.Token(),
+		OAuthGoogleID:   googleID,
+		OAuthFacebookID: facebookID,
+		Verified:        true,
 	}
 
-	return &User{}, errors.New("Matching user not in slice")
+	return user, nil
 }
 
 func (u *User) LoadKey(k *datastore.Key) error {
@@ -481,73 +503,6 @@ func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 	}
 
 	return contacts, nil
-}
-
-func NewIncompleteUser(email string) (User, error) {
-	femail := strings.ToLower(email)
-
-	user := User{
-		Key:       datastore.IncompleteKey("User", nil),
-		Email:     femail,
-		FirstName: strings.Split(femail, "@")[0],
-		Token:     random.Token(),
-		Verified:  false,
-	}
-
-	return user, nil
-}
-
-func NewUserWithPassword(email, firstname, lastname, password string) (User, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
-	if err != nil {
-		return User{}, err
-	}
-
-	femail := strings.ToLower(email)
-
-	user := User{
-		Key:             datastore.IncompleteKey("User", nil),
-		Email:           femail,
-		FirstName:       firstname,
-		LastName:        lastname,
-		FullName:        "",
-		PasswordDigest:  string(hash),
-		Token:           random.Token(),
-		OAuthGoogleID:   "",
-		OAuthFacebookID: "",
-		Verified:        false,
-	}
-
-	return user, nil
-}
-
-func NewUserWithOAuth(email, firstname, lastname, avatar, oauthprovider, oauthtoken string) (User, error) {
-	var googleID string
-	var facebookID string
-	if oauthprovider == "google" {
-		googleID = oauthtoken
-	} else {
-		facebookID = oauthtoken
-	}
-
-	femail := strings.ToLower(email)
-
-	user := User{
-		Key:             datastore.IncompleteKey("User", nil),
-		Email:           femail,
-		Emails:          []string{femail},
-		FirstName:       firstname,
-		LastName:        lastname,
-		FullName:        "",
-		Avatar:          avatar,
-		PasswordDigest:  "",
-		Token:           random.Token(),
-		OAuthGoogleID:   googleID,
-		OAuthFacebookID: facebookID,
-		Verified:        true,
-	}
-
-	return user, nil
 }
 
 func GetUserByID(ctx context.Context, id string) (User, error) {

@@ -22,6 +22,50 @@ type Message struct {
 	Reads     []*Read        `json:"-"        datastore:",noindex"`
 }
 
+func NewThreadMessage(u *User, t *Thread, body string) (Message, error) {
+	ts := time.Now()
+
+	message := Message{
+		Key:       datastore.IncompleteKey("Message", nil),
+		UserKey:   u.Key,
+		User:      MapUserToUserPartial(u),
+		ParentKey: t.Key,
+		ParentID:  t.ID,
+		Body:      body,
+		Timestamp: ts,
+	}
+
+	t.Preview = &Preview{
+		Body:      body,
+		Sender:    MapUserToUserPartial(u),
+		Timestamp: ts,
+	}
+
+	ClearReads(t)
+	MarkAsRead(t, u.Key)
+
+	return message, nil
+}
+
+func NewEventMessage(u *User, e *Event, body string) (Message, error) {
+	ts := time.Now()
+
+	message := Message{
+		Key:       datastore.IncompleteKey("Message", nil),
+		UserKey:   u.Key,
+		User:      MapUserToUserPartial(u),
+		ParentKey: e.Key,
+		ParentID:  e.ID,
+		Body:      body,
+		Timestamp: ts,
+	}
+
+	ClearReads(e)
+	MarkAsRead(e, u.Key)
+
+	return message, nil
+}
+
 func (m *Message) LoadKey(k *datastore.Key) error {
 	m.Key = k
 
@@ -73,50 +117,6 @@ func (m *Message) Commit(ctx context.Context) error {
 	m.ID = key.Encode()
 	m.Key = key
 	return nil
-}
-
-func NewThreadMessage(u *User, t *Thread, body string) (Message, error) {
-	ts := time.Now()
-
-	message := Message{
-		Key:       datastore.IncompleteKey("Message", nil),
-		UserKey:   u.Key,
-		User:      MapUserToUserPartial(u),
-		ParentKey: t.Key,
-		ParentID:  t.ID,
-		Body:      body,
-		Timestamp: ts,
-	}
-
-	t.Preview = &Preview{
-		Body:      body,
-		Sender:    MapUserToUserPartial(u),
-		Timestamp: ts,
-	}
-
-	ClearReads(t)
-	MarkAsRead(t, u.Key)
-
-	return message, nil
-}
-
-func NewEventMessage(u *User, e *Event, body string) (Message, error) {
-	ts := time.Now()
-
-	message := Message{
-		Key:       datastore.IncompleteKey("Message", nil),
-		UserKey:   u.Key,
-		User:      MapUserToUserPartial(u),
-		ParentKey: e.Key,
-		ParentID:  e.ID,
-		Body:      body,
-		Timestamp: ts,
-	}
-
-	ClearReads(e)
-	MarkAsRead(e, u.Key)
-
-	return message, nil
 }
 
 func GetMessagesByThread(ctx context.Context, t *Thread) ([]*Message, error) {
