@@ -9,7 +9,7 @@ import (
 )
 
 var supportUser *User
-var welcomeMessage string = `Hello 👋,
+var welcomeMessage string = `Hello, 👋
 
 Welcome to Convo! Convo has two main features, **events** and **messaging**.
 
@@ -19,7 +19,7 @@ Convo also allows you to message with people directly via *Convos*. A Convo is a
 
 Read more about Convo and why I built it on [the blog](https://blog.hiconvo.com/hello-world).
 
-If you find any bugs 🐛or have any suggestions or feedback, please respond to this Convo directly and I'll get back to you.
+If you have any suggestions or feedback, please respond to this Convo directly and I'll get back to you.
 
 Thanks,
 
