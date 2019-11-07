@@ -3,8 +3,12 @@ cron:
     url: "/tasks/digest"
     schedule: every day 19:00
 
-  - description: "daily cloud datastore export"
+  - description: "daily cloud datastore whole export"
     url: /cloud-datastore-export?output_url_prefix=gs://convo-backups
     target: cloud-datastore-admin
     schedule: every 24 hours
 
+  - description: "daily cloud datastore tables export"
+    url: /cloud-datastore-export?output_url_prefix=gs://convo-backups&kind=User&kind=Event&kind=Thread&kind=Message
+    target: cloud-datastore-admin
+    schedule: every 24 hours
