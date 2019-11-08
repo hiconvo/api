@@ -4,11 +4,17 @@ cron:
     schedule: every day 19:00
 
   - description: "daily cloud datastore whole export"
-    url: /cloud-datastore-export?output_url_prefix=gs://convo-backups
+    url: /cloud-datastore-export?output_url_prefix=gs://convo-backups/whole-
     target: cloud-datastore-admin
-    schedule: every 24 hours
+    schedule: every day 10:00
 
-  - description: "daily cloud datastore tables export"
-    url: /cloud-datastore-export?output_url_prefix=gs://convo-backups&kind=User&kind=Event&kind=Thread&kind=Message
+  - description: "daily cloud datastore parts export"
+    url: /cloud-datastore-export?output_url_prefix=gs://convo-backups/parts-&kind=User&kind=Event&kind=Thread&kind=Message
     target: cloud-datastore-admin
-    schedule: every 24 hours
+    schedule: every day 10:05
+
+  - description: "daily bigquery import"
+    url: /bigquery_import?input_url_prefix=gs://convo-backups&dataset_id=app&kind=User&kind=Event&kind=Thread&kind=Message
+    target: cloud-datastore-admin
+    schedule: every day 10:30
+
