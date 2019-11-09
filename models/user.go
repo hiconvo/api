@@ -147,9 +147,21 @@ func (u *User) Load(ps []datastore.Property) error {
 }
 
 func (u *User) Commit(ctx context.Context) error {
+	// Add CreatedAt date
 	if u.CreatedAt.IsZero() {
 		u.CreatedAt = time.Now()
 	}
+
+	// If the user has both first and last names, capitalize them
+	// properly
+	if u.FirstName != "" && u.LastName != "" {
+		u.FirstName = strings.Title(u.FirstName)
+		u.LastName = strings.Title(u.LastName)
+	}
+
+	// Trim whitespace around the user's names
+	u.FirstName = strings.TrimSpace(u.FirstName)
+	u.LastName = strings.TrimSpace(u.LastName)
 
 	key, kErr := db.Client.Put(ctx, u.Key, u)
 	if kErr != nil {
@@ -158,7 +170,11 @@ func (u *User) Commit(ctx context.Context) error {
 
 	u.ID = key.Encode()
 	u.Key = key
+
+	// We have to do this after the user has been saved because we need the
+	// ID, which isn't available until the user is in the database
 	u.RealtimeToken = notif.GenerateToken(u.ID)
+
 	u.DeriveProperties()
 
 	// Only index users that are registered
@@ -194,9 +210,19 @@ func (u *User) ChangePassword(password string) bool {
 }
 
 func (u *User) DeriveProperties() {
-	untrimmed := fmt.Sprintf("%s %s", u.FirstName, u.LastName)
-	u.FullName = strings.TrimSpace(untrimmed)
+	// This is repeated from Commit above and handles getting users whose
+	// names are improperly formatted. Eventaually this should be removed.
+	if u.FirstName != "" && u.LastName != "" {
+		u.FirstName = strings.Title(u.FirstName)
+		u.LastName = strings.Title(u.LastName)
+	}
+	u.FirstName = strings.TrimSpace(u.FirstName)
+	u.LastName = strings.TrimSpace(u.LastName)
 
+	// Derive the full name
+	u.FullName = strings.TrimSpace(fmt.Sprintf("%s %s", u.FirstName, u.LastName))
+
+	// Derive useful bools
 	u.IsPasswordSet = u.PasswordDigest != ""
 	u.IsGoogleLinked = u.OAuthGoogleID != ""
 	u.IsFacebookLinked = u.OAuthFacebookID != ""
