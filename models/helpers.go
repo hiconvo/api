@@ -30,13 +30,22 @@ func swapKeys(keyList []*datastore.Key, oldKey, newKey *datastore.Key) []*datast
 }
 
 func swapReadUserKeys(readList []*Read, oldKey, newKey *datastore.Key) []*Read {
+	var clean []*Read
+	seen := map[string]struct{}{}
 	for i := range readList {
-		if readList[i].UserKey.Equal(oldKey) {
-			readList[i].UserKey = newKey
+		keyString := readList[i].UserKey.String()
+		if _, isSeen := seen[keyString]; !isSeen {
+			seen[keyString] = struct{}{}
+
+			if readList[i].UserKey.Equal(oldKey) {
+				readList[i].UserKey = newKey
+			}
+
+			clean = append(clean, readList[i])
 		}
 	}
 
-	return readList
+	return clean
 }
 
 func mergeContacts(a, b []*datastore.Key) []*datastore.Key {
@@ -70,7 +79,7 @@ func reassignContacts(ctx context.Context, oldUser, newUser *User) error {
 	}
 
 	for i := range users {
-		swapKeys(users[i].ContactKeys, oldUser.Key, newUser.Key)
+		users[i].ContactKeys = swapKeys(users[i].ContactKeys, oldUser.Key, newUser.Key)
 	}
 
 	_, err = db.Client.PutMulti(ctx, keys, users)
@@ -91,7 +100,7 @@ func reassignMessageUsers(ctx context.Context, old, newUser *User) error {
 	userMessageKeys := make([]*datastore.Key, len(userMessages))
 	for i := range userMessages {
 		userMessages[i].UserKey = newUser.Key
-		swapReadUserKeys(userMessages[i].Reads, old.Key, newUser.Key)
+		userMessages[i].Reads = swapReadUserKeys(userMessages[i].Reads, old.Key, newUser.Key)
 		userMessageKeys[i] = userMessages[i].Key
 	}
 
@@ -113,8 +122,8 @@ func reassignThreadUsers(ctx context.Context, old, newUser *User) error {
 	// Reassign ownership of threads and save keys to oldUserThreadKeys slice
 	userThreadKeys := make([]*datastore.Key, len(userThreads))
 	for i := range userThreads {
-		swapKeys(userThreads[i].UserKeys, old.Key, newUser.Key)
-		swapReadUserKeys(userThreads[i].Reads, old.Key, newUser.Key)
+		userThreads[i].UserKeys = swapKeys(userThreads[i].UserKeys, old.Key, newUser.Key)
+		userThreads[i].Reads = swapReadUserKeys(userThreads[i].Reads, old.Key, newUser.Key)
 
 		if userThreads[i].OwnerKey.Equal(old.Key) {
 			userThreads[i].OwnerKey = newUser.Key
@@ -141,9 +150,9 @@ func reassignEventUsers(ctx context.Context, old, newUser *User) error {
 	// Reassign ownership of events and save keys to userEvetKeys slice
 	userEventKeys := make([]*datastore.Key, len(userEvents))
 	for i := range userEvents {
-		swapKeys(userEvents[i].UserKeys, old.Key, newUser.Key)
-		swapKeys(userEvents[i].RSVPKeys, old.Key, newUser.Key)
-		swapReadUserKeys(userEvents[i].Reads, old.Key, newUser.Key)
+		userEvents[i].UserKeys = swapKeys(userEvents[i].UserKeys, old.Key, newUser.Key)
+		userEvents[i].RSVPKeys = swapKeys(userEvents[i].RSVPKeys, old.Key, newUser.Key)
+		userEvents[i].Reads = swapReadUserKeys(userEvents[i].Reads, old.Key, newUser.Key)
 
 		if userEvents[i].OwnerKey.Equal(old.Key) {
 			userEvents[i].OwnerKey = newUser.Key
