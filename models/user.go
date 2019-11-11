@@ -607,7 +607,7 @@ func GetOrCreateUserByEmail(ctx context.Context, email string) (User, bool, erro
 }
 
 func getUserByField(ctx context.Context, field, value string) (User, bool, error) {
-	var users []*User
+	var users []User
 
 	q := datastore.NewQuery("User").Filter(fmt.Sprintf("%s =", field), value)
 
@@ -618,7 +618,7 @@ func getUserByField(ctx context.Context, field, value string) (User, bool, error
 	}
 
 	if len(keys) == 1 {
-		user := *users[0]
+		user := users[0]
 		return user, true, nil
 	}
 
