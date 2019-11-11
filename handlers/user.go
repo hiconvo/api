@@ -213,7 +213,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	// canMergeTokenUser as true and attempt to merge the token user
 	// into the oauth user if all else goes well below.
 	token, includesToken := middleware.GetAuthToken(r.Header)
-	var tokenUser models.User
+	var tokenUser *models.User
 	var canMergeTokenUser bool = false
 	if includesToken {
 		tokenUser, foundTokenUser, err := models.GetUserByToken(ctx, token)
@@ -231,7 +231,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		// If the user associated with the token is different from the user
 		// received via oauth, merge the token user into the oauth user.
 		if canMergeTokenUser && u.Token != tokenUser.Token {
-			if err := u.MergeWith(ctx, &tokenUser); err != nil {
+			if err := u.MergeWith(ctx, tokenUser); err != nil {
 				bjson.HandleInternalServerError(w, err, errMsgSave)
 				return
 			}
@@ -285,7 +285,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		// If the user associated with the token is different from the user
 		// received via oauth, merge the token user into the oauth user.
 		if canMergeTokenUser && u.Token != tokenUser.Token {
-			if err := u.MergeWith(ctx, &tokenUser); err != nil {
+			if err := u.MergeWith(ctx, tokenUser); err != nil {
 				bjson.HandleInternalServerError(w, err, errMsgSave)
 				return
 			}
