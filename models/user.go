@@ -434,6 +434,14 @@ func (u *User) SendDigest(ctx context.Context) error {
 }
 
 func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
+	if u.Key.Incomplete() {
+		return errors.New("MergeWith: User's key is incomplete")
+	}
+
+	if oldUser.Key.Incomplete() {
+		return errors.New("MergeWith: oldUser's key is incomplete")
+	}
+
 	// Contacts
 	err := reassignContacts(ctx, oldUser, u)
 	if err != nil {

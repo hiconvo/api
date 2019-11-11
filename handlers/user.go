@@ -217,11 +217,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	var canMergeTokenUser bool = false
 	if includesToken {
 		tokenUser, foundTokenUser, err := models.GetUserByToken(ctx, token)
-		if err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgSave)
-			return
-		}
-		if foundTokenUser {
+		if foundTokenUser && err == nil {
 			canMergeTokenUser = !tokenUser.IsRegistered()
 		}
 	}
