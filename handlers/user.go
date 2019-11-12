@@ -218,7 +218,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	if includesToken {
 		tokenUserVal, foundTokenUser, err := models.GetUserByToken(ctx, token)
 		if foundTokenUser && err == nil && !tokenUserVal.Key.Incomplete() {
-			canMergeTokenUser = !tokenUser.IsRegistered()
+			canMergeTokenUser = !tokenUserVal.IsRegistered()
 			tokenUser = &tokenUserVal
 		}
 	}
