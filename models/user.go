@@ -580,7 +580,7 @@ func GetUserByOAuthID(ctx context.Context, oauthtoken, provider string) (User, b
 func GetUsersByThread(ctx context.Context, t *Thread) ([]*User, error) {
 	var userKeys []*datastore.Key
 	copy(userKeys, t.UserKeys)
-	userKeys = append(t.UserKeys, t.OwnerKey)
+	userKeys = append(userKeys, t.OwnerKey)
 
 	users := make([]*User, len(userKeys))
 	if err := db.Client.GetMulti(ctx, userKeys, users); err != nil {
