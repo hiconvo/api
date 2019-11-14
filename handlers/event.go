@@ -543,7 +543,7 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	if !magic.Verify(
 		payload.UserID,
 		payload.Timestamp,
-		strconv.FormatBool(e.HasRSVP(&u)),
+		strconv.FormatBool(!e.IsInFuture()),
 		payload.Signature,
 	) {
 		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
@@ -551,9 +551,8 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := e.AddRSVP(&u); err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"message": err.Error(),
-		}, http.StatusBadRequest)
+		// Just return the user and be done with it
+		bjson.WriteJSON(w, u, http.StatusOK)
 		return
 	}
 

@@ -619,8 +619,15 @@ func TestMagicRSVP(t *testing.T) {
 				"userID":    kenc,
 				"eventID":   event.ID,
 			},
-			OutCode:   http.StatusUnauthorized,
-			OutPaylod: `{"message":"This link is not valid anymore"}`,
+			OutCode: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser.ID,
+				"firstName": existingUser.FirstName,
+				"lastName":  existingUser.LastName,
+				"token":     existingUser.Token,
+				"verified":  true,
+				"email":     existingUser.Email,
+			},
 		},
 		{
 			InData: map[string]interface{}{
