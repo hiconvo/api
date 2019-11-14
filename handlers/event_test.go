@@ -575,13 +575,13 @@ func TestMagicRSVP(t *testing.T) {
 
 	event := createTestEvent(t, &owner, []*models.User{&existingUser, &existingUser2})
 
-	link := magic.NewLink(existingUser.Key, strconv.FormatBool(event.HasRSVP(&existingUser)), "rsvp")
+	link := magic.NewLink(existingUser.Key, strconv.FormatBool(event.IsInFuture()), "rsvp")
 	split := strings.Split(link, "/")
 	kenc := split[len(split)-3]
 	b64ts := split[len(split)-2]
 	sig := split[len(split)-1]
 
-	link2 := magic.NewLink(existingUser2.Key, strconv.FormatBool(event.HasRSVP(&existingUser2)), "rsvp")
+	link2 := magic.NewLink(existingUser2.Key, strconv.FormatBool(event.IsInFuture()), "rsvp")
 	split2 := strings.Split(link2, "/")
 	kenc2 := split2[len(split2)-3]
 	b64ts2 := split2[len(split2)-2]
@@ -612,6 +612,7 @@ func TestMagicRSVP(t *testing.T) {
 				"email":     existingUser.Email,
 			},
 		},
+		// Same thing again
 		{
 			InData: map[string]interface{}{
 				"signature": sig,
@@ -619,9 +620,17 @@ func TestMagicRSVP(t *testing.T) {
 				"userID":    kenc,
 				"eventID":   event.ID,
 			},
-			OutCode:   http.StatusUnauthorized,
-			OutPaylod: `{"message":"This link is not valid anymore"}`,
+			OutCode: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser.ID,
+				"firstName": existingUser.FirstName,
+				"lastName":  existingUser.LastName,
+				"token":     existingUser.Token,
+				"verified":  true,
+				"email":     existingUser.Email,
+			},
 		},
+
 		{
 			InData: map[string]interface{}{
 				"signature": "not a valid signature",

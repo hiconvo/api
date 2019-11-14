@@ -543,17 +543,18 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	if !magic.Verify(
 		payload.UserID,
 		payload.Timestamp,
-		strconv.FormatBool(e.HasRSVP(&u)),
+		strconv.FormatBool(e.IsInFuture()),
 		payload.Signature,
 	) {
 		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
 		return
 	}
 
+	// If the user has already RSVP'd, just give them the user object again.
+	// This is less than fully secure, but we need a stopgap while the oauth
+	// bug still hasn't been fixed.
 	if err := e.AddRSVP(&u); err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"message": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.WriteJSON(w, u, http.StatusOK)
 		return
 	}
 
