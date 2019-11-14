@@ -214,14 +214,22 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	// into the oauth user if all else goes well below.
 	token, includesToken := middleware.GetAuthToken(r.Header)
 	var tokenUser *models.User
-	var canMergeTokenUser bool = false
+	var canMergeTokenUser bool
 	if includesToken {
-		tokenUserVal, foundTokenUser, err := models.GetUserByToken(ctx, token)
-		tokenUserVal.DeriveProperties() // Dono
-		if foundTokenUser && err == nil {
-			canMergeTokenUser = !tokenUserVal.Key.Incomplete() && !tokenUserVal.IsRegistered()
-			tokenUser = &tokenUserVal
+		_tokenUser, ok, err := models.GetUserByToken(ctx, token)
+
+		if ok && err == nil {
+			canMergeTokenUser = !_tokenUser.Key.Incomplete() && !_tokenUser.IsRegistered()
+			fmt.Fprintln(os.Stderr,
+				"canMerge:", canMergeTokenUser,
+				"keyIncomplete:", _tokenUser.Key.Incomplete(),
+				"isRegistered:", _tokenUser.IsRegistered())
+			tokenUser = &_tokenUser
+		} else {
+			canMergeTokenUser = false
 		}
+	} else {
+		canMergeTokenUser = false
 	}
 
 	// Get the user and return if found
