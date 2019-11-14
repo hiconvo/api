@@ -176,7 +176,7 @@ func sendEvent(event *Event, isUpdate bool) error {
 			FromName:    event.Owner.FullName,
 			MagicLink: magic.NewLink(
 				curUser.Key,
-				strconv.FormatBool(event.IsInFuture()),
+				strconv.FormatBool(event.HasRSVP(curUser)),
 				fmt.Sprintf("rsvp/%s",
 					event.Key.Encode())),
 			ButtonText: "RSVP",
