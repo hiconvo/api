@@ -144,7 +144,7 @@ func (e *Event) GetName() string {
 
 func (e *Event) GetFormatedTime() string {
 	loc := time.FixedZone("Given", e.UTCOffset)
-	return e.Timestamp.In(loc).Format("Monday, January 2nd @ 3:04 PM")
+	return e.Timestamp.In(loc).Format("Monday, January 2 @ 3:04 PM")
 }
 
 func (e *Event) HasUser(u *User) bool {
