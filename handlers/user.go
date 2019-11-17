@@ -214,7 +214,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	// into the oauth user if all else goes well below.
 	token, includesToken := middleware.GetAuthToken(r.Header)
 	var tokenUser *models.User
-	var canMergeTokenUser bool
+	var canMergeTokenUser bool = false
 	if includesToken {
 		_tokenUser, ok, err := models.GetUserByToken(ctx, token)
 
@@ -225,11 +225,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 				"keyIncomplete:", _tokenUser.Key.Incomplete(),
 				"isRegistered:", _tokenUser.IsRegistered())
 			tokenUser = &_tokenUser
-		} else {
-			canMergeTokenUser = false
 		}
-	} else {
-		canMergeTokenUser = false
 	}
 
 	// Get the user and return if found
@@ -285,7 +281,6 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		u.AddEmail(oauthPayload.Email)
 		u.DeriveProperties()
 
-		// Save
 		if err := u.Commit(ctx); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSave)
 			return

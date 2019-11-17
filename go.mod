@@ -2,6 +2,7 @@ module github.com/hiconvo/api
 
 require (
 	cloud.google.com/go v0.43.0
+	github.com/PaesslerAG/gval v1.0.1 // indirect
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/arran4/golang-ical v0.0.0-20191011054615-fb8af82a1cf8
 	github.com/aymerick/douceur v0.2.0
@@ -36,7 +37,8 @@ require (
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
-	github.com/steinfletcher/apitest v1.4.0 // indirect
+	github.com/steinfletcher/apitest v1.4.0
+	github.com/steinfletcher/apitest-jsonpath v1.3.2
 	github.com/stretchr/testify v1.4.0
 	gocloud.dev v0.15.0
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
