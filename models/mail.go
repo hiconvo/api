@@ -242,7 +242,7 @@ func sendEventInvitation(event *Event, user *User) error {
 	return mail.Send(email)
 }
 
-func sendCancellation(event *Event) error {
+func sendCancellation(event *Event, message string) error {
 	// Loop through all participants and generate emails
 	emailMessages := make([]mail.EmailMessage, len(event.Users))
 	for i, curUser := range event.Users {
@@ -251,6 +251,7 @@ func sendCancellation(event *Event) error {
 			Address:  event.Address,
 			Time:     event.GetFormatedTime(),
 			FromName: event.Owner.FullName,
+			Message:  message,
 		})
 		if err != nil {
 			return err

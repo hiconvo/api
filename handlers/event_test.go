@@ -271,20 +271,42 @@ func TestDeleteEvent(t *testing.T) {
 
 	type test struct {
 		AuthHeader map[string]string
+		InBody     map[string]interface{}
 		OutCode    int
 		ShouldPass bool
 	}
 
 	tests := []test{
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, ShouldPass: false},
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, ShouldPass: false},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, ShouldPass: false},
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, ShouldPass: true},
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusNotFound, ShouldPass: true},
+		{
+			AuthHeader: getAuthHeader(member.Token),
+			OutCode:    http.StatusNotFound,
+			ShouldPass: false,
+		},
+		{
+			AuthHeader: getAuthHeader(nonmember.Token),
+			OutCode:    http.StatusNotFound,
+			ShouldPass: false,
+		},
+		{
+			AuthHeader: map[string]string{"boop": "beep"},
+			OutCode:    http.StatusUnauthorized,
+			ShouldPass: false,
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			InBody:     map[string]interface{}{"message": "had to cancel"},
+			OutCode:    http.StatusOK,
+			ShouldPass: true,
+		},
+		{
+			AuthHeader: getAuthHeader(owner.Token),
+			OutCode:    http.StatusNotFound,
+			ShouldPass: true,
+		},
 	}
 
 	for _, testCase := range tests {
-		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, testCase.AuthHeader)
+		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, testCase.InBody, testCase.AuthHeader)
 
 		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
 

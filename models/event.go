@@ -261,8 +261,8 @@ func (e *Event) SendInviteToUser(ctx context.Context, user *User) error {
 	return sendEventInvitation(e, user)
 }
 
-func (e *Event) SendCancellation(ctx context.Context) error {
-	return sendCancellation(e)
+func (e *Event) SendCancellation(ctx context.Context, message string) error {
+	return sendCancellation(e, message)
 }
 
 func (e *Event) IsInFuture() bool {

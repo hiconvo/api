@@ -34,6 +34,7 @@ type Event struct {
 	FromName    string
 	MagicLink   string
 	ButtonText  string
+	Message     string
 }
 
 // Digest is a representation of a renderable email digest.
@@ -97,12 +98,15 @@ func RenderEvent(e Event) (string, string, error) {
 
 // RenderCancellation returns a rendered event cancellation email.
 func RenderCancellation(e Event) (string, string, error) {
+	e.RenderMarkdown(e.Message)
+
 	var builder strings.Builder
 	fmt.Fprintf(&builder, _tplStrCancellation,
 		e.FromName,
 		e.Name,
 		e.Address,
-		e.Time)
+		e.Time,
+		e.Message)
 	plainText := builder.String()
 	preview := getPreview(plainText)
 

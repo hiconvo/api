@@ -182,7 +182,8 @@ type updateEventPayload struct {
 	Name        string `validate:"max=255"`
 	PlaceID     string `validate:"max=255"`
 	Timestamp   string `validate:"max=255"`
-	Description string `validate:"max=1023"`
+	Description string `validate:"max=4097"`
+	Resend      bool
 }
 
 // UpdateEvent allows the owner to change the event name and location
@@ -254,9 +255,11 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := event.SendUpdatedInvites(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSendEvent)
-		return
+	if payload.Resend {
+		if err := event.SendUpdatedInvites(ctx); err != nil {
+			bjson.HandleInternalServerError(w, err, errMsgSendEvent)
+			return
+		}
 	}
 
 	if err := notif.Put(notif.Notification{
@@ -275,16 +278,28 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteEvent Endpoint: DELETE /events/{id}
+//
+// Request payload:
+type deleteEventPayload struct {
+	Message string `validate:"max=255"`
+}
 
 // DeleteEvent allows the owner to delete the event
 func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
+	body := bjson.BodyFromContext(ctx)
 
 	// If the requestor is not the owner, throw an error
 	if !event.OwnerIs(&u) {
 		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		return
+	}
+
+	var payload deleteEventPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
 		return
 	}
 
@@ -296,7 +311,7 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if event.IsInFuture() {
-		if err := event.SendCancellation(ctx); err != nil {
+		if err := event.SendCancellation(ctx, payload.Message); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 			return
 		}
