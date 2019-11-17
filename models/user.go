@@ -163,9 +163,9 @@ func (u *User) Commit(ctx context.Context) error {
 	u.FirstName = strings.TrimSpace(u.FirstName)
 	u.LastName = strings.TrimSpace(u.LastName)
 
-	key, kErr := db.Client.Put(ctx, u.Key, u)
-	if kErr != nil {
-		return kErr
+	key, err := db.Client.Put(ctx, u.Key, u)
+	if err != nil {
+		return err
 	}
 
 	u.ID = key.Encode()
@@ -176,8 +176,12 @@ func (u *User) Commit(ctx context.Context) error {
 	u.RealtimeToken = notif.GenerateToken(u.ID)
 
 	u.DeriveProperties()
+	u.CreateOrUpdateSearchIndex(ctx)
 
-	// Only index users that are registered
+	return nil
+}
+
+func (u *User) CreateOrUpdateSearchIndex(ctx context.Context) {
 	if u.IsRegistered() {
 		_, upsertErr := search.Client.Update().
 			Index("users").
@@ -189,8 +193,6 @@ func (u *User) Commit(ctx context.Context) error {
 			fmt.Fprintf(os.Stderr, "Failed to index user in elasticsearch: %s", upsertErr)
 		}
 	}
-
-	return nil
 }
 
 func (u *User) CheckPassword(password string) bool {
@@ -442,70 +444,84 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 		return errors.New("MergeWith: oldUser's key is incomplete")
 	}
 
-	// Contacts
-	err := reassignContacts(ctx, oldUser, u)
-	if err != nil {
-		return err
-	}
-
-	// Messages
-	err = reassignMessageUsers(ctx, oldUser, u)
-	if err != nil {
-		return err
-	}
-
-	// Threads
-	err = reassignThreadUsers(ctx, oldUser, u)
-	if err != nil {
-		return err
-	}
-
-	// Events
-	err = reassignEventUsers(ctx, oldUser, u)
-	if err != nil {
-		return err
-	}
-
-	// User details
-	if oldUser.Avatar != "" && u.Avatar == "" {
-		u.Avatar = oldUser.Avatar
-	}
-	if oldUser.FirstName != "" && u.FirstName == "" {
-		u.FirstName = oldUser.FirstName
-	}
-	if oldUser.LastName != "" && u.LastName == "" {
-		u.LastName = oldUser.LastName
-	}
-	for _, email := range oldUser.Emails {
-		u.AddEmail(email)
-	}
-	u.ContactKeys = mergeContacts(u.ContactKeys, oldUser.ContactKeys)
-	u.RemoveContact(oldUser)
-
-	// Save user
-	err = u.Commit(ctx)
-	if err != nil {
-		return err
-	}
-
-	// Remove the old user from search
-	if oldUser.IsRegistered() {
-		_, err = search.Client.Delete().
-			Index("users").
-			Id(oldUser.ID).
-			Do(ctx)
+	_, err := db.Client.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+		// Contacts
+		err := reassignContacts(ctx, tx, oldUser, u)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to remove user from elasticsearch: %s", err)
+			tx.Rollback()
+			return err
 		}
-	}
 
-	// Delete the old user
-	err = db.Client.Delete(ctx, oldUser.Key)
+		// Messages
+		err = reassignMessageUsers(ctx, tx, oldUser, u)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Threads
+		err = reassignThreadUsers(ctx, tx, oldUser, u)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Events
+		err = reassignEventUsers(ctx, tx, oldUser, u)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// User details
+		if oldUser.Avatar != "" && u.Avatar == "" {
+			u.Avatar = oldUser.Avatar
+		}
+		if oldUser.FirstName != "" && u.FirstName == "" {
+			u.FirstName = oldUser.FirstName
+		}
+		if oldUser.LastName != "" && u.LastName == "" {
+			u.LastName = oldUser.LastName
+		}
+		for _, email := range oldUser.Emails {
+			u.AddEmail(email)
+		}
+		u.ContactKeys = mergeContacts(u.ContactKeys, oldUser.ContactKeys)
+		u.RemoveContact(oldUser)
+
+		// Save user
+		_, err = tx.Put(u.Key, u)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Remove the old user from search
+		if oldUser.IsRegistered() {
+			_, err = search.Client.Delete().
+				Index("users").
+				Id(oldUser.ID).
+				Do(ctx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to remove user from elasticsearch: %s", err)
+			}
+		}
+
+		// Delete the old user
+		err = tx.Delete(oldUser.Key)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return err
+		u.CreateOrUpdateSearchIndex(ctx)
 	}
 
-	return nil
+	return err
 }
 
 func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {

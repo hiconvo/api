@@ -70,7 +70,7 @@ func mergeContacts(a, b []*datastore.Key) []*datastore.Key {
 	return merged
 }
 
-func reassignContacts(ctx context.Context, oldUser, newUser *User) error {
+func reassignContacts(ctx context.Context, tx *datastore.Transaction, oldUser, newUser *User) error {
 	var users []*User
 	q := datastore.NewQuery("User").Filter("ContactKeys =", oldUser.Key)
 	keys, err := db.Client.GetAll(ctx, q, &users)
@@ -82,7 +82,7 @@ func reassignContacts(ctx context.Context, oldUser, newUser *User) error {
 		users[i].ContactKeys = swapKeys(users[i].ContactKeys, oldUser.Key, newUser.Key)
 	}
 
-	_, err = db.Client.PutMulti(ctx, keys, users)
+	_, err = tx.PutMulti(keys, users)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func reassignContacts(ctx context.Context, oldUser, newUser *User) error {
 	return nil
 }
 
-func reassignMessageUsers(ctx context.Context, old, newUser *User) error {
+func reassignMessageUsers(ctx context.Context, tx *datastore.Transaction, old, newUser *User) error {
 	userMessages, err := GetUnhydratedMessagesByUser(ctx, old)
 	if err != nil {
 		return err
@@ -105,7 +105,7 @@ func reassignMessageUsers(ctx context.Context, old, newUser *User) error {
 	}
 
 	// Save the messages
-	_, err = db.Client.PutMulti(ctx, userMessageKeys, userMessages)
+	_, err = tx.PutMulti(userMessageKeys, userMessages)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func reassignMessageUsers(ctx context.Context, old, newUser *User) error {
 	return nil
 }
 
-func reassignThreadUsers(ctx context.Context, old, newUser *User) error {
+func reassignThreadUsers(ctx context.Context, tx *datastore.Transaction, old, newUser *User) error {
 	userThreads, err := GetUnhydratedThreadsByUser(ctx, old)
 	if err != nil {
 		return err
@@ -133,7 +133,7 @@ func reassignThreadUsers(ctx context.Context, old, newUser *User) error {
 	}
 
 	// Save the threads
-	_, err = db.Client.PutMulti(ctx, userThreadKeys, userThreads)
+	_, err = tx.PutMulti(userThreadKeys, userThreads)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func reassignThreadUsers(ctx context.Context, old, newUser *User) error {
 	return nil
 }
 
-func reassignEventUsers(ctx context.Context, old, newUser *User) error {
+func reassignEventUsers(ctx context.Context, tx *datastore.Transaction, old, newUser *User) error {
 	userEvents, err := GetUnhydratedEventsByUser(ctx, old)
 	if err != nil {
 		return err
@@ -162,7 +162,7 @@ func reassignEventUsers(ctx context.Context, old, newUser *User) error {
 	}
 
 	// Save the events
-	_, err = db.Client.PutMulti(ctx, userEventKeys, userEvents)
+	_, err = tx.PutMulti(userEventKeys, userEvents)
 	if err != nil {
 		return err
 	}
