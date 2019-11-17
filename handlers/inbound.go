@@ -22,40 +22,41 @@ type inboundMessagePayload struct {
 func Inbound(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	if parseErr := r.ParseMultipartForm(10485760); parseErr != nil {
-		handleClientErrorResponse(w, parseErr)
+	if err := r.ParseMultipartForm(10485760); err != nil {
+		handleClientErrorResponse(w, err)
 		return
 	}
 
 	encodedEnvelope := r.PostFormValue("envelope")
-	to, from, envErr := pluck.AddressesFromEnvelope(encodedEnvelope)
-	if envErr != nil {
-		handleClientErrorResponse(w, envErr)
+	to, from, err := pluck.AddressesFromEnvelope(encodedEnvelope)
+	if err != nil {
+		handleClientErrorResponse(w, err)
 		return
 	}
 
 	// Get thread id from address
-	threadID, plErr := pluck.ThreadInt64IDFromAddress(to)
-	if plErr != nil {
-		handleClientErrorResponse(w, plErr)
+	threadID, err := pluck.ThreadInt64IDFromAddress(to)
+	if err != nil {
+		handleClientErrorResponse(w, err)
 		return
 	}
 
 	// Get the thread
-	thread, thErr := models.GetThreadByInt64ID(ctx, threadID)
-	if thErr != nil {
-		handleClientErrorResponse(w, thErr)
+	thread, err := models.GetThreadByInt64ID(ctx, threadID)
+	if err != nil {
+		sendTryAgainEmail(from)
+		handleClientErrorResponse(w, err)
 		return
 	}
 
 	// Get user from from address
-	user, found, uErr := models.GetUserByEmail(ctx, from)
+	user, found, err := models.GetUserByEmail(ctx, from)
 	if !found {
 		sendErrorEmail(from)
 		handleClientErrorResponse(w, errors.New("Email not recognized"))
 		return
-	} else if uErr != nil {
-		handleClientErrorResponse(w, uErr)
+	} else if err != nil {
+		handleClientErrorResponse(w, err)
 		return
 	}
 
@@ -69,25 +70,25 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 	// Pluck the new message
 	htmlMessage := html.UnescapeString(r.FormValue("html"))
 	textMessage := r.FormValue("text")
-	messageText, messErr := pluck.MessageText(htmlMessage, textMessage, from, to)
-	if messErr != nil {
-		handleClientErrorResponse(w, messErr)
+	messageText, err := pluck.MessageText(htmlMessage, textMessage, from, to)
+	if err != nil {
+		handleClientErrorResponse(w, err)
 		return
 	}
 
 	// Validate and sanitize
 	var payload inboundMessagePayload
-	if valErr := validate.Do(&payload, map[string]interface{}{
+	if err := validate.Do(&payload, map[string]interface{}{
 		"body": messageText,
-	}); valErr != nil {
-		handleClientErrorResponse(w, valErr)
+	}); err != nil {
+		handleClientErrorResponse(w, err)
 		return
 	}
 
 	// Create the new message
-	message, mErr := models.NewThreadMessage(&user, &thread, html.UnescapeString(payload.Body))
-	if mErr != nil {
-		handleServerErrorResponse(w, mErr)
+	message, err := models.NewThreadMessage(&user, &thread, html.UnescapeString(payload.Body))
+	if err != nil {
+		handleServerErrorResponse(w, err)
 		return
 	}
 
@@ -101,8 +102,8 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if senErr := thread.Send(ctx); senErr != nil {
-		handleServerErrorResponse(w, senErr)
+	if err := thread.Send(ctx); err != nil {
+		handleServerErrorResponse(w, err)
 		return
 	}
 
@@ -125,12 +126,29 @@ func handleServerErrorResponse(w http.ResponseWriter, err error) {
 func sendErrorEmail(email string) {
 	err := mail.Send(mail.EmailMessage{
 		FromName:    "Convo",
-		FromEmail:   "robots@mail.hiconvo.com",
+		FromEmail:   "support@mail.hiconvo.com",
 		ToName:      "",
 		ToEmail:     email,
 		Subject:     "[convo] Send Failure",
-		HTMLContent: "<p>Hello,</p><p>You responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.</p><p>Thanks,<br />ConvoBot</p>",
-		TextContent: "Hello,\n\nYou responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.\n\nThanks,\nConvoBot",
+		HTMLContent: "<p>Hello,</p><p>You responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.</p><p>Thanks,<br />Convo Support</p>",
+		TextContent: "Hello,\n\nYou responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.\n\nThanks,\nConvo Support",
+	})
+
+	if err != nil {
+		raven.CaptureError(err, map[string]string{"inbound": "ignored"})
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
+}
+
+func sendTryAgainEmail(email string) {
+	err := mail.Send(mail.EmailMessage{
+		FromName:    "Convo",
+		FromEmail:   "support@mail.hiconvo.com",
+		ToName:      "",
+		ToEmail:     email,
+		Subject:     "[convo] Send Failure",
+		HTMLContent: "<p>Hello,</p><p>You responded to a Convo that does not accept email responses. If you're attempting to respond to an event invitation, click RSVP in the invitation email and post your message to the message board. You won't have to create an account.</p><p>Thanks,<br />Convo Support</p>",
+		TextContent: "Hello,\n\nYou responded to a Convo that does not accept email responses. If you're attempting to respond to an event invitation, click RSVP in the invitation email and post your message to the message board. You won't have to create an account.\n\nThanks,\nConvo Support",
 	})
 
 	if err != nil {
