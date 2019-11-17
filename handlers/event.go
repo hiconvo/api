@@ -35,11 +35,12 @@ var (
 //
 // Request payload:
 type createEventPayload struct {
-	Name        string `validate:"max=255,nonzero"`
-	PlaceID     string `validate:"max=255,nonzero"`
-	Timestamp   string `validate:"max=255,nonzero"`
-	Description string `validate:"max=4097,nonzero"`
-	Users       []interface{}
+	Name            string `validate:"max=255,nonzero"`
+	PlaceID         string `validate:"max=255,nonzero"`
+	Timestamp       string `validate:"max=255,nonzero"`
+	Description     string `validate:"max=4097,nonzero"`
+	Users           []interface{}
+	GuestsCanInvite bool
 }
 
 // CreateEvent creates a event
@@ -122,7 +123,8 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		timestamp,
 		place.UTCOffset,
 		&ou,
-		userPointers)
+		userPointers,
+		payload.GuestsCanInvite)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)
 		return
@@ -179,11 +181,12 @@ func GetEvent(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type updateEventPayload struct {
-	Name        string `validate:"max=255"`
-	PlaceID     string `validate:"max=255"`
-	Timestamp   string `validate:"max=255"`
-	Description string `validate:"max=4097"`
-	Resend      bool
+	Name            string `validate:"max=255"`
+	PlaceID         string `validate:"max=255"`
+	Timestamp       string `validate:"max=255"`
+	Description     string `validate:"max=4097"`
+	GuestsCanInvite bool
+	Resend          bool
 }
 
 // UpdateEvent allows the owner to change the event name and location
@@ -214,6 +217,10 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	// TODO: Come up with something better than this.
 	if payload.Name != "" && payload.Name != event.Name {
 		event.Name = payload.Name
+	}
+
+	if payload.GuestsCanInvite != event.GuestsCanInvite {
+		event.GuestsCanInvite = payload.GuestsCanInvite
 	}
 
 	if payload.Description != "" && payload.Description != event.Description {
@@ -348,8 +355,7 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	maybeUserID := vars["userID"]
 
-	// If the requestor is not the owner, throw an error.
-	if !event.OwnerIs(&u) {
+	if !(event.OwnerIs(&u) || (event.GuestsCanInvite && event.HasUser(&u))) {
 		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
 		return
 	}

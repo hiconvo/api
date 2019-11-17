@@ -165,8 +165,8 @@ func TestGetEventMessages(t *testing.T) {
 	member2, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
 	event := createTestEvent(t, &owner, []*models.User{&member1, &member2})
-	message1 := createTestEventMessage(t, &owner, &event)
-	message2 := createTestEventMessage(t, &member1, &event)
+	message1 := createTestEventMessage(t, &owner, event)
+	message2 := createTestEventMessage(t, &member1, event)
 	url := fmt.Sprintf("/events/%s/messages", event.ID)
 
 	type test struct {

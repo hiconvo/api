@@ -110,7 +110,7 @@ func createTestThreadMessage(t *testing.T, user *models.User, thread *models.Thr
 	return message
 }
 
-func createTestEvent(t *testing.T, owner *models.User, users []*models.User) models.Event {
+func createTestEvent(t *testing.T, owner *models.User, users []*models.User) *models.Event {
 	// Create the thread.
 	event, err := models.NewEvent(
 		"test",
@@ -122,30 +122,20 @@ func createTestEvent(t *testing.T, owner *models.User, users []*models.User) mod
 		time.Now().Add(time.Duration(1000000000000000)),
 		-7*60*60,
 		owner,
-		users)
+		users,
+		false)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	eptr := &event
 
 	// Save the event.
-	if err := event.Commit(tc); err != nil {
+	if err := eptr.Commit(tc); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a slice of keys corresponding to users so that the
-	// users can be updated with their new event membership in the db.
-	userKeys := make([]*datastore.Key, len(users))
-	for i := range users {
-		userKeys[i] = users[i].Key
-	}
-
-	// Save the users.
-	_, err = tclient.PutMulti(tc, userKeys, users)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return event
+	return eptr
 }
 
 func createTestEventMessage(t *testing.T, user *models.User, event *models.Event) models.Message {

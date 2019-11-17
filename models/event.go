@@ -14,26 +14,27 @@ import (
 )
 
 type Event struct {
-	Key          *datastore.Key   `json:"-"        datastore:"__key__"`
-	ID           string           `json:"id"       datastore:"-"`
-	OwnerKey     *datastore.Key   `json:"-"`
-	Owner        *UserPartial     `json:"owner"    datastore:"-"`
-	UserKeys     []*datastore.Key `json:"-"`
-	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
-	Users        []*User          `json:"-"        datastore:"-"`
-	RSVPKeys     []*datastore.Key `json:"-"`
-	RSVPs        []*UserPartial   `json:"rsvps"    datastore:"-"`
-	PlaceID      string           `json:"placeID"  datastore:",noindex"`
-	Address      string           `json:"address"  datastore:",noindex"`
-	Lat          float64          `json:"lat"      datastore:",noindex"`
-	Lng          float64          `json:"lng"      datastore:",noindex"`
-	Name         string           `json:"name"     datastore:",noindex"`
-	Description  string           `json:"description"  datastore:",noindex"`
-	Timestamp    time.Time        `json:"timestamp"    datastore:",noindex"`
-	UTCOffset    int              `json:"-"        datastore:",noindex"`
-	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
-	Reads        []*Read          `json:"-"        datastore:",noindex"`
-	CreatedAt    time.Time        `json:"-"`
+	Key             *datastore.Key   `json:"-"        datastore:"__key__"`
+	ID              string           `json:"id"       datastore:"-"`
+	OwnerKey        *datastore.Key   `json:"-"`
+	Owner           *UserPartial     `json:"owner"    datastore:"-"`
+	UserKeys        []*datastore.Key `json:"-"`
+	UserPartials    []*UserPartial   `json:"users"    datastore:"-"`
+	Users           []*User          `json:"-"        datastore:"-"`
+	RSVPKeys        []*datastore.Key `json:"-"`
+	RSVPs           []*UserPartial   `json:"rsvps"    datastore:"-"`
+	PlaceID         string           `json:"placeID"  datastore:",noindex"`
+	Address         string           `json:"address"  datastore:",noindex"`
+	Lat             float64          `json:"lat"      datastore:",noindex"`
+	Lng             float64          `json:"lng"      datastore:",noindex"`
+	Name            string           `json:"name"     datastore:",noindex"`
+	Description     string           `json:"description"  datastore:",noindex"`
+	Timestamp       time.Time        `json:"timestamp"    datastore:",noindex"`
+	UTCOffset       int              `json:"-"        datastore:",noindex"`
+	UserReads       []*UserPartial   `json:"reads"    datastore:"-"`
+	Reads           []*Read          `json:"-"        datastore:",noindex"`
+	CreatedAt       time.Time        `json:"-"`
+	GuestsCanInvite bool             `json:"guestsCanInvite"`
 }
 
 func NewEvent(
@@ -43,6 +44,7 @@ func NewEvent(
 	utcOffset int,
 	owner *User,
 	users []*User,
+	guestsCanInvite bool,
 ) (Event, error) {
 	// Get all of the users' keys, remove duplicates, and check whether
 	// the owner was included in the users slice
@@ -67,20 +69,21 @@ func NewEvent(
 	}
 
 	return Event{
-		Key:          datastore.IncompleteKey("Event", nil),
-		OwnerKey:     owner.Key,
-		Owner:        MapUserToUserPartial(owner),
-		UserKeys:     userKeys,
-		UserPartials: MapUsersToUserPartials(users),
-		Users:        users,
-		Name:         name,
-		PlaceID:      placeID,
-		Address:      address,
-		Lat:          lat,
-		Lng:          lng,
-		Timestamp:    timestamp,
-		UTCOffset:    utcOffset,
-		Description:  description,
+		Key:             datastore.IncompleteKey("Event", nil),
+		OwnerKey:        owner.Key,
+		Owner:           MapUserToUserPartial(owner),
+		UserKeys:        userKeys,
+		UserPartials:    MapUsersToUserPartials(users),
+		Users:           users,
+		Name:            name,
+		PlaceID:         placeID,
+		Address:         address,
+		Lat:             lat,
+		Lng:             lng,
+		Timestamp:       timestamp,
+		UTCOffset:       utcOffset,
+		Description:     description,
+		GuestsCanInvite: guestsCanInvite,
 	}, nil
 }
 
@@ -110,12 +113,14 @@ func (e *Event) Commit(ctx context.Context) error {
 		e.CreatedAt = time.Now()
 	}
 
-	key, kErr := db.Client.Put(ctx, e.Key, e)
-	if kErr != nil {
-		return kErr
+	key, err := db.Client.Put(ctx, e.Key, e)
+	if err != nil {
+		return err
 	}
+
 	e.ID = key.Encode()
 	e.Key = key
+
 	return nil
 }
 

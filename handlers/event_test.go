@@ -330,10 +330,17 @@ func TestAddToEvent(t *testing.T) {
 	nonmember, _ := createTestUser(t)
 	event := createTestEvent(t, &owner, []*models.User{&member})
 
+	eventAllowGuests := createTestEvent(t, &owner, []*models.User{&member})
+	eventAllowGuests.GuestsCanInvite = true
+	if err := eventAllowGuests.Commit(tc); err != nil {
+		t.Fatal(err)
+	}
+
 	type test struct {
 		AuthHeader map[string]string
 		OutCode    int
 		InID       string
+		InEventID  string
 		ShouldPass bool
 		OutNames   []string
 	}
@@ -343,39 +350,58 @@ func TestAddToEvent(t *testing.T) {
 			AuthHeader: getAuthHeader(nonmember.Token),
 			OutCode:    http.StatusNotFound,
 			InID:       memberToAdd.ID,
+			InEventID:  event.ID,
 		},
 		{
 			AuthHeader: getAuthHeader(member.Token),
 			OutCode:    http.StatusNotFound,
 			InID:       memberToAdd.ID,
+			InEventID:  event.ID,
 		},
 		{
 			AuthHeader: map[string]string{"boop": "beep"},
 			OutCode:    http.StatusUnauthorized,
 			InID:       memberToAdd.ID,
+			InEventID:  event.ID,
 		},
 		{
 			AuthHeader: getAuthHeader(owner.Token),
 			OutCode:    http.StatusOK,
 			InID:       memberToAdd.ID,
 			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName},
+			InEventID:  event.ID,
 		},
 		{
 			AuthHeader: getAuthHeader(owner.Token),
 			OutCode:    http.StatusOK,
 			InID:       "addedOnTheFly@again.com",
 			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthefly"},
+			InEventID:  event.ID,
 		},
 		{
 			AuthHeader: getAuthHeader(owner.Token),
 			OutCode:    http.StatusOK,
 			InID:       secondMemberToAdd.Email,
 			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName},
+			InEventID:  event.ID,
+		},
+		{
+			AuthHeader: getAuthHeader(nonmember.Token),
+			OutCode:    http.StatusNotFound,
+			InID:       memberToAdd.ID,
+			InEventID:  eventAllowGuests.ID,
+		},
+		{
+			AuthHeader: getAuthHeader(member.Token),
+			OutCode:    http.StatusOK,
+			InID:       memberToAdd.ID,
+			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName},
+			InEventID:  eventAllowGuests.ID,
 		},
 	}
 
 	for _, testCase := range tests {
-		url := fmt.Sprintf("/events/%s/users/%s", event.ID, testCase.InID)
+		url := fmt.Sprintf("/events/%s/users/%s", testCase.InEventID, testCase.InID)
 		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, nil, testCase.AuthHeader)
 
 		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
@@ -384,7 +410,7 @@ func TestAddToEvent(t *testing.T) {
 			continue
 		}
 
-		thelpers.AssertEqual(t, respData["id"], event.ID)
+		thelpers.AssertEqual(t, respData["id"], testCase.InEventID)
 
 		gotEventOwner := respData["owner"].(map[string]interface{})
 		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
