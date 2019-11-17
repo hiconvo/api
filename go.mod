@@ -36,6 +36,8 @@ require (
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
+	github.com/steinfletcher/apitest v1.4.0 // indirect
+	github.com/stretchr/testify v1.4.0
 	gocloud.dev v0.15.0
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
@@ -48,6 +50,7 @@ require (
 	gopkg.in/russross/blackfriday.v2 v2.0.1
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8 // indirect
 	gopkg.in/validator.v2 v2.0.0-20180514200540-135c24b11c19
+	gopkg.in/yaml.v2 v2.2.5 // indirect
 )
 
 replace gopkg.in/russross/blackfriday.v2 v2.0.1 => github.com/russross/blackfriday/v2 v2.0.1
