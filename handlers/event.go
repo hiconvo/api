@@ -318,7 +318,7 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if event.IsInFuture() {
-		if err := event.SendCancellation(ctx, payload.Message); err != nil {
+		if err := event.SendCancellation(ctx, html.UnescapeString(payload.Message)); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 			return
 		}
