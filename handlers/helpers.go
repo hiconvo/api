@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -44,10 +45,15 @@ func extractUsers(ctx context.Context, owner models.User, users []interface{}) (
 		// If we recived an email, save it to the emails slice if we haven't
 		// seen it before and keep going.
 		if emailOk {
+			if !isEmail(email) {
+				return []models.User{}, []*datastore.Key{}, []string{}, fmt.Errorf(`"%s" is not a valid email`, email)
+			}
+
 			if _, seenOk := seenEmails[email]; !seenOk {
 				seen[email] = struct{}{}
 				emails = append(emails, email)
 			}
+
 			continue
 		}
 
