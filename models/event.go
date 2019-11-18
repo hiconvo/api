@@ -102,7 +102,13 @@ func (e *Event) Save() ([]datastore.Property, error) {
 
 func (e *Event) Load(ps []datastore.Property) error {
 	if err := datastore.LoadStruct(e, ps); err != nil {
-		return err
+		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
+			if mismatch.FieldName != "GuestsCanInvite" {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	return nil
