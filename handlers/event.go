@@ -216,7 +216,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Come up with something better than this.
 	if payload.Name != "" && payload.Name != event.Name {
-		event.Name = payload.Name
+		event.Name = html.UnescapeString(payload.Name)
 	}
 
 	if payload.GuestsCanInvite != event.GuestsCanInvite {
