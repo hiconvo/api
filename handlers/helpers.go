@@ -100,18 +100,41 @@ func createUserByEmail(ctx context.Context, email string) (models.User, error) {
 }
 
 func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []*datastore.Key, error) {
-	userStructs := make([]models.User, len(emails))
-	userKeys := make([]*datastore.Key, len(emails))
-	// Handle members indicated by email.
+	var userStructs []models.User
+	var userKeys []*datastore.Key
+
+	var usersToCommit []models.User
+	var usersToCommitKeys []*datastore.Key
+
 	for i := range emails {
-		u, err := createUserByEmail(ctx, emails[i])
+		u, created, err := models.GetOrCreateUserByEmail(ctx, emails[i])
 		if err != nil {
 			return []models.User{}, []*datastore.Key{}, err
 		}
 
-		userStructs[i] = u
-		userKeys[i] = u.Key
+		if created {
+			usersToCommit = append(usersToCommit, u)
+			usersToCommitKeys = append(usersToCommitKeys, u.Key)
+		} else {
+			userStructs = append(userStructs, u)
+			userKeys = append(userKeys, u.Key)
+		}
 	}
+
+	keys, err := db.Client.PutMulti(ctx, usersToCommitKeys, usersToCommit)
+	if err != nil {
+		return []models.User{}, []*datastore.Key{}, err
+	}
+
+	for i := range keys {
+		usersToCommit[i].Key = usersToCommitKeys[i]
+		usersToCommit[i].ID = usersToCommitKeys[i].Encode()
+	}
+
+	models.UserWelcomeMulti(ctx, usersToCommit)
+
+	userStructs = append(userStructs, usersToCommit...)
+	userKeys = append(userKeys, usersToCommitKeys...)
 
 	return userStructs, userKeys, nil
 }

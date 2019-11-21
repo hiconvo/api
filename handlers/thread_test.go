@@ -53,7 +53,13 @@ func TestCreateThread(t *testing.T) {
 						"id": u2.ID,
 					},
 					map[string]string{
-						"email": "test@test.com",
+						"email": "test@testing.com",
+					},
+					map[string]string{
+						"email": "test@testing.com",
+					},
+					map[string]string{
+						"email": "someone@somewhere.com",
 					},
 				},
 			},

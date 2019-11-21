@@ -54,6 +54,7 @@ func NewIncompleteUser(email string) (User, error) {
 		FirstName: strings.Split(femail, "@")[0],
 		Token:     random.Token(),
 		Verified:  false,
+		CreatedAt: time.Now(),
 	}
 
 	return user, nil
@@ -78,6 +79,7 @@ func NewUserWithPassword(email, firstname, lastname, password string) (User, err
 		OAuthGoogleID:   "",
 		OAuthFacebookID: "",
 		Verified:        false,
+		CreatedAt:       time.Now(),
 	}
 
 	return user, nil
@@ -107,6 +109,7 @@ func NewUserWithOAuth(email, firstname, lastname, avatar, oauthprovider, oauthto
 		OAuthGoogleID:   googleID,
 		OAuthFacebookID: facebookID,
 		Verified:        true,
+		CreatedAt:       time.Now(),
 	}
 
 	return user, nil
@@ -553,6 +556,12 @@ func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 	}
 
 	return contacts, nil
+}
+
+func UserWelcomeMulti(ctx context.Context, users []User) {
+	for i := range users {
+		users[i].Welcome(ctx)
+	}
 }
 
 func GetUserByID(ctx context.Context, id string) (User, error) {

@@ -65,7 +65,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 
 	newUsers, newUserKeys, err := createUsersByEmail(ctx, emails)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)
+		bjson.HandleInternalServerError(w, err, errMsgCreateThread)
 		return
 	}
 
