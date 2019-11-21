@@ -38,7 +38,7 @@ func TestCreateEvent(t *testing.T) {
 			InData: map[string]interface{}{
 				"name":        random.String(10),
 				"placeID":     random.String(10),
-				"timestamp":   "2019-09-08T01:19:20.915Z",
+				"timestamp":   "2119-09-08T01:19:20.915Z",
 				"description": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
@@ -55,7 +55,7 @@ func TestCreateEvent(t *testing.T) {
 			InData: map[string]interface{}{
 				"name":        random.String(10),
 				"placeID":     random.String(10),
-				"timestamp":   "2019-09-08T01:19:20.915Z",
+				"timestamp":   "2119-09-08T01:19:20.915Z",
 				"description": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
@@ -76,7 +76,7 @@ func TestCreateEvent(t *testing.T) {
 			InData: map[string]interface{}{
 				"name":        random.String(10),
 				"placeID":     random.String(10),
-				"timestamp":   "2019-09-08T01:19:20.915Z",
+				"timestamp":   "2119-09-08T01:19:20.915Z",
 				"description": random.String(10),
 				"users": []map[string]string{
 					map[string]string{
@@ -92,7 +92,7 @@ func TestCreateEvent(t *testing.T) {
 			InData: map[string]interface{}{
 				"name":        random.String(10),
 				"placeID":     random.String(10),
-				"timestamp":   "2019-09-08T01:19:20.915Z",
+				"timestamp":   "2119-09-08T01:19:20.915Z",
 				"description": random.String(10),
 				"users": []map[string]string{
 					map[string]string{

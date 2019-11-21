@@ -78,6 +78,13 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if timestamp.Before(time.Now()) {
+		bjson.WriteJSON(w, map[string]string{
+			"time": "Your event must be in the future",
+		}, http.StatusBadRequest)
+		return
+	}
+
 	place, err := places.Resolve(ctx, payload.PlaceID)
 	if err != nil {
 		bjson.WriteJSON(w, map[string]string{
