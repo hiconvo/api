@@ -12,6 +12,7 @@ import (
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/mail"
 	"github.com/hiconvo/api/utils/pluck"
+	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -112,14 +113,12 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleClientErrorResponse(w http.ResponseWriter, err error) {
-	raven.CaptureError(err, map[string]string{"inbound": "ignored"})
-	fmt.Fprintf(os.Stdout, "Ignoring inbound: "+err.Error())
+	reporter.Report(fmt.Errorf("Inbound: ClientError: %v", err))
 	w.WriteHeader(http.StatusOK)
 }
 
 func handleServerErrorResponse(w http.ResponseWriter, err error) {
-	raven.CaptureError(err, map[string]string{"inbound": "failure"})
-	fmt.Fprintln(os.Stderr, err.Error())
+	reporter.Report(fmt.Errorf("Inbound: ServerError: %v", err))
 	w.WriteHeader(http.StatusInternalServerError)
 }
 
