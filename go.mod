@@ -13,6 +13,7 @@ require (
 	github.com/go-siris/siris v7.4.0+incompatible // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/gographics/imagick v3.2.0+incompatible
+	github.com/googleapis/gax-go/v2 v2.0.5
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/gorilla/handlers v1.4.0
 	github.com/gorilla/mux v1.7.2
@@ -44,6 +45,7 @@ require (
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	google.golang.org/api v0.10.0
+	google.golang.org/genproto v0.0.0-20190716160619-c506a9f90610
 	googlemaps.github.io/maps v0.0.0-20190906051648-24f4c8471353
 	gopkg.in/GetStream/stream-go2.v1 v1.14.0
 	gopkg.in/LeisureLink/httpsig.v1 v1.2.0 // indirect
