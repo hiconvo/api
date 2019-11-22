@@ -22,6 +22,7 @@ func CreateRouter() http.Handler {
 	router.HandleFunc("/inbound", Inbound).Methods("POST")
 
 	router.HandleFunc("/tasks/digest", CreateDigest)
+	router.HandleFunc("/tasks/emails", SendEmailsAsync)
 
 	// JSON endpoints
 	jsonSubrouter := router.NewRoute().Subrouter()
