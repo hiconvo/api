@@ -127,8 +127,8 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 	}
 
 	for i := range keys {
-		usersToCommit[i].Key = usersToCommitKeys[i]
-		usersToCommit[i].ID = usersToCommitKeys[i].Encode()
+		usersToCommit[i].Key = keys[i]
+		usersToCommit[i].ID = keys[i].Encode()
 	}
 
 	models.UserWelcomeMulti(ctx, usersToCommit)

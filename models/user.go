@@ -16,6 +16,7 @@ import (
 
 	"github.com/hiconvo/api/db"
 	notif "github.com/hiconvo/api/notifications"
+	"github.com/hiconvo/api/queue"
 	"github.com/hiconvo/api/search"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/random"
@@ -559,9 +560,16 @@ func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 }
 
 func UserWelcomeMulti(ctx context.Context, users []User) {
+	ids := make([]string, len(users))
 	for i := range users {
-		users[i].Welcome(ctx)
+		ids[i] = users[i].ID
 	}
+
+	queue.PutEmail(ctx, queue.EmailPayload{
+		Type:   queue.User,
+		Action: queue.SendWelcome,
+		IDs:    ids,
+	})
 }
 
 func GetUserByID(ctx context.Context, id string) (User, error) {
