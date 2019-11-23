@@ -11,6 +11,7 @@ import (
 	"github.com/gosimple/slug"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/queue"
 )
 
 type Event struct {
@@ -264,8 +265,24 @@ func (e *Event) SendInvites(ctx context.Context) error {
 	return sendEvent(e, false)
 }
 
+func (e *Event) SendInvitesAsync(ctx context.Context) error {
+	return queue.PutEmail(ctx, queue.EmailPayload{
+		Type:   queue.Event,
+		Action: queue.SendInvites,
+		IDs:    []string{e.ID},
+	})
+}
+
 func (e *Event) SendUpdatedInvites(ctx context.Context) error {
 	return sendEvent(e, true)
+}
+
+func (e *Event) SendUpdatedInvitesAsync(ctx context.Context) error {
+	return queue.PutEmail(ctx, queue.EmailPayload{
+		Type:   queue.Event,
+		Action: queue.SendUpdatedInvites,
+		IDs:    []string{e.ID},
+	})
 }
 
 func (e *Event) SendInviteToUser(ctx context.Context, user *User) error {

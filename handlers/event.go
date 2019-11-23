@@ -142,7 +142,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := event.SendInvites(ctx); err != nil {
+	if err := event.SendInvitesAsync(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSendEvent)
 		return
 	}
@@ -270,7 +270,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if payload.Resend {
-		if err := event.SendUpdatedInvites(ctx); err != nil {
+		if err := event.SendUpdatedInvitesAsync(ctx); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSendEvent)
 			return
 		}
