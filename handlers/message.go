@@ -86,7 +86,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := thread.Send(ctx); err != nil {
+	if err := thread.SendAsync(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSendMessage)
 		return
 	}

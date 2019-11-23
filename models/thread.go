@@ -9,6 +9,7 @@ import (
 	"cloud.google.com/go/datastore"
 	"github.com/gosimple/slug"
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/queue"
 )
 
 type Thread struct {
@@ -206,6 +207,14 @@ func (t *Thread) Send(ctx context.Context) error {
 	}
 
 	return sendThread(t, messages)
+}
+
+func (t *Thread) SendAsync(ctx context.Context) error {
+	return queue.PutEmail(ctx, queue.EmailPayload{
+		Type:   queue.Thread,
+		Action: queue.SendThread,
+		IDs:    []string{t.ID},
+	})
 }
 
 func GetThreadByID(ctx context.Context, id string) (Thread, error) {
