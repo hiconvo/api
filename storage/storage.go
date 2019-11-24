@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -140,6 +141,50 @@ func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
 	if err := cmd.Run(); err != nil {
 		reporter.Log(stderr.String())
 		return "", fmt.Errorf("storage.PutAvatarFromURL: %v", err)
+	}
+
+	return GetFullAvatarURL(key), nil
+}
+
+func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey string) (string, error) {
+	bucket, err := GetAvatarBucket(ctx)
+	if err != nil {
+		return "", fmt.Errorf("storage.PutAvatarFromBlob: %v", err)
+	}
+	defer bucket.Close()
+
+	key := uuid.Must(uuid.NewV4()).String() + ".jpg"
+
+	outputBlob, err := bucket.NewWriter(ctx, key, &blob.WriterOptions{
+		CacheControl: "525600",
+	})
+	if err != nil {
+		return "", fmt.Errorf("storage.PutAvatarFromBlob: %v", err)
+	}
+	defer outputBlob.Close()
+
+	inputBlob := base64.NewDecoder(base64.StdEncoding, strings.NewReader(dat))
+	var stderr bytes.Buffer
+
+	cropGeo := fmt.Sprintf("%vx%v+%v+%v", size, size, x, y)
+	cmd := exec.Command("convert", "-", "-crop", cropGeo, "-adaptive-resize", "256x256", "jpeg:-")
+	cmd.Stdin = inputBlob
+	cmd.Stdout = outputBlob
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		reporter.Log(stderr.String())
+		return "", fmt.Errorf("storage.PutAvatarFromBlob: %v", err)
+	}
+
+	if oldKey != "" && oldKey != "null-key" {
+		exists, err := bucket.Exists(ctx, oldKey)
+		if err != nil {
+			reporter.Report(fmt.Errorf("storage.PutAvatarFromBlob: %v)", err))
+		}
+		if exists {
+			bucket.Delete(ctx, oldKey)
+		}
 	}
 
 	return GetFullAvatarURL(key), nil

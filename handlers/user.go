@@ -1,18 +1,12 @@
 package handlers
 
 import (
-	"bytes"
-	"encoding/base64"
-	"fmt"
 	"net/http"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
-	uuid "github.com/gofrs/uuid"
 	"github.com/gorilla/mux"
-	"gocloud.dev/blob"
 
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
@@ -699,51 +693,19 @@ func PutAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bucket, err := storage.GetAvatarBucket(ctx)
+	avatarURL, err := storage.PutAvatarFromBlob(
+		ctx,
+		payload.Blob,
+		int(payload.Size),
+		int(payload.X),
+		int(payload.Y),
+		storage.GetKeyFromAvatarURL(u.Avatar))
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgUpload)
 		return
 	}
-	defer bucket.Close()
 
-	key := uuid.Must(uuid.NewV4()).String() + ".jpg"
-
-	outputBlob, err := bucket.NewWriter(ctx, key, &blob.WriterOptions{
-		CacheControl: "525600",
-	})
-	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgUpload)
-		return
-	}
-	defer outputBlob.Close()
-
-	inputBlob := base64.NewDecoder(base64.StdEncoding, strings.NewReader(payload.Blob))
-	var stderr bytes.Buffer
-
-	cropGeo := fmt.Sprintf("%vx%v+%v+%v", int(payload.Size), int(payload.Size), int(payload.X), int(payload.Y))
-	cmd := exec.Command("convert", "-", "-crop", cropGeo, "-adaptive-resize", "256x256", "jpeg:-")
-	cmd.Stdin = inputBlob
-	cmd.Stdout = outputBlob
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		fmt.Println(stderr.String())
-		bjson.HandleInternalServerError(w, err, errMsgUpload)
-		return
-	}
-
-	// Delete existing avatar if there is one
-	oldKey := storage.GetKeyFromAvatarURL(u.Avatar)
-	exists, err := bucket.Exists(ctx, oldKey)
-	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgUpload)
-		return
-	}
-	if exists {
-		bucket.Delete(ctx, oldKey)
-	}
-
-	u.Avatar = storage.GetFullAvatarURL(key)
+	u.Avatar = avatarURL
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
