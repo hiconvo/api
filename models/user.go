@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +19,7 @@ import (
 	"github.com/hiconvo/api/search"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/random"
+	"github.com/hiconvo/api/utils/reporter"
 )
 
 type User struct {
@@ -194,7 +194,7 @@ func (u *User) CreateOrUpdateSearchIndex(ctx context.Context) {
 			Doc(MapUserToUserPartial(u)).
 			Do(ctx)
 		if upsertErr != nil {
-			fmt.Fprintf(os.Stderr, "Failed to index user in elasticsearch: %s", upsertErr)
+			reporter.Report(fmt.Errorf("Failed to index user in elasticsearch: %v", upsertErr))
 		}
 	}
 }
@@ -372,29 +372,35 @@ func (u *User) MakeEmailPrimary(email string) error {
 func (u *User) Welcome(ctx context.Context) {
 	thread, err := NewThread("Welcome", supportUser, []*User{u})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		return
 	}
 
 	if err := thread.Commit(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		return
 	}
 
 	if err := u.Commit(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		return
 	}
 
 	message, err := NewThreadMessage(supportUser, &thread, welcomeMessage)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		return
 	}
 
 	if err := message.Commit(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		return
 	}
 
 	// We have to save the thread again, which is annoying
 	if err := thread.Commit(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		return
 	}
 }
 
@@ -507,7 +513,7 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 				Id(oldUser.ID).
 				Do(ctx)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to remove user from elasticsearch: %s", err)
+				reporter.Report(fmt.Errorf("Failed to remove user from elasticsearch: %v", err))
 			}
 		}
 

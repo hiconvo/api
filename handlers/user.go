@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/oauth"
+	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -220,10 +220,6 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 
 		if ok && err == nil {
 			canMergeTokenUser = !_tokenUser.Key.Incomplete() && !_tokenUser.IsRegistered()
-			fmt.Fprintln(os.Stderr,
-				"canMerge:", canMergeTokenUser,
-				"keyIncomplete:", _tokenUser.Key.Incomplete(),
-				"isRegistered:", _tokenUser.IsRegistered())
 			tokenUser = &_tokenUser
 		}
 	}
@@ -273,7 +269,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 			avatarURI, err := oauth.CacheAvatar(ctx, oauthPayload.TempAvatar)
 			if err != nil {
 				// Print error but keep going. User might not have a profile pic.
-				fmt.Fprintln(os.Stderr, err.Error())
+				reporter.Report(err)
 			}
 			u.Avatar = avatarURI
 		}
@@ -305,7 +301,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	avatarURI, err := oauth.CacheAvatar(ctx, oauthPayload.TempAvatar)
 	if err != nil {
 		// Print error but keep going. User might not have a profile pic.
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(err)
 	}
 
 	u, err = models.NewUserWithOAuth(

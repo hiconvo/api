@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/places"
+	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -285,7 +285,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		TargetName: event.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		fmt.Fprintln(os.Stderr, err)
+		reporter.Report(err)
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
@@ -339,7 +339,7 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 			TargetName: event.Name,
 		}); err != nil {
 			// Log the error but don't fail the request
-			fmt.Fprintln(os.Stderr, err)
+			reporter.Report(err)
 		}
 	}
 
@@ -479,7 +479,7 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 		TargetName: event.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		fmt.Fprintln(os.Stderr, err)
+		reporter.Report(err)
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
@@ -524,7 +524,7 @@ func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 		TargetName: event.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		fmt.Fprintln(os.Stderr, err)
+		reporter.Report(err)
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
@@ -605,7 +605,7 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 		TargetName: e.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		fmt.Fprintln(os.Stderr, err)
+		reporter.Report(err)
 	}
 
 	bjson.WriteJSON(w, u, http.StatusOK)

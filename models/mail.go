@@ -2,11 +2,11 @@ package models
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/mail"
+	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/template"
 )
 
@@ -145,7 +145,7 @@ func sendThread(thread *Thread, messages []*Message) error {
 		}
 
 		if err := mail.Send(emailMessages[i]); err != nil {
-			fmt.Fprintf(os.Stderr, err.Error())
+			reporter.Report(fmt.Errorf("models.sendThread: %v", err))
 		}
 	}
 
@@ -203,7 +203,7 @@ func sendEvent(event *Event, isUpdate bool) error {
 		}
 
 		if err := mail.Send(emailMessages[i]); err != nil {
-			fmt.Fprintf(os.Stderr, err.Error())
+			reporter.Report(fmt.Errorf("models.sendEvent: %v", err))
 		}
 	}
 
@@ -274,7 +274,7 @@ func sendCancellation(event *Event, message string) error {
 		}
 
 		if err := mail.Send(emailMessages[i]); err != nil {
-			fmt.Fprintf(os.Stderr, err.Error())
+			reporter.Report(fmt.Errorf("models.sendCancellation: %v", err))
 		}
 	}
 

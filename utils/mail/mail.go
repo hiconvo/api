@@ -12,6 +12,7 @@ import (
 	"github.com/sendgrid/sendgrid-go"
 	smail "github.com/sendgrid/sendgrid-go/helpers/mail"
 
+	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -62,12 +63,15 @@ func Send(e EmailMessage) error {
 
 	resp, err := client.Send(email)
 	if err != nil {
-		return err
+		reporter.Report(fmt.Errorf("mail.Send: %v", err))
+		return fmt.Errorf("mail.Send: %v", err)
 	}
 
 	if resp.StatusCode != http.StatusAccepted {
-		fmt.Fprintln(os.Stderr, resp.Body)
-		return errors.New("Did not recieve OK status code response")
+		err := errors.New("mail.Send: received non-200 status from SendGrid")
+		reporter.Report(err)
+		reporter.Log(resp.Body)
+		return err
 	}
 
 	return nil

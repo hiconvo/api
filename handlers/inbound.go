@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"html"
 	"net/http"
-	"os"
-
-	"github.com/getsentry/raven-go"
 
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/mail"
@@ -134,8 +131,7 @@ func sendErrorEmail(email string) {
 	})
 
 	if err != nil {
-		raven.CaptureError(err, map[string]string{"inbound": "ignored"})
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(fmt.Errorf("handlers.sendErrorEmail: %v", err))
 	}
 }
 
@@ -151,7 +147,6 @@ func sendTryAgainEmail(email string) {
 	})
 
 	if err != nil {
-		raven.CaptureError(err, map[string]string{"inbound": "ignored"})
-		fmt.Fprintln(os.Stderr, err.Error())
+		reporter.Report(fmt.Errorf("handlers.sendTryAgainEmail: %v", err))
 	}
 }
