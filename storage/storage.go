@@ -1,16 +1,22 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
+	uuid "github.com/gofrs/uuid"
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/fileblob"
 	_ "gocloud.dev/blob/gcsblob"
 
+	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -97,4 +103,44 @@ func GetKeyFromAvatarURL(url string) string {
 
 	ss := strings.Split(url, "/")
 	return ss[len(ss)-1]
+}
+
+func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
+	res, err := http.Get(uri)
+	if err != nil {
+		return "", err
+	}
+	if res.StatusCode != http.StatusOK {
+		return "", errors.New("storage.PutAvatarFromURL: Could not download avatar image")
+	}
+
+	key := uuid.Must(uuid.NewV4()).String() + ".jpg"
+
+	bucket, err := GetAvatarBucket(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer bucket.Close()
+
+	outputBlob, err := bucket.NewWriter(ctx, key, &blob.WriterOptions{
+		CacheControl: "525600",
+	})
+	if err != nil {
+		return "", err
+	}
+	defer outputBlob.Close()
+
+	var stderr bytes.Buffer
+
+	cmd := exec.Command("convert", "-", "-adaptive-resize", "256x256", "jpeg:-")
+	cmd.Stdin = res.Body
+	cmd.Stdout = outputBlob
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		reporter.Log(stderr.String())
+		return "", fmt.Errorf("storage.PutAvatarFromURL: %v", err)
+	}
+
+	return GetFullAvatarURL(key), nil
 }

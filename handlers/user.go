@@ -266,7 +266,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if u.Avatar == "" {
-			avatarURI, err := oauth.CacheAvatar(ctx, oauthPayload.TempAvatar)
+			avatarURI, err := storage.PutAvatarFromURL(ctx, oauthPayload.TempAvatar)
 			if err != nil {
 				// Print error but keep going. User might not have a profile pic.
 				reporter.Report(err)
@@ -298,7 +298,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 
 	// Finally at new user case. Cache the avatar from the Oauth payload and
 	// create a new account with the Oauth payload.
-	avatarURI, err := oauth.CacheAvatar(ctx, oauthPayload.TempAvatar)
+	avatarURI, err := storage.PutAvatarFromURL(ctx, oauthPayload.TempAvatar)
 	if err != nil {
 		// Print error but keep going. User might not have a profile pic.
 		reporter.Report(err)

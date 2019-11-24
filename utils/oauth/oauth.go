@@ -1,18 +1,12 @@
 package oauth
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"os/exec"
 
-	uuid "github.com/gofrs/uuid"
-	"gocloud.dev/blob"
-
-	"github.com/hiconvo/api/storage"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -96,43 +90,4 @@ func verifyFacebookToken(ctx context.Context, payload UserPayload) (ProviderPayl
 		LastName:   data["last_name"].(string),
 		TempAvatar: tempAvatarURI,
 	}, nil
-}
-
-func CacheAvatar(ctx context.Context, uri string) (string, error) {
-	res, err := http.Get(uri)
-	if err != nil {
-		return "", err
-	}
-	if res.StatusCode != http.StatusOK {
-		return "", errors.New("Could not download profile image")
-	}
-
-	key := uuid.Must(uuid.NewV4()).String() + ".jpg"
-
-	bucket, err := storage.GetAvatarBucket(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer bucket.Close()
-
-	outputBlob, err := bucket.NewWriter(ctx, key, &blob.WriterOptions{
-		CacheControl: "525600",
-	})
-	if err != nil {
-		return "", err
-	}
-	defer outputBlob.Close()
-
-	var stderr bytes.Buffer
-
-	cmd := exec.Command("convert", "-", "-adaptive-resize", "256x256", "jpeg:-")
-	cmd.Stdin = res.Body
-	cmd.Stdout = outputBlob
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return "", errors.New(stderr.String())
-	}
-
-	return storage.GetFullAvatarURL(key), nil
 }
