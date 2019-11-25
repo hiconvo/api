@@ -8,6 +8,7 @@ import (
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/storage"
 )
 
 type Message struct {
@@ -20,9 +21,11 @@ type Message struct {
 	Body      string         `json:"body"     datastore:",noindex"`
 	Timestamp time.Time      `json:"timestamp"`
 	Reads     []*Read        `json:"-"        datastore:",noindex"`
+	PhotoKeys []string       `json:"-"`
+	Photos    []string       `json:"photos"   datastore:"-"`
 }
 
-func NewThreadMessage(u *User, t *Thread, body string) (Message, error) {
+func NewThreadMessage(u *User, t *Thread, body, photoKey string) (Message, error) {
 	ts := time.Now()
 
 	message := Message{
@@ -33,6 +36,11 @@ func NewThreadMessage(u *User, t *Thread, body string) (Message, error) {
 		ParentID:  t.ID,
 		Body:      body,
 		Timestamp: ts,
+	}
+
+	if photoKey != "" {
+		message.PhotoKeys = []string{photoKey}
+		message.Photos = []string{storage.GetFullPhotoURL(photoKey)}
 	}
 
 	t.Preview = &Preview{
@@ -47,7 +55,7 @@ func NewThreadMessage(u *User, t *Thread, body string) (Message, error) {
 	return message, nil
 }
 
-func NewEventMessage(u *User, e *Event, body string) (Message, error) {
+func NewEventMessage(u *User, e *Event, body, photoKey string) (Message, error) {
 	ts := time.Now()
 
 	message := Message{
@@ -58,6 +66,11 @@ func NewEventMessage(u *User, e *Event, body string) (Message, error) {
 		ParentID:  e.ID,
 		Body:      body,
 		Timestamp: ts,
+	}
+
+	if photoKey != "" {
+		message.PhotoKeys = []string{photoKey}
+		message.Photos = []string{storage.GetFullPhotoURL(photoKey)}
 	}
 
 	ClearReads(e)
@@ -95,6 +108,19 @@ func (m *Message) Load(ps []datastore.Property) error {
 			k := p.Value.(*datastore.Key)
 			m.ParentKey = k
 			m.ParentID = k.Encode()
+		}
+
+		// Convert photoKeys into full URLs
+		if p.Name == "PhotoKeys" {
+			photoKeys, ok := p.Value.([]string)
+			if ok {
+				photos := make([]string, len(photoKeys))
+				for i := range photoKeys {
+					photos[i] = storage.GetFullPhotoURL(photoKeys[i])
+				}
+
+				m.Photos = photos
+			}
 		}
 	}
 

@@ -26,7 +26,7 @@ var (
 	errMsgCreds  = map[string]string{"message": "Invalid credentials"}
 	errMsgMagic  = map[string]string{"message": "This link is not valid anymore"}
 	errMsgSend   = map[string]string{"message": "Could not send email"}
-	errMsgUpload = map[string]string{"message": "Could not upload avatar"}
+	errMsgUpload = map[string]string{"message": "Could not upload image"}
 )
 
 // CreateUser Endpoint: POST /users

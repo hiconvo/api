@@ -386,7 +386,7 @@ func (u *User) Welcome(ctx context.Context) {
 		return
 	}
 
-	message, err := NewThreadMessage(supportUser, &thread, welcomeMessage)
+	message, err := NewThreadMessage(supportUser, &thread, welcomeMessage, "")
 	if err != nil {
 		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
 		return

@@ -7,6 +7,7 @@ import (
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	notif "github.com/hiconvo/api/notifications"
+	"github.com/hiconvo/api/storage"
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
@@ -47,6 +48,7 @@ func GetMessagesByThread(w http.ResponseWriter, r *http.Request) {
 // Request payload:
 type createMessagePayload struct {
 	Body string `validate:"nonzero"`
+	Blob string
 }
 
 // AddMessageToThread adds a message to the given thread.
@@ -69,7 +71,22 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := models.NewThreadMessage(&u, &thread, html.UnescapeString(payload.Body))
+	var photoKey string
+	var err error
+	if payload.Blob != "" {
+		photoKey, err = storage.PutPhotoFromBlob(ctx, thread.ID, payload.Blob)
+		if err != nil {
+			bjson.WriteJSON(w, errMsgUpload, http.StatusBadRequest)
+			return
+		}
+	}
+
+	message, err := models.NewThreadMessage(
+		&u,
+		&thread,
+		html.UnescapeString(payload.Body),
+		photoKey,
+	)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
 		return
@@ -138,7 +155,21 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := models.NewEventMessage(&u, &event, html.UnescapeString(payload.Body))
+	var photoKey string
+	var err error
+	if payload.Blob != "" {
+		photoKey, err = storage.PutPhotoFromBlob(ctx, event.ID, payload.Blob)
+		if err != nil {
+			bjson.WriteJSON(w, errMsgUpload, http.StatusBadRequest)
+			return
+		}
+	}
+
+	message, err := models.NewEventMessage(
+		&u,
+		&event,
+		html.UnescapeString(payload.Body),
+		photoKey)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
 		return

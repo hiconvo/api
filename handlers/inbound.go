@@ -84,7 +84,7 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the new message
-	message, err := models.NewThreadMessage(&user, &thread, html.UnescapeString(payload.Body))
+	message, err := models.NewThreadMessage(&user, &thread, html.UnescapeString(payload.Body), "")
 	if err != nil {
 		handleServerErrorResponse(w, err)
 		return

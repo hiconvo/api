@@ -74,21 +74,20 @@ func GetAvatarBucket(ctx context.Context) (*blob.Bucket, error) {
 	return blob.OpenBucket(ctx, avatarBucketName)
 }
 
-func GetFullAvatarURL(object string) string {
-	return avatarURLPrefix + object
+func GetFullAvatarURL(key string) string {
+	return avatarURLPrefix + key
 }
 
-func GetFullPhotoURL(parentID, object string) string {
-	return photoURLPrefix + parentID + "/" + object
+func GetFullPhotoURL(key string) string {
+	return photoURLPrefix + key
 }
 
-func GetSignedPhotoURL(ctx context.Context, parentID, object string) (string, error) {
+func GetSignedPhotoURL(ctx context.Context, key string) (string, error) {
 	b, err := GetPhotoBucket(ctx)
 	if err != nil {
-		return "", fmt.Errorf("storage.GetFullPhotoURL: %v", err)
+		return "", fmt.Errorf("storage.GetSignedPhotoURL: %v", err)
 	}
 
-	key := parentID + "/" + object
 	return b.SignedURL(ctx, key, &blob.SignedURLOptions{
 		Expiry: blob.DefaultSignedURLExpiry,
 	})
@@ -146,6 +145,8 @@ func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
 	return GetFullAvatarURL(key), nil
 }
 
+// PutAvatarFromBlob crops and resizes the given image blob, saves it, and
+// returns the full URL of the image.
 func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey string) (string, error) {
 	bucket, err := GetAvatarBucket(ctx)
 	if err != nil {
@@ -188,4 +189,43 @@ func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey s
 	}
 
 	return GetFullAvatarURL(key), nil
+}
+
+// PutPhotoFromBlob resizes the given image blob, saves it, and returns the *key*
+// of the image.
+func PutPhotoFromBlob(ctx context.Context, parentID, dat string) (string, error) {
+	if parentID == "" {
+		return "", errors.New("storage.PutPhotoFromBlob: No parentID given")
+	}
+
+	bucket, err := GetPhotoBucket(ctx)
+	if err != nil {
+		return "", fmt.Errorf("storage.PutPhotoFromBlob: %v", err)
+	}
+	defer bucket.Close()
+
+	key := parentID + "/" + uuid.Must(uuid.NewV4()).String() + ".jpg"
+
+	outputBlob, err := bucket.NewWriter(ctx, key, &blob.WriterOptions{
+		CacheControl: "525600",
+	})
+	if err != nil {
+		return "", fmt.Errorf("storage.PutPhotoFromBlob: %v", err)
+	}
+	defer outputBlob.Close()
+
+	inputBlob := base64.NewDecoder(base64.StdEncoding, strings.NewReader(dat))
+	var stderr bytes.Buffer
+
+	cmd := exec.Command("convert", "-", "-resize", "2048x2048>", "jpeg:-")
+	cmd.Stdin = inputBlob
+	cmd.Stdout = outputBlob
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		reporter.Log(stderr.String())
+		return "", fmt.Errorf("storage.PutPhotoFromBlob: %v", err)
+	}
+
+	return key, nil
 }
