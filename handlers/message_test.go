@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	"github.com/hiconvo/api/models"
-	"github.com/hiconvo/api/utils/random"
 	"github.com/hiconvo/api/utils/thelpers"
+	"github.com/steinfletcher/apitest"
+	jsonpath "github.com/steinfletcher/apitest-jsonpath"
 )
 
 ////////////////////////////////////
@@ -20,43 +21,81 @@ func TestAddMessageToThread(t *testing.T) {
 	member2, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
 	thread := createTestThread(t, &owner, []*models.User{&member1, &member2})
+
 	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
-	type test struct {
-		AuthHeader map[string]string
-		Body       string
-		Author     models.User
-		OutCode    int
-	}
-
-	tests := []test{
+	tests := []struct {
+		GivenAuthHeader map[string]string
+		GivenBody       string
+		GivenAuthor     models.User
+		ExpectCode      int
+		ExpectBody      string
+		ExpectPhoto     bool
+	}{
 		// Owner
-		{Body: random.String(10), AuthHeader: getAuthHeader(owner.Token), Author: owner, OutCode: http.StatusCreated},
+		{
+			GivenAuthHeader: getAuthHeader(owner.Token),
+			GivenAuthor:     owner,
+			GivenBody:       `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==", "body": "hello"}`,
+			ExpectCode:      http.StatusCreated,
+			ExpectBody:      "hello",
+			ExpectPhoto:     true,
+		},
 		// Member
-		{Body: random.String(10), AuthHeader: getAuthHeader(member1.Token), Author: member1, OutCode: http.StatusCreated},
+		{
+			GivenAuthHeader: getAuthHeader(member1.Token),
+			GivenAuthor:     member1,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusCreated,
+			ExpectBody:      "hello",
+			ExpectPhoto:     false,
+		},
 		// NonMember
-		{Body: random.String(10), AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
+		{
+			GivenAuthHeader: getAuthHeader(nonmember.Token),
+			GivenAuthor:     nonmember,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusNotFound,
+			ExpectPhoto:     false,
+		},
 		// EmptyPayload
-		{Body: "", AuthHeader: getAuthHeader(member1.Token), OutCode: http.StatusBadRequest},
+		{
+			GivenAuthHeader: getAuthHeader(member1.Token),
+			GivenAuthor:     member1,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectPhoto:     false,
+		},
+		{
+			GivenAuthHeader: getAuthHeader(owner.Token),
+			GivenAuthor:     owner,
+			GivenBody:       `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q=="}`,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectPhoto:     false,
+		},
 	}
 
 	for _, testCase := range tests {
-		reqData := map[string]interface{}{"body": testCase.Body}
+		tt := apitest.New("CreateThreadMessage").
+			Handler(th).
+			Post(url).
+			JSON(testCase.GivenBody).
+			Headers(testCase.GivenAuthHeader).
+			Expect(t).
+			Status(testCase.ExpectCode)
 
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
+		if testCase.ExpectCode < 300 {
+			tt.
+				Assert(jsonpath.Equal("$.parentId", thread.ID)).
+				Assert(jsonpath.Equal("$.body", testCase.ExpectBody)).
+				Assert(jsonpath.Equal("$.user.fullName", testCase.GivenAuthor.FullName)).
+				Assert(jsonpath.Equal("$.user.id", testCase.GivenAuthor.ID))
+			if testCase.ExpectPhoto {
+				tt.Assert(jsonpath.Present("$.photos[0]"))
+			} else {
+				tt.Assert(jsonpath.NotPresent("$.photos[0]"))
+			}
 		}
-
-		thelpers.AssertEqual(t, respData["body"], testCase.Body)
-		thelpers.AssertEqual(t, respData["parentId"], thread.ID)
-
-		gotMessageUser := respData["user"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotMessageUser["fullName"], testCase.Author.FullName)
-		thelpers.AssertEqual(t, gotMessageUser["id"], testCase.Author.ID)
 	}
 }
 
@@ -115,43 +154,81 @@ func TestAddMessageToEvent(t *testing.T) {
 	member2, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
 	event := createTestEvent(t, &owner, []*models.User{&member1, &member2})
+
 	url := fmt.Sprintf("/events/%s/messages", event.ID)
 
-	type test struct {
-		AuthHeader map[string]string
-		Body       string
-		Author     models.User
-		OutCode    int
-	}
-
-	tests := []test{
+	tests := []struct {
+		GivenAuthHeader map[string]string
+		GivenBody       string
+		GivenAuthor     models.User
+		ExpectCode      int
+		ExpectBody      string
+		ExpectPhoto     bool
+	}{
 		// Owner
-		{Body: random.String(10), AuthHeader: getAuthHeader(owner.Token), Author: owner, OutCode: http.StatusCreated},
+		{
+			GivenAuthHeader: getAuthHeader(owner.Token),
+			GivenAuthor:     owner,
+			GivenBody:       `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==", "body": "hello"}`,
+			ExpectCode:      http.StatusCreated,
+			ExpectBody:      "hello",
+			ExpectPhoto:     true,
+		},
 		// Member
-		{Body: random.String(10), AuthHeader: getAuthHeader(member1.Token), Author: member1, OutCode: http.StatusCreated},
+		{
+			GivenAuthHeader: getAuthHeader(member1.Token),
+			GivenAuthor:     member1,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusCreated,
+			ExpectBody:      "hello",
+			ExpectPhoto:     false,
+		},
 		// NonMember
-		{Body: random.String(10), AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
+		{
+			GivenAuthHeader: getAuthHeader(nonmember.Token),
+			GivenAuthor:     nonmember,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusNotFound,
+			ExpectPhoto:     false,
+		},
 		// EmptyPayload
-		{Body: "", AuthHeader: getAuthHeader(member1.Token), OutCode: http.StatusBadRequest},
+		{
+			GivenAuthHeader: getAuthHeader(member1.Token),
+			GivenAuthor:     member1,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectPhoto:     false,
+		},
+		{
+			GivenAuthHeader: getAuthHeader(owner.Token),
+			GivenAuthor:     owner,
+			GivenBody:       `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q=="}`,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectPhoto:     false,
+		},
 	}
 
 	for _, testCase := range tests {
-		reqData := map[string]interface{}{"body": testCase.Body}
+		tt := apitest.New("CreateThreadMessage").
+			Handler(th).
+			Post(url).
+			JSON(testCase.GivenBody).
+			Headers(testCase.GivenAuthHeader).
+			Expect(t).
+			Status(testCase.ExpectCode)
 
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, reqData, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
+		if testCase.ExpectCode < 300 {
+			tt.
+				Assert(jsonpath.Equal("$.parentId", event.ID)).
+				Assert(jsonpath.Equal("$.body", testCase.ExpectBody)).
+				Assert(jsonpath.Equal("$.user.fullName", testCase.GivenAuthor.FullName)).
+				Assert(jsonpath.Equal("$.user.id", testCase.GivenAuthor.ID))
+			if testCase.ExpectPhoto {
+				tt.Assert(jsonpath.Present("$.photos[0]"))
+			} else {
+				tt.Assert(jsonpath.NotPresent("$.photos[0]"))
+			}
 		}
-
-		thelpers.AssertEqual(t, respData["body"], testCase.Body)
-		thelpers.AssertEqual(t, respData["parentId"], event.ID)
-
-		gotMessageUser := respData["user"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotMessageUser["fullName"], testCase.Author.FullName)
-		thelpers.AssertEqual(t, gotMessageUser["id"], testCase.Author.ID)
 	}
 }
 
