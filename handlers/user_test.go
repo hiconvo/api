@@ -826,3 +826,17 @@ func TestForgotPassword(t *testing.T) {
 		thelpers.AssertEqual(t, rr.Body.String(), testCase.ExpectBody)
 	}
 }
+
+func TestUploadAvatar(t *testing.T) {
+	payload := `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==","x":0,"y":0,"size":9.195831298828125}`
+
+	user, _ := createTestUser(t)
+
+	apitest.New("UploadAvatar").
+		Handler(th).
+		Post("/users/avatar").
+		JSON(payload).
+		Headers(getAuthHeader(user.Token)).
+		Expect(t).
+		Status(http.StatusOK)
+}

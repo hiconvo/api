@@ -97,7 +97,7 @@ func createTestThread(t *testing.T, owner *models.User, users []*models.User) mo
 }
 
 func createTestThreadMessage(t *testing.T, user *models.User, thread *models.Thread) models.Message {
-	message, err := models.NewThreadMessage(user, thread, random.String(50))
+	message, err := models.NewThreadMessage(user, thread, random.String(50), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func createTestEvent(t *testing.T, owner *models.User, users []*models.User) *mo
 }
 
 func createTestEventMessage(t *testing.T, user *models.User, event *models.Event) models.Message {
-	message, err := models.NewEventMessage(user, event, random.String(50))
+	message, err := models.NewEventMessage(user, event, random.String(50), "")
 	if err != nil {
 		t.Fatal(err)
 	}
