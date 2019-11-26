@@ -217,7 +217,7 @@ func PutPhotoFromBlob(ctx context.Context, parentID, dat string) (string, error)
 	inputBlob := base64.NewDecoder(base64.StdEncoding, strings.NewReader(dat))
 	var stderr bytes.Buffer
 
-	cmd := exec.Command("convert", "-", "-resize", "2048x2048>", "jpeg:-")
+	cmd := exec.Command("convert", "-", "-resize", "2048x2048>", "-quality", "70", "jpeg:-")
 	cmd.Stdin = inputBlob
 	cmd.Stdout = outputBlob
 	cmd.Stderr = &stderr
