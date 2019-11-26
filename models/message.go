@@ -112,11 +112,14 @@ func (m *Message) Load(ps []datastore.Property) error {
 
 		// Convert photoKeys into full URLs
 		if p.Name == "PhotoKeys" {
-			photoKeys, ok := p.Value.([]string)
+			photoKeys, ok := p.Value.([]interface{})
 			if ok {
 				photos := make([]string, len(photoKeys))
 				for i := range photoKeys {
-					photos[i] = storage.GetFullPhotoURL(photoKeys[i])
+					photoKey, ok := photoKeys[i].(string)
+					if ok {
+						photos[i] = storage.GetFullPhotoURL(photoKey)
+					}
 				}
 
 				m.Photos = photos
