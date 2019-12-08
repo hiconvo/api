@@ -113,10 +113,11 @@ func sendThread(thread *Thread, messages []*Message) error {
 		tplMessages := make([]template.Message, len(lastFive))
 		for j, m := range lastFive {
 			tplMessages[j] = template.Message{
-				Body:   m.Body,
-				Name:   m.User.FirstName,
-				FromID: m.User.ID,
-				ToID:   curUser.ID,
+				Body:     m.Body,
+				Name:     m.User.FirstName,
+				HasPhoto: m.HasPhoto(),
+				FromID:   m.User.ID,
+				ToID:     curUser.ID,
 			}
 		}
 
@@ -288,10 +289,11 @@ func sendDigest(digestList []DigestItem, upcomingEvents []*Event, user *User) er
 		messages := make([]template.Message, len(digestList[i].Messages))
 		for j := range messages {
 			messages[j] = template.Message{
-				Body:   digestList[i].Messages[j].Body,
-				Name:   digestList[i].Messages[j].User.FullName,
-				FromID: digestList[i].Messages[j].User.ID,
-				ToID:   user.ID,
+				Body:     digestList[i].Messages[j].Body,
+				Name:     digestList[i].Messages[j].User.FullName,
+				HasPhoto: digestList[i].Messages[j].HasPhoto(),
+				FromID:   digestList[i].Messages[j].User.ID,
+				ToID:     user.ID,
 			}
 		}
 

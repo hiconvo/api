@@ -19,6 +19,12 @@
               <!-- START BODY -->
               {{ .RenderedBody }}
               <!-- END BODY -->
+
+              {{if .HasPhoto}}
+              <p>
+                <i>[This message contains a photo. <a href="https://app.hiconvo.com">Login to Convo</a> to view it.]</i>
+              </p>
+              {{- end}}
             </td>
           </tr>
         </table>

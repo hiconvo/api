@@ -138,6 +138,10 @@ func (m *Message) SetReads(newReads []*Read) {
 	m.Reads = newReads
 }
 
+func (m *Message) HasPhoto() bool {
+	return len(m.PhotoKeys) > 0
+}
+
 func (m *Message) Commit(ctx context.Context) error {
 	key, kErr := db.Client.Put(ctx, m.Key, m)
 	if kErr != nil {

@@ -9,10 +9,11 @@ import (
 // Thread. The Body field accepts markdown. XML is not allowed.
 type Message struct {
 	renderable
-	Body   string
-	Name   string
-	FromID string
-	ToID   string
+	Body     string
+	Name     string
+	FromID   string
+	ToID     string
+	HasPhoto bool
 }
 
 // Thread is a representation of a renderable email thread.
