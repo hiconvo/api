@@ -460,7 +460,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	diff := time.Now().Sub(ts)
-	if diff.Minutes() > float64(30) {
+	if diff.Hours() > float64(24) {
 		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
 		return
 	}

@@ -21,7 +21,7 @@ type Thread struct {
 	Users        []*User          `json:"-"        datastore:"-"`
 	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
 	Subject      string           `json:"subject"  datastore:",noindex"`
-	Preview      *Preview         `json:"preview"  datastore:",noindex"`
+	Preview      *Message         `json:"preview"  datastore:",noindex"`
 	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
 	Reads        []*Read          `json:"-"        datastore:",noindex"`
 	CreatedAt    time.Time        `json:"-"`
@@ -90,7 +90,26 @@ func (t *Thread) Save() ([]datastore.Property, error) {
 
 func (t *Thread) Load(ps []datastore.Property) error {
 	if err := datastore.LoadStruct(t, ps); err != nil {
-		return err
+		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
+			if mismatch.FieldName != "Preview" {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	for _, p := range ps {
+		if p.Name == "Preview" {
+			preview, ok := p.Value.(*Preview)
+			if ok {
+				t.Preview = &Message{
+					Body:      preview.Body,
+					User:      preview.Sender,
+					Timestamp: preview.Timestamp,
+				}
+			}
+		}
 	}
 
 	return nil

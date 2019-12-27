@@ -43,10 +43,8 @@ func NewThreadMessage(u *User, t *Thread, body, photoKey string) (Message, error
 		message.Photos = []string{storage.GetFullPhotoURL(photoKey)}
 	}
 
-	t.Preview = &Preview{
-		Body:      body,
-		Sender:    MapUserToUserPartial(u),
-		Timestamp: ts,
+	if t.Preview == nil {
+		t.Preview = &message
 	}
 
 	ClearReads(t)
