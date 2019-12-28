@@ -32,7 +32,12 @@ func Extract(ctx context.Context, text string) LinkData {
 
 	var image string
 	if len(data.Image) > 0 {
-		image = data.Image[0].SURL
+		image = data.Image[0].URL
+	}
+
+	favicon := data.Favicon
+	if favicon[:1] == "/" {
+		favicon = data.URL.Scheme + "://" + data.URL.Hostname() + favicon
 	}
 
 	return LinkData{
@@ -40,7 +45,7 @@ func Extract(ctx context.Context, text string) LinkData {
 		URL:         data.URL.String(),
 		Site:        data.SiteName,
 		Description: data.Description,
-		Favicon:     data.Favicon,
+		Favicon:     favicon,
 		Image:       image,
 	}
 }

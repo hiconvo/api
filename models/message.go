@@ -30,6 +30,11 @@ type Message struct {
 func NewThreadMessage(u *User, t *Thread, body, photoKey string, link og.LinkData) (Message, error) {
 	ts := time.Now()
 
+	linkPtr := &link
+	if link.URL == "" {
+		linkPtr = nil
+	}
+
 	message := Message{
 		Key:       datastore.IncompleteKey("Message", nil),
 		UserKey:   u.Key,
@@ -38,7 +43,7 @@ func NewThreadMessage(u *User, t *Thread, body, photoKey string, link og.LinkDat
 		ParentID:  t.ID,
 		Body:      body,
 		Timestamp: ts,
-		Link:      &link,
+		Link:      linkPtr,
 	}
 
 	if photoKey != "" {
