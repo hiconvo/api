@@ -13,6 +13,7 @@ import (
 
 	"github.com/hiconvo/api/handlers"
 	"github.com/hiconvo/api/models"
+	og "github.com/hiconvo/api/utils/opengraph"
 	"github.com/hiconvo/api/utils/random"
 	"github.com/hiconvo/api/utils/thelpers"
 )
@@ -97,7 +98,7 @@ func createTestThread(t *testing.T, owner *models.User, users []*models.User) mo
 }
 
 func createTestThreadMessage(t *testing.T, user *models.User, thread *models.Thread) models.Message {
-	message, err := models.NewThreadMessage(user, thread, random.String(50), "")
+	message, err := models.NewThreadMessage(user, thread, random.String(50), "", og.LinkData{})
 	if err != nil {
 		t.Fatal(err)
 	}
