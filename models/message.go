@@ -9,6 +9,7 @@ import (
 
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/storage"
+	og "github.com/hiconvo/api/utils/opengraph"
 )
 
 type Message struct {
@@ -23,9 +24,10 @@ type Message struct {
 	Reads     []*Read        `json:"-"        datastore:",noindex"`
 	PhotoKeys []string       `json:"-"`
 	Photos    []string       `json:"photos"   datastore:"-"`
+	Link      *og.LinkData   `json:"link"`
 }
 
-func NewThreadMessage(u *User, t *Thread, body, photoKey string) (Message, error) {
+func NewThreadMessage(u *User, t *Thread, body, photoKey string, link og.LinkData) (Message, error) {
 	ts := time.Now()
 
 	message := Message{
@@ -36,6 +38,7 @@ func NewThreadMessage(u *User, t *Thread, body, photoKey string) (Message, error
 		ParentID:  t.ID,
 		Body:      body,
 		Timestamp: ts,
+		Link:      &link,
 	}
 
 	if photoKey != "" {
@@ -46,6 +49,8 @@ func NewThreadMessage(u *User, t *Thread, body, photoKey string) (Message, error
 	if t.Preview == nil {
 		t.Preview = &message
 	}
+
+	t.IncRespCount()
 
 	ClearReads(t)
 	MarkAsRead(t, u.Key)
@@ -81,7 +86,9 @@ func (m *Message) LoadKey(k *datastore.Key) error {
 	m.Key = k
 
 	// Add URL safe key
-	m.ID = k.Encode()
+	if k != nil {
+		m.ID = k.Encode()
+	}
 
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/hiconvo/api/queue"
 	"github.com/hiconvo/api/search"
 	"github.com/hiconvo/api/utils/magic"
+	og "github.com/hiconvo/api/utils/opengraph"
 	"github.com/hiconvo/api/utils/random"
 	"github.com/hiconvo/api/utils/reporter"
 )
@@ -386,7 +387,7 @@ func (u *User) Welcome(ctx context.Context) {
 		return
 	}
 
-	message, err := NewThreadMessage(supportUser, &thread, welcomeMessage, "")
+	message, err := NewThreadMessage(supportUser, &thread, welcomeMessage, "", og.LinkData{})
 	if err != nil {
 		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
 		return

@@ -5,7 +5,7 @@ import (
 	htmltpl "html/template"
 
 	"github.com/aymerick/douceur/inliner"
-	"gopkg.in/russross/blackfriday.v2"
+	"github.com/russross/blackfriday/v2"
 )
 
 type renderable struct {

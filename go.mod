@@ -28,14 +28,15 @@ require (
 	github.com/olekukonko/tablewriter v0.0.1 // indirect
 	github.com/olivere/elastic v6.2.19+incompatible
 	github.com/olivere/elastic/v7 v7.0.3
+	github.com/otiai10/opengraph v1.1.0
 	github.com/oxequa/interact v0.0.0-20171114182912-f8fb5795b5d7 // indirect
 	github.com/oxequa/realize v2.0.2+incompatible // indirect
 	github.com/rainycape/unidecode v0.0.0-20150907023854-cb7f23ec59be // indirect
+	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sendgrid/rest v2.4.1+incompatible
 	github.com/sendgrid/sendgrid-go v3.4.1+incompatible
 	github.com/sergi/go-diff v1.0.0 // indirect
-	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/steinfletcher/apitest v1.4.0
@@ -51,12 +52,13 @@ require (
 	gopkg.in/LeisureLink/httpsig.v1 v1.2.0 // indirect
 	gopkg.in/dgrijalva/jwt-go.v3 v3.2.0 // indirect
 	gopkg.in/gographics/imagick.v3 v3.2.0 // indirect
-	gopkg.in/russross/blackfriday.v2 v2.0.1
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8 // indirect
 	gopkg.in/validator.v2 v2.0.0-20180514200540-135c24b11c19
 	gopkg.in/yaml.v2 v2.2.5 // indirect
+	mvdan.cc/xurls v1.1.0 // indirect
+	mvdan.cc/xurls/v2 v2.1.0
 )
 
-replace gopkg.in/russross/blackfriday.v2 v2.0.1 => github.com/russross/blackfriday/v2 v2.0.1
+replace gopkg.in/russross/blackfriday.v2 => github.com/russross/blackfriday/v2 v2.0.1
 
 go 1.13

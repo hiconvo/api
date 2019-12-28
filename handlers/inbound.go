@@ -8,6 +8,7 @@ import (
 
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/mail"
+	og "github.com/hiconvo/api/utils/opengraph"
 	"github.com/hiconvo/api/utils/pluck"
 	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
@@ -83,8 +84,11 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	messageBody := html.UnescapeString(payload.Body)
+	link := og.Extract(ctx, messageBody)
+
 	// Create the new message
-	message, err := models.NewThreadMessage(&user, &thread, html.UnescapeString(payload.Body), "")
+	message, err := models.NewThreadMessage(&user, &thread, messageBody, "", link)
 	if err != nil {
 		handleServerErrorResponse(w, err)
 		return

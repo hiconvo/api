@@ -13,18 +13,19 @@ import (
 )
 
 type Thread struct {
-	Key          *datastore.Key   `json:"-"        datastore:"__key__"`
-	ID           string           `json:"id"       datastore:"-"`
-	OwnerKey     *datastore.Key   `json:"-"`
-	Owner        *UserPartial     `json:"owner"    datastore:"-"`
-	UserKeys     []*datastore.Key `json:"-"`
-	Users        []*User          `json:"-"        datastore:"-"`
-	UserPartials []*UserPartial   `json:"users"    datastore:"-"`
-	Subject      string           `json:"subject"  datastore:",noindex"`
-	Preview      *Message         `json:"preview"  datastore:",noindex"`
-	UserReads    []*UserPartial   `json:"reads"    datastore:"-"`
-	Reads        []*Read          `json:"-"        datastore:",noindex"`
-	CreatedAt    time.Time        `json:"-"`
+	Key           *datastore.Key   `json:"-"        datastore:"__key__"`
+	ID            string           `json:"id"       datastore:"-"`
+	OwnerKey      *datastore.Key   `json:"-"`
+	Owner         *UserPartial     `json:"owner"    datastore:"-"`
+	UserKeys      []*datastore.Key `json:"-"`
+	Users         []*User          `json:"-"        datastore:"-"`
+	UserPartials  []*UserPartial   `json:"users"    datastore:"-"`
+	Subject       string           `json:"subject"  datastore:",noindex"`
+	Preview       *Message         `json:"preview"  datastore:",noindex"`
+	UserReads     []*UserPartial   `json:"reads"    datastore:"-"`
+	Reads         []*Read          `json:"-"        datastore:",noindex"`
+	CreatedAt     time.Time        `json:"-"`
+	ResponseCount int              `json:"responseCount" datastore:",noindex"`
 }
 
 func NewThread(subject string, owner *User, users []*User) (Thread, error) {
@@ -234,6 +235,11 @@ func (t *Thread) SendAsync(ctx context.Context) error {
 		Action: queue.SendThread,
 		IDs:    []string{t.ID},
 	})
+}
+
+func (t *Thread) IncRespCount() error {
+	t.ResponseCount++
+	return nil
 }
 
 func GetThreadByID(ctx context.Context, id string) (Thread, error) {

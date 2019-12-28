@@ -9,6 +9,7 @@ import (
 	notif "github.com/hiconvo/api/notifications"
 	"github.com/hiconvo/api/storage"
 	"github.com/hiconvo/api/utils/bjson"
+	og "github.com/hiconvo/api/utils/opengraph"
 	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
 )
@@ -81,11 +82,15 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	messageBody := html.UnescapeString(payload.Body)
+	link := og.Extract(ctx, messageBody)
+
 	message, err := models.NewThreadMessage(
 		&u,
 		&thread,
-		html.UnescapeString(payload.Body),
+		messageBody,
 		photoKey,
+		link,
 	)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
