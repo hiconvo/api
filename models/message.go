@@ -2,7 +2,9 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/datastore"
@@ -41,7 +43,7 @@ func NewThreadMessage(u *User, t *Thread, body, photoKey string, link og.LinkDat
 		User:      MapUserToUserPartial(u),
 		ParentKey: t.Key,
 		ParentID:  t.ID,
-		Body:      body,
+		Body:      removeLink(body, linkPtr),
 		Timestamp: ts,
 		Link:      linkPtr,
 	}
@@ -207,4 +209,18 @@ func GetUnhydratedMessagesByUser(ctx context.Context, u *User) ([]*Message, erro
 	}
 
 	return messages, nil
+}
+
+func removeLink(body string, linkPtr *og.LinkData) string {
+	if linkPtr == nil {
+		return body
+	}
+
+	// If this is a markdown formatted link, leave it. Otherwise, remove the link.
+	// This isn't a perfect test, but it gets the job done and I'm lazy.
+	if strings.Contains(body, fmt.Sprintf("[%s]", linkPtr.URL)) {
+		return body
+	}
+
+	return strings.Replace(body, linkPtr.URL, "", 1)
 }
