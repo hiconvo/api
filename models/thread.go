@@ -130,6 +130,10 @@ func (t *Thread) Commit(ctx context.Context) error {
 	return nil
 }
 
+func (t *Thread) CommitWithTransaction(tx *datastore.Transaction) (*datastore.PendingKey, error) {
+	return tx.Put(t.Key, t)
+}
+
 func (t *Thread) Delete(ctx context.Context) error {
 	if err := db.Client.Delete(ctx, t.Key); err != nil {
 		return err

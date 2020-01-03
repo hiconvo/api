@@ -132,12 +132,7 @@ func (e *Event) Commit(ctx context.Context) error {
 }
 
 func (e *Event) CommitWithTransaction(tx *datastore.Transaction) (*datastore.PendingKey, error) {
-	pendingKey, err := tx.Put(e.Key, e)
-	if err != nil {
-		return pendingKey, err
-	}
-
-	return pendingKey, nil
+	return tx.Put(e.Key, e)
 }
 
 func (e *Event) Delete(ctx context.Context) error {

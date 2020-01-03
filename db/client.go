@@ -116,7 +116,7 @@ func (c *wrappedClientImpl) PutWithTransaction(ctx context.Context, key *datasto
 		return pendingKey, nil
 	}
 
-	return &datastore.PendingKey{}, fmt.Errorf("datastore: No transaction in context")
+	return &datastore.PendingKey{}, fmt.Errorf("wrappedClientImpl: No transaction in context")
 }
 
 func (c *wrappedClientImpl) PutMulti(ctx context.Context, keys []*datastore.Key, src interface{}) (ret []*datastore.Key, err error) {
@@ -134,7 +134,7 @@ func (c *wrappedClientImpl) PutMultiWithTransaction(ctx context.Context, keys []
 		return pendingKeys, nil
 	}
 
-	return []*datastore.PendingKey{}, fmt.Errorf("datastore: No transaction in context")
+	return []*datastore.PendingKey{}, fmt.Errorf("wrappedClientImpl: No transaction in context")
 }
 
 func (c *wrappedClientImpl) RunInTransaction(ctx context.Context, f func(tx *datastore.Transaction) error) (*datastore.Commit, error) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
@@ -140,6 +141,7 @@ type updateThreadPayload struct {
 // UpdateThread allows the owner to change the thread subject
 func UpdateThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
@@ -158,7 +160,12 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 
 	thread.Subject = payload.Subject
 
-	if err := thread.Commit(ctx); err != nil {
+	if _, err := thread.CommitWithTransaction(tx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
@@ -193,6 +200,7 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 // AddUserToThread adds a user to the thread. Only owners can add participants.
 func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
 	vars := mux.Vars(r)
@@ -226,7 +234,12 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the thread.
-	if err := thread.Commit(ctx); err != nil {
+	if _, err := thread.CommitWithTransaction(tx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}
@@ -240,6 +253,7 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 // anyone. Participants can remove themselves.
 func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
 
@@ -270,7 +284,12 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the thread.
-	if err := thread.Commit(ctx); err != nil {
+	if _, err := thread.CommitWithTransaction(tx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
 		return
 	}

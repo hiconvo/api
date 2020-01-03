@@ -3,8 +3,11 @@ package db
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"cloud.google.com/go/datastore"
+
+	"github.com/hiconvo/api/utils/bjson"
 )
 
 type txContextKey string
@@ -32,4 +35,20 @@ func AddTransactionToContext(ctx context.Context) (context.Context, *datastore.T
 	nctx := context.WithValue(ctx, key, tx)
 
 	return nctx, tx, nil
+}
+
+func WithTransaction(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		octx := r.Context()
+		nctx, _, err := AddTransactionToContext(octx)
+		if err != nil {
+			bjson.WriteJSON(w, map[string]string{
+				"message": "Could not initialize database transaction",
+			}, http.StatusInternalServerError)
+			return
+		}
+
+		next.ServeHTTP(w, r.WithContext(nctx))
+		return
+	})
 }

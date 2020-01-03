@@ -187,12 +187,7 @@ func (u *User) Commit(ctx context.Context) error {
 }
 
 func (u *User) CommitWithTransaction(tx *datastore.Transaction) (*datastore.PendingKey, error) {
-	pendingKey, err := tx.Put(u.Key, u)
-	if err != nil {
-		return pendingKey, err
-	}
-
-	return pendingKey, nil
+	return tx.Put(u.Key, u)
 }
 
 func (u *User) CreateOrUpdateSearchIndex(ctx context.Context) {

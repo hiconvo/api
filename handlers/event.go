@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"html"
 	"net/http"
 	"strconv"
@@ -202,6 +201,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
+	tx, _ := db.TransactionFromContext(ctx)
 
 	// If the requestor is not the owner, throw an error
 	if !event.OwnerIs(&u) {
@@ -264,7 +264,12 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		event.UTCOffset = place.UTCOffset
 	}
 
-	if err := event.Commit(ctx); err != nil {
+	if _, err := event.CommitWithTransaction(tx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
 	}
@@ -359,6 +364,7 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
+	tx, _ := db.TransactionFromContext(ctx)
 	vars := mux.Vars(r)
 	maybeUserID := vars["userID"]
 
@@ -377,7 +383,7 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 		userToBeAdded, err = models.GetUserByID(ctx, maybeUserID)
 	}
 	if err != nil {
-		fmt.Println(err.Error())
+		reporter.Report(err)
 		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
 		return
 	}
@@ -390,7 +396,12 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the event.
-	if err := event.Commit(ctx); err != nil {
+	if _, err := event.CommitWithTransaction(tx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
 	}
@@ -406,6 +417,7 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 // anyone. Participants can remove themselves.
 func RemoveUserFromEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
 
@@ -436,7 +448,12 @@ func RemoveUserFromEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the event.
-	if err := event.Commit(ctx); err != nil {
+	if _, err := event.CommitWithTransaction(tx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
 	}
@@ -449,6 +466,7 @@ func RemoveUserFromEvent(w http.ResponseWriter, r *http.Request) {
 // AddRSVPToEvent RSVPs a user to the event.
 func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
 
@@ -465,7 +483,12 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save the event.
-	if err := event.Commit(ctx); err != nil {
+	if _, err := event.CommitWithTransaction(tx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
 	}
@@ -491,6 +514,7 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 // anyone. Participants can remove themselves.
 func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
 
@@ -510,7 +534,12 @@ func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 	event.RemoveRSVP(&u)
 
 	// Save the event.
-	if err := event.Commit(ctx); err != nil {
+	if _, err := event.CommitWithTransaction(tx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
 	}
@@ -544,11 +573,7 @@ type magicRSVPPayload struct {
 func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	body := bjson.BodyFromContext(ctx)
-
-	tctx, tx, err := db.AddTransactionToContext(ctx)
-	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
-	}
+	tx, _ := db.TransactionFromContext(ctx)
 
 	var payload magicRSVPPayload
 	if err := validate.Do(&payload, body); err != nil {
@@ -556,13 +581,13 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := models.GetUserByID(tctx, payload.UserID)
+	u, err := models.GetUserByID(ctx, payload.UserID)
 	if err != nil {
 		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
 		return
 	}
 
-	e, err := models.GetEventByID(tctx, payload.EventID)
+	e, err := models.GetEventByID(ctx, payload.EventID)
 	if err != nil {
 		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
 		return
