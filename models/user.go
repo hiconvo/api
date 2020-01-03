@@ -186,6 +186,15 @@ func (u *User) Commit(ctx context.Context) error {
 	return nil
 }
 
+func (u *User) CommitWithTransaction(tx *datastore.Transaction) (*datastore.PendingKey, error) {
+	pendingKey, err := tx.Put(u.Key, u)
+	if err != nil {
+		return pendingKey, err
+	}
+
+	return pendingKey, nil
+}
+
 func (u *User) CreateOrUpdateSearchIndex(ctx context.Context) {
 	if u.IsRegistered() {
 		_, upsertErr := search.Client.Update().
@@ -582,13 +591,13 @@ func UserWelcomeMulti(ctx context.Context, users []User) {
 func GetUserByID(ctx context.Context, id string) (User, error) {
 	u := User{}
 
-	key, keyErr := datastore.DecodeKey(id)
-	if keyErr != nil {
-		return u, keyErr
+	key, err := datastore.DecodeKey(id)
+	if err != nil {
+		return u, err
 	}
 
-	if getErr := db.Client.Get(ctx, key, &u); getErr != nil {
-		return u, getErr
+	if err := db.Client.Get(ctx, key, &u); err != nil {
+		return u, err
 	}
 
 	return u, nil

@@ -545,19 +545,24 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	body := bjson.BodyFromContext(ctx)
 
+	tctx, tx, err := db.AddTransactionToContext(ctx)
+	if err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+	}
+
 	var payload magicRSVPPayload
 	if err := validate.Do(&payload, body); err != nil {
 		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
 		return
 	}
 
-	u, err := models.GetUserByID(ctx, payload.UserID)
+	u, err := models.GetUserByID(tctx, payload.UserID)
 	if err != nil {
 		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
 		return
 	}
 
-	e, err := models.GetEventByID(ctx, payload.EventID)
+	e, err := models.GetEventByID(tctx, payload.EventID)
 	if err != nil {
 		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
 		return
@@ -586,13 +591,18 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 
 	u.Verified = true
 
-	if err := e.Commit(ctx); err != nil {
+	if _, err := e.CommitWithTransaction(tx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
 	}
 
-	if err := u.Commit(ctx); err != nil {
+	if _, err := u.CommitWithTransaction(tx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
 	}
 

@@ -21,6 +21,7 @@ func CreateRouter() http.Handler {
 	// Inbound email webhook
 	router.HandleFunc("/inbound", Inbound).Methods("POST")
 
+	// Async tasks
 	router.HandleFunc("/tasks/digest", CreateDigest)
 	router.HandleFunc("/tasks/emails", SendEmailsAsync)
 
@@ -34,7 +35,7 @@ func CreateRouter() http.Handler {
 	jsonSubrouter.HandleFunc("/users/password", UpdatePassword).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/verify", VerifyEmail).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/forgot", ForgotPassword).Methods("POST")
-	jsonSubrouter.HandleFunc("/events/rsvps", MagicRSVP).Methods("POST")
+	jsonSubrouter.HandleFunc("/events/rsvps", MagicRSVP).Methods("POST") // Transaction (Important)
 
 	// JSON + Auth endpoints
 	authSubrouter := jsonSubrouter.NewRoute().Subrouter()
@@ -42,9 +43,9 @@ func CreateRouter() http.Handler {
 
 	authSubrouter.HandleFunc("/users", GetCurrentUser).Methods("GET")
 	authSubrouter.HandleFunc("/users", UpdateUser).Methods("PATCH")
-	authSubrouter.HandleFunc("/users/emails", AddEmail).Methods("POST")
-	authSubrouter.HandleFunc("/users/emails", RemoveEmail).Methods("DELETE")
-	authSubrouter.HandleFunc("/users/emails", MakeEmailPrimary).Methods("PATCH")
+	authSubrouter.HandleFunc("/users/emails", AddEmail).Methods("POST")          // Transaction
+	authSubrouter.HandleFunc("/users/emails", RemoveEmail).Methods("DELETE")     // Transaction
+	authSubrouter.HandleFunc("/users/emails", MakeEmailPrimary).Methods("PATCH") // Transaction
 	authSubrouter.HandleFunc("/users/resend", SendVerifyEmail).Methods("POST")
 	authSubrouter.HandleFunc("/users/search", UserSearch).Methods("GET")
 	authSubrouter.HandleFunc("/users/avatar", PutAvatar).Methods("POST")
@@ -58,43 +59,42 @@ func CreateRouter() http.Handler {
 	authSubrouter.HandleFunc("/events", GetEvents).Methods("GET")
 
 	authSubrouter.HandleFunc("/contacts", GetContacts).Methods("GET")
-	authSubrouter.HandleFunc("/contacts/{userID}", AddContact).Methods("POST")
-	authSubrouter.HandleFunc("/contacts/{userID}", RemoveContact).Methods("DELETE")
+	authSubrouter.HandleFunc("/contacts/{userID}", AddContact).Methods("POST")      // Transaction
+	authSubrouter.HandleFunc("/contacts/{userID}", RemoveContact).Methods("DELETE") // Transaction
 
 	// JSON + Auth + Thread endpoints
 	threadSubrouter := authSubrouter.NewRoute().Subrouter()
 	threadSubrouter.Use(middleware.WithThread)
 
 	threadSubrouter.HandleFunc("/threads/{threadID}", GetThread).Methods("GET")
-	threadSubrouter.HandleFunc("/threads/{threadID}", UpdateThread).Methods("PATCH")
+	threadSubrouter.HandleFunc("/threads/{threadID}", UpdateThread).Methods("PATCH") // Transaction
 	threadSubrouter.HandleFunc("/threads/{threadID}", DeleteThread).Methods("DELETE")
 
-	threadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", AddUserToThread).Methods("POST")
+	threadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", AddUserToThread).Methods("POST") // Transaction (Important)
 	threadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", RemoveUserFromThread).Methods("DELETE")
 
 	threadSubrouter.HandleFunc("/threads/{threadID}/messages", GetMessagesByThread).Methods("GET")
-	threadSubrouter.HandleFunc("/threads/{threadID}/messages", AddMessageToThread).Methods("POST")
+	threadSubrouter.HandleFunc("/threads/{threadID}/messages", AddMessageToThread).Methods("POST") // Transaction (Important)
 
-	threadSubrouter.HandleFunc("/threads/{threadID}/reads", MarkThreadAsRead).Methods("POST")
+	threadSubrouter.HandleFunc("/threads/{threadID}/reads", MarkThreadAsRead).Methods("POST") // Transaction
 
 	// JSON + Auth + Event endpoints
 	eventSubrouter := authSubrouter.NewRoute().Subrouter()
 	eventSubrouter.Use(middleware.WithEvent)
 
 	eventSubrouter.HandleFunc("/events/{eventID}", GetEvent).Methods("GET")
-	eventSubrouter.HandleFunc("/events/{eventID}", UpdateEvent).Methods("PATCH")
+	eventSubrouter.HandleFunc("/events/{eventID}", UpdateEvent).Methods("PATCH") // Transaction (Important)
 	eventSubrouter.HandleFunc("/events/{eventID}", DeleteEvent).Methods("DELETE")
 
-	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", AddUserToEvent).Methods("POST")
-	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE")
-
-	eventSubrouter.HandleFunc("/events/{eventID}/rsvps", AddRSVPToEvent).Methods("POST")
-	eventSubrouter.HandleFunc("/events/{eventID}/rsvps", RemoveRSVPFromEvent).Methods("DELETE")
+	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", AddUserToEvent).Methods("POST")        // Transaction (Important)
+	eventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE") // Transaction (Important)
+	eventSubrouter.HandleFunc("/events/{eventID}/rsvps", AddRSVPToEvent).Methods("POST")                 // Transaction (Important)
+	eventSubrouter.HandleFunc("/events/{eventID}/rsvps", RemoveRSVPFromEvent).Methods("DELETE")          // Transaction (Important)
 
 	eventSubrouter.HandleFunc("/events/{eventID}/messages", GetMessagesByEvent).Methods("GET")
-	eventSubrouter.HandleFunc("/events/{eventID}/messages", AddMessageToEvent).Methods("POST")
+	eventSubrouter.HandleFunc("/events/{eventID}/messages", AddMessageToEvent).Methods("POST") // Transaction
 
-	eventSubrouter.HandleFunc("/events/{eventID}/reads", MarkEventAsRead).Methods("POST")
+	eventSubrouter.HandleFunc("/events/{eventID}/reads", MarkEventAsRead).Methods("POST") // Transaction
 
 	return middleware.WithLogging(middleware.WithCORS(router))
 }

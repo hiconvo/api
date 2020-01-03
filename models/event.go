@@ -131,6 +131,15 @@ func (e *Event) Commit(ctx context.Context) error {
 	return nil
 }
 
+func (e *Event) CommitWithTransaction(tx *datastore.Transaction) (*datastore.PendingKey, error) {
+	pendingKey, err := tx.Put(e.Key, e)
+	if err != nil {
+		return pendingKey, err
+	}
+
+	return pendingKey, nil
+}
+
 func (e *Event) Delete(ctx context.Context) error {
 	if err := db.Client.Delete(ctx, e.Key); err != nil {
 		return err

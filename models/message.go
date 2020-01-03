@@ -155,12 +155,14 @@ func (m *Message) HasPhoto() bool {
 }
 
 func (m *Message) Commit(ctx context.Context) error {
-	key, kErr := db.Client.Put(ctx, m.Key, m)
-	if kErr != nil {
-		return kErr
+	key, err := db.Client.Put(ctx, m.Key, m)
+	if err != nil {
+		return err
 	}
+
 	m.ID = key.Encode()
 	m.Key = key
+
 	return nil
 }
 
