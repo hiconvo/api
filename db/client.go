@@ -24,6 +24,10 @@ type wrappedClient interface {
 	getUnderlyingClient() *datastore.Client
 }
 
+// wrappedClientImpl is a shim around datastore.Client that detects
+// if a transaction is available on the current context and uses it
+// if there is. Otherwise, it calls the corresponding
+// datastore.Client method.
 type wrappedClientImpl struct {
 	client *datastore.Client
 }

@@ -14,6 +14,8 @@ type txContextKey string
 
 const key txContextKey = "tx"
 
+// TransactionFromContext extracts a transaction from the given
+// context is one is present.
 func TransactionFromContext(ctx context.Context) (*datastore.Transaction, bool) {
 	maybeTx := ctx.Value(key)
 	tx, ok := maybeTx.(*datastore.Transaction)
@@ -24,6 +26,7 @@ func TransactionFromContext(ctx context.Context) (*datastore.Transaction, bool) 
 	return &datastore.Transaction{}, false
 }
 
+// AddTransactionToContext returns a new context with a transaction added.
 func AddTransactionToContext(ctx context.Context) (context.Context, *datastore.Transaction, error) {
 	c := Client.getUnderlyingClient()
 
@@ -37,6 +40,7 @@ func AddTransactionToContext(ctx context.Context) (context.Context, *datastore.T
 	return nctx, tx, nil
 }
 
+// WithTransaction is middleware that adds a transaction to the request context.
 func WithTransaction(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		octx := r.Context()

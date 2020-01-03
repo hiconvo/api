@@ -37,27 +37,27 @@ func CreateRouter() http.Handler {
 	jsonSubrouter.HandleFunc("/users/verify", VerifyEmail).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/forgot", ForgotPassword).Methods("POST")
 
-	// Transactions
+	// Transactional endpoints
 	txSubrouter := jsonSubrouter.NewRoute().Subrouter()
 	txSubrouter.Use(db.WithTransaction)
 
-	txSubrouter.HandleFunc("/events/rsvps", MagicRSVP).Methods("POST") // Transaction (Important)
+	txSubrouter.HandleFunc("/events/rsvps", MagicRSVP).Methods("POST")
 
 	txEventSubrouter := txSubrouter.NewRoute().Subrouter()
 	txEventSubrouter.Use(middleware.WithUser, middleware.WithEvent)
 
-	txEventSubrouter.HandleFunc("/events/{eventID}", UpdateEvent).Methods("PATCH")                         // Transaction (Important)
-	txEventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", AddUserToEvent).Methods("POST")        // Transaction (Important)
-	txEventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE") // Transaction (Important)
-	txEventSubrouter.HandleFunc("/events/{eventID}/rsvps", AddRSVPToEvent).Methods("POST")                 // Transaction (Important)
-	txEventSubrouter.HandleFunc("/events/{eventID}/rsvps", RemoveRSVPFromEvent).Methods("DELETE")          // Transaction (Important)
+	txEventSubrouter.HandleFunc("/events/{eventID}", UpdateEvent).Methods("PATCH")
+	txEventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", AddUserToEvent).Methods("POST")
+	txEventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE")
+	txEventSubrouter.HandleFunc("/events/{eventID}/rsvps", AddRSVPToEvent).Methods("POST")
+	txEventSubrouter.HandleFunc("/events/{eventID}/rsvps", RemoveRSVPFromEvent).Methods("DELETE")
 
 	txThreadSubrouter := txSubrouter.NewRoute().Subrouter()
 	txThreadSubrouter.Use(middleware.WithUser, middleware.WithThread)
 
-	txThreadSubrouter.HandleFunc("/threads/{threadID}", UpdateThread).Methods("PATCH")                         // Transaction
-	txThreadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", AddUserToThread).Methods("POST")        // Transaction (Important)
-	txThreadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", RemoveUserFromThread).Methods("DELETE") // Transaction
+	txThreadSubrouter.HandleFunc("/threads/{threadID}", UpdateThread).Methods("PATCH")
+	txThreadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", AddUserToThread).Methods("POST")
+	txThreadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", RemoveUserFromThread).Methods("DELETE")
 
 	// JSON + Auth endpoints
 	authSubrouter := jsonSubrouter.NewRoute().Subrouter()

@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+// Client is a wrappedClientImpl instance for interacting with
+// Google Datastore.
 var Client wrappedClient
 
 func init() {
