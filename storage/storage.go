@@ -105,6 +105,18 @@ func GetKeyFromAvatarURL(url string) string {
 	return ss[len(ss)-1]
 }
 
+// GetKeyFromPhotoURL accepts a url and returns the last segment of the
+// URL, which corresponds with the key of the image, used in cloud
+// storage.
+func GetKeyFromPhotoURL(url string) string {
+	if url == "" {
+		return "null-key"
+	}
+
+	ss := strings.Split(url, "/")
+	return ss[len(ss)-2] + "/" + ss[len(ss)-1]
+}
+
 func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
 	res, err := http.Get(uri)
 	if err != nil {
@@ -228,4 +240,18 @@ func PutPhotoFromBlob(ctx context.Context, parentID, dat string) (string, error)
 	}
 
 	return key, nil
+}
+
+func DeletePhoto(ctx context.Context, key string) error {
+	bucket, err := GetPhotoBucket(ctx)
+	if err != nil {
+		return fmt.Errorf("storage.DeletePhoto: %v", err)
+	}
+	defer bucket.Close()
+
+	if err := bucket.Delete(ctx, key); err != nil {
+		return fmt.Errorf("storage.DeletePhoto: %v", err)
+	}
+
+	return nil
 }

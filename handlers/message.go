@@ -4,6 +4,8 @@ import (
 	"html"
 	"net/http"
 
+	"github.com/gorilla/mux"
+
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	notif "github.com/hiconvo/api/notifications"
@@ -19,6 +21,7 @@ var (
 	errMsgSaveMessage   = map[string]string{"message": "Could not save message"}
 	errMsgSendMessage   = map[string]string{"message": "Could not send message"}
 	errMsgGetMessages   = map[string]string{"message": "Could not get messages"}
+	errMsgGetMessage    = map[string]string{"message": "Could not find message"}
 )
 
 // GetMessagesByThread Endpoint: GET /threads/{id}/messages
@@ -203,4 +206,55 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bjson.WriteJSON(w, message, http.StatusCreated)
+}
+
+// DeletePhotoFromMessage Endpoint: DELETE /messages/:id/photos
+//
+// Request payload:
+type deleteMessagePayload struct {
+	Key string
+}
+
+// DeletePhotoFromMessage deletes a photo from the given message
+func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	body := bjson.BodyFromContext(ctx)
+	vars := mux.Vars(r)
+	id := vars["messageID"]
+
+	// Validate raw data
+	var payload deleteMessagePayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		return
+	}
+
+	m, err := models.GetMessageByID(ctx, id)
+	if err != nil {
+		bjson.WriteJSON(w, errMsgGetMessage, http.StatusNotFound)
+		return
+	}
+
+	// Check permissions
+	if !(m.OwnerIs(&u)) {
+		bjson.WriteJSON(w, errMsgGetMessage, http.StatusNotFound)
+		return
+	}
+
+	key := storage.GetKeyFromPhotoURL(payload.Key)
+
+	if !m.HasPhotoKey(key) {
+		bjson.WriteJSON(w, errMsgGetMessage, http.StatusBadRequest)
+		return
+	}
+
+	if err := m.DeletePhoto(ctx, key); err != nil {
+		bjson.HandleInternalServerError(w, err, map[string]string{
+			"message": "Could not delete photo",
+		})
+		return
+	}
+
+	bjson.WriteJSON(w, m, http.StatusOK)
 }

@@ -154,6 +154,48 @@ func (m *Message) HasPhoto() bool {
 	return len(m.PhotoKeys) > 0
 }
 
+func (m *Message) HasLink() bool {
+	return m.Link != nil
+}
+
+func (m *Message) OwnerIs(u *User) bool {
+	return m.UserKey.Equal(u.Key)
+}
+
+func (m *Message) HasPhotoKey(key string) bool {
+	for i := range m.PhotoKeys {
+		if m.PhotoKeys[i] == key {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *Message) DeletePhoto(ctx context.Context, key string) error {
+	if m.HasPhotoKey(key) {
+		for i := range m.PhotoKeys {
+			if m.PhotoKeys[i] == key {
+				m.PhotoKeys[i] = m.PhotoKeys[len(m.PhotoKeys)-1]
+				m.PhotoKeys = m.PhotoKeys[:len(m.PhotoKeys)-1]
+				break
+			}
+		}
+
+		for i := range m.Photos {
+			if strings.HasSuffix(m.Photos[i], key) {
+				m.Photos[i] = m.Photos[len(m.Photos)-1]
+				m.Photos = m.Photos[:len(m.Photos)-1]
+				break
+			}
+		}
+
+		return storage.DeletePhoto(ctx, key)
+	}
+
+	return fmt.Errorf("message.DeletePhoto: No matching photo found")
+}
+
 func (m *Message) Commit(ctx context.Context) error {
 	key, err := db.Client.Put(ctx, m.Key, m)
 	if err != nil {
@@ -211,6 +253,19 @@ func GetUnhydratedMessagesByUser(ctx context.Context, u *User) ([]*Message, erro
 	}
 
 	return messages, nil
+}
+
+func GetMessageByID(ctx context.Context, id string) (Message, error) {
+	var message Message
+
+	key, err := datastore.DecodeKey(id)
+	if err != nil {
+		return message, err
+	}
+
+	err = db.Client.Get(ctx, key, message)
+
+	return message, fmt.Errorf("models.GetMessageByID: %v", err)
 }
 
 func removeLink(body string, linkPtr *og.LinkData) string {

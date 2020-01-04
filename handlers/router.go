@@ -84,6 +84,8 @@ func CreateRouter() http.Handler {
 	authSubrouter.HandleFunc("/contacts/{userID}", AddContact).Methods("POST")
 	authSubrouter.HandleFunc("/contacts/{userID}", RemoveContact).Methods("DELETE")
 
+	authSubrouter.HandleFunc("/messages/{messageID}/photos", DeletePhotoFromMessage).Methods("DELETE")
+
 	// JSON + Auth + Thread endpoints
 	threadSubrouter := authSubrouter.NewRoute().Subrouter()
 	threadSubrouter.Use(middleware.WithThread)
