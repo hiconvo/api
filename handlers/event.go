@@ -329,6 +329,11 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := event.Delete(ctx); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		return
+	}
+
 	if event.IsInFuture() {
 		if err := event.SendCancellation(ctx, html.UnescapeString(payload.Message)); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
@@ -346,11 +351,6 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 			// Log the error but don't fail the request
 			reporter.Report(err)
 		}
-	}
-
-	if err := event.Delete(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
-		return
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
