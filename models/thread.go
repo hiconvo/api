@@ -53,16 +53,27 @@ func NewThread(subject string, owner *User, users []*User) (Thread, error) {
 
 	// If a subject wasn't given, create one that is a list of the participants'
 	// names.
-	//
-	// TODO: Change this when adding/removing users from threads.
 	if subject == "" {
-		for i, u := range users {
-			if i == len(users)-1 {
-				subject += "and " + u.FirstName
-			} else {
-				subject += u.FirstName + ", "
+		if len(users) == 1 {
+			subject = owner.FirstName + "'s Private Convo"
+		} else {
+			for i, u := range users {
+				if i == len(users)-1 {
+					subject += "and " + u.FirstName
+				} else if i == len(users)-2 {
+					subject += u.FirstName + " "
+				} else {
+					subject += u.FirstName + ", "
+				}
 			}
 		}
+	}
+
+	// Since an email is sent when a thread is created,
+	// it is initialized as having been read by all members.
+	reads := make([]*Read, len(userKeys))
+	for i := range users {
+		reads[i] = NewRead(userKeys[i])
 	}
 
 	return Thread{
@@ -73,6 +84,7 @@ func NewThread(subject string, owner *User, users []*User) (Thread, error) {
 		Users:        users,
 		UserPartials: MapUsersToUserPartials(users),
 		Subject:      subject,
+		Reads:        reads,
 	}, nil
 }
 

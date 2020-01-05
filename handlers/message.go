@@ -101,6 +101,15 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Mark the message as read if it is the first message.
+	// Since it will be emailed to all members, it would be redundant
+	// to send in the daily digest.
+	if thread.ResponseCount == 1 {
+		for i := range thread.UserKeys {
+			models.MarkAsRead(&message, thread.UserKeys[i])
+		}
+	}
+
 	if err := message.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
 		return

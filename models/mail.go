@@ -294,6 +294,7 @@ func sendDigest(digestList []DigestItem, upcomingEvents []*Event, user *User) er
 				Body:     digestList[i].Messages[j].Body,
 				Name:     digestList[i].Messages[j].User.FullName,
 				HasPhoto: digestList[i].Messages[j].HasPhoto(),
+				HasLink:  digestList[i].Messages[j].HasLink(),
 				FromID:   digestList[i].Messages[j].User.ID,
 				ToID:     user.ID,
 			}

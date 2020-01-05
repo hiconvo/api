@@ -404,6 +404,8 @@ func UpdatePassword(w http.ResponseWriter, r *http.Request) {
 
 	u.ChangePassword(payload.Password)
 	u.IsLocked = false
+	u.AddEmail(u.Email)
+	u.DeriveProperties()
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
