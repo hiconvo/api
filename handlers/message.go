@@ -120,13 +120,14 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only send the first message as an email
 	if thread.ResponseCount == 1 {
+		// Only send the first message as an email
 		if err := thread.SendAsync(ctx); err != nil {
 			bjson.HandleInternalServerError(w, err, errMsgSendMessage)
 			return
 		}
 	} else {
+		// Send a notification for all later responses
 		if err := notif.Put(notif.Notification{
 			UserKeys:   notif.FilterKey(thread.UserKeys, u.Key),
 			Actor:      u.FullName,

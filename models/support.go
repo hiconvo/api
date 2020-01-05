@@ -11,11 +11,11 @@ import (
 var supportUser *User
 var welcomeMessage string = `Hello, 👋
 
-Welcome to Convo! Convo has two main features, **events** and **messaging**.
+Welcome to Convo! Convo has two main features, **events** and **Convos**.
 
 Convo events make it easy to plan events with real people. Invite your guests by name or email and they can RSVP in one click without having to create accounts of their own.
 
-Convo also allows you to message with people directly via *Convos*. A Convo is a layer over email that makes it easy to connect with people by their real names without revealing any personal contact info.
+Convo also allows you to share content with people directly via *Convos*. A Convo is like a Facebook post except that it's private and only visible to the people you choose.
 
 Read more about Convo and why I built it on [the blog](https://blog.hiconvo.com/hello-world).
 
