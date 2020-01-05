@@ -1,0 +1,13 @@
+indexes:
+
+  - kind: Event
+    properties:
+    - name: UserKeys
+    - name: CreatedAt
+      direction: desc
+
+  - kind: Thread
+    properties:
+    - name: UserKeys
+    - name: CreatedAt
+      direction: desc

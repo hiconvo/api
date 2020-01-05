@@ -105,7 +105,6 @@ func GetThreads(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(ctx)
 	p := getPagination(r)
 
-	// TODO: Paginate
 	threads, err := models.GetThreadsByUser(ctx, &u, p)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgGetThreads)
