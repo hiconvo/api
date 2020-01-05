@@ -225,8 +225,9 @@ func GetMessagesByEvent(ctx context.Context, e *Event) ([]*Message, error) {
 
 func GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*Message, error) {
 	var messages []*Message
+
 	q := datastore.NewQuery("Message").Filter("ParentKey =", k)
-	// TODO: Paginate to avoid potential memory overflow.
+
 	if _, err := db.Client.GetAll(ctx, q, &messages); err != nil {
 		return messages, err
 	}

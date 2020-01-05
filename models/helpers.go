@@ -114,7 +114,7 @@ func reassignMessageUsers(ctx context.Context, tx *datastore.Transaction, old, n
 }
 
 func reassignThreadUsers(ctx context.Context, tx *datastore.Transaction, old, newUser *User) error {
-	userThreads, err := GetUnhydratedThreadsByUser(ctx, old)
+	userThreads, err := GetUnhydratedThreadsByUser(ctx, old, &Pagination{Size: -1})
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func reassignThreadUsers(ctx context.Context, tx *datastore.Transaction, old, ne
 }
 
 func reassignEventUsers(ctx context.Context, tx *datastore.Transaction, old, newUser *User) error {
-	userEvents, err := GetUnhydratedEventsByUser(ctx, old)
+	userEvents, err := GetUnhydratedEventsByUser(ctx, old, &Pagination{Size: -1})
 	if err != nil {
 		return err
 	}

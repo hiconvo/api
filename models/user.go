@@ -410,12 +410,12 @@ func (u *User) Welcome(ctx context.Context) {
 }
 
 func (u *User) SendDigest(ctx context.Context) error {
-	events, err := GetEventsByUser(ctx, u)
+	events, err := GetEventsByUser(ctx, u, &Pagination{})
 	if err != nil {
 		return err
 	}
 
-	threads, err := GetThreadsByUser(ctx, u)
+	threads, err := GetThreadsByUser(ctx, u, &Pagination{})
 	if err != nil {
 		return err
 	}

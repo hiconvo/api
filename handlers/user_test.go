@@ -686,7 +686,7 @@ func TestVerifyEmail(t *testing.T) {
 
 				// Make sure that existingUser5's threads were transfered to
 				// existingUser4
-				threads, err := models.GetThreadsByUser(tc, &existingUser4)
+				threads, err := models.GetThreadsByUser(tc, &existingUser4, &models.Pagination{})
 				if err != nil {
 					return false
 				}

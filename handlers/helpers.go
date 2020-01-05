@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"context"
+	"net/http"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+	"strconv"
 
 	"cloud.google.com/go/datastore"
 
@@ -142,4 +144,10 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 func isEmail(email string) bool {
 	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
 	return re.MatchString(strings.ToLower(email))
+}
+
+func getPagination(r *http.Request) *models.Pagination {
+	pageNum, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("size"))
+	return &models.Pagination{Page: pageNum, Size: pageSize}
 }

@@ -277,9 +277,15 @@ func GetThreadByInt64ID(ctx context.Context, id int64) (Thread, error) {
 	return handleGetThread(ctx, key, t)
 }
 
-func GetUnhydratedThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
+func GetUnhydratedThreadsByUser(ctx context.Context, u *User, p *Pagination) ([]*Thread, error) {
 	var threads []*Thread
-	q := datastore.NewQuery("Thread").Filter("UserKeys =", u.Key)
+
+	q := datastore.NewQuery("Thread").
+		Filter("UserKeys =", u.Key).
+		Order("-CreatedAt").
+		Offset(p.Offset()).
+		Limit(p.Limit())
+
 	_, err := db.Client.GetAll(ctx, q, &threads)
 	if err != nil {
 		return threads, err
@@ -288,9 +294,9 @@ func GetUnhydratedThreadsByUser(ctx context.Context, u *User) ([]*Thread, error)
 	return threads, nil
 }
 
-func GetThreadsByUser(ctx context.Context, u *User) ([]*Thread, error) {
+func GetThreadsByUser(ctx context.Context, u *User, p *Pagination) ([]*Thread, error) {
 	// Get all of the threads of which the user is a member
-	threads, err := GetUnhydratedThreadsByUser(ctx, u)
+	threads, err := GetUnhydratedThreadsByUser(ctx, u, p)
 	if err != nil {
 		return threads, err
 	}

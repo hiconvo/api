@@ -344,9 +344,15 @@ func GetEventByID(ctx context.Context, id string) (Event, error) {
 	return handleGetEvent(ctx, key, e)
 }
 
-func GetUnhydratedEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
+func GetUnhydratedEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, error) {
 	var events []*Event
-	q := datastore.NewQuery("Event").Filter("UserKeys =", u.Key)
+
+	q := datastore.NewQuery("Event").
+		Filter("UserKeys =", u.Key).
+		Order("-Timestamp").
+		Offset(p.Offset()).
+		Limit(p.Limit())
+
 	_, err := db.Client.GetAll(ctx, q, &events)
 	if err != nil {
 		return events, err
@@ -355,9 +361,9 @@ func GetUnhydratedEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
 	return events, nil
 }
 
-func GetEventsByUser(ctx context.Context, u *User) ([]*Event, error) {
+func GetEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, error) {
 	// Get all of the events of which the user is a member
-	events, err := GetUnhydratedEventsByUser(ctx, u)
+	events, err := GetUnhydratedEventsByUser(ctx, u, p)
 	if err != nil {
 		return events, err
 	}

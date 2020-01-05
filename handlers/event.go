@@ -155,9 +155,9 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 func GetEvents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
+	p := getPagination(r)
 
-	// TODO: Paginate
-	events, err := models.GetEventsByUser(ctx, &u)
+	events, err := models.GetEventsByUser(ctx, &u, p)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgGetEvents)
 		return
