@@ -669,7 +669,7 @@ func TestVerifyEmail(t *testing.T) {
 
 				// Make sure that existingUser5's events were transfered to
 				// existingUser4
-				events, err := models.GetEventsByUser(tc, &existingUser4)
+				events, err := models.GetEventsByUser(tc, &existingUser4, &models.Pagination{Size: -1})
 				if err != nil {
 					return false
 				}
