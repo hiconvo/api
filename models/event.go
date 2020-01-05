@@ -349,7 +349,7 @@ func GetUnhydratedEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*
 
 	q := datastore.NewQuery("Event").
 		Filter("UserKeys =", u.Key).
-		Order("-Timestamp").
+		Order("-CreatedAt").
 		Offset(p.Offset()).
 		Limit(p.Limit())
 
