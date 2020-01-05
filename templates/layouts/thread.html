@@ -6,6 +6,11 @@
 
 <!-- START CONTENT DEF -->
 {{ define "content" }}
+  <p>Hello,</p>
+  <p class="mb30">
+    {{ .FromName }} shared something with you on Convo. <a href="https://app.hiconvo.com">Login to Convo</a> to respond.
+  </p>
+
   {{ range .Messages }}
     {{ template "message" .}}
   {{ end }}

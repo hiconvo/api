@@ -42,6 +42,7 @@ func CreateRouter() http.Handler {
 	txSubrouter.Use(db.WithTransaction)
 
 	txSubrouter.HandleFunc("/events/rsvps", MagicRSVP).Methods("POST")
+	// txSubrouter.HandleFunc("/messages/{messageID}/photos", DeletePhotoFromMessage).Methods("DELETE")
 
 	txEventSubrouter := txSubrouter.NewRoute().Subrouter()
 	txEventSubrouter.Use(middleware.WithUser, middleware.WithEvent)
@@ -83,8 +84,6 @@ func CreateRouter() http.Handler {
 	authSubrouter.HandleFunc("/contacts", GetContacts).Methods("GET")
 	authSubrouter.HandleFunc("/contacts/{userID}", AddContact).Methods("POST")
 	authSubrouter.HandleFunc("/contacts/{userID}", RemoveContact).Methods("DELETE")
-
-	authSubrouter.HandleFunc("/messages/{messageID}/photos", DeletePhotoFromMessage).Methods("DELETE")
 
 	// JSON + Auth + Thread endpoints
 	threadSubrouter := authSubrouter.NewRoute().Subrouter()

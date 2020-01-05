@@ -116,6 +116,7 @@ func sendThread(thread *Thread, messages []*Message) error {
 				Body:     m.Body,
 				Name:     m.User.FirstName,
 				HasPhoto: m.HasPhoto(),
+				HasLink:  m.HasLink(),
 				FromID:   m.User.ID,
 				ToID:     curUser.ID,
 			}
@@ -123,6 +124,7 @@ func sendThread(thread *Thread, messages []*Message) error {
 
 		plainText, html, err := template.RenderThread(template.Thread{
 			Subject:  thread.Subject,
+			FromName: sender.FullName,
 			Messages: tplMessages,
 		})
 		if err != nil {

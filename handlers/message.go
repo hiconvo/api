@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	notif "github.com/hiconvo/api/notifications"
@@ -110,9 +111,24 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := thread.SendAsync(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSendMessage)
-		return
+	// Only send the first message as an email
+	if thread.ResponseCount == 1 {
+		if err := thread.SendAsync(ctx); err != nil {
+			bjson.HandleInternalServerError(w, err, errMsgSendMessage)
+			return
+		}
+	} else {
+		if err := notif.Put(notif.Notification{
+			UserKeys:   notif.FilterKey(thread.UserKeys, u.Key),
+			Actor:      u.FullName,
+			Verb:       notif.NewMessage,
+			Target:     notif.Thread,
+			TargetID:   thread.ID,
+			TargetName: thread.Subject,
+		}); err != nil {
+			// Log the error but don't fail the request
+			reporter.Report(err)
+		}
 	}
 
 	bjson.WriteJSON(w, message, http.StatusCreated)
@@ -218,6 +234,7 @@ type deleteMessagePayload struct {
 // DeletePhotoFromMessage deletes a photo from the given message
 func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 	vars := mux.Vars(r)
@@ -253,6 +270,11 @@ func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
 		bjson.HandleInternalServerError(w, err, map[string]string{
 			"message": "Could not delete photo",
 		})
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
+		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
 		return
 	}
 

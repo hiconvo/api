@@ -14,12 +14,14 @@ type Message struct {
 	FromID   string
 	ToID     string
 	HasPhoto bool
+	HasLink  bool
 }
 
 // Thread is a representation of a renderable email thread.
 type Thread struct {
 	renderable
 	Subject  string
+	FromName string
 	Messages []Message
 	Preview  string
 }

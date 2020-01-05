@@ -103,7 +103,9 @@ func SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if payload.Action == queue.SendThread {
-				t.Send(ctx)
+				if err := t.Send(ctx); err != nil {
+					reporter.Report(fmt.Errorf("SendEmailsAsync: queue.Thread: %v", err))
+				}
 			}
 		}
 	}

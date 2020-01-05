@@ -12,6 +12,7 @@ import (
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/storage"
 	og "github.com/hiconvo/api/utils/opengraph"
+	"github.com/hiconvo/api/utils/reporter"
 )
 
 type Message struct {
@@ -172,6 +173,10 @@ func (m *Message) HasPhotoKey(key string) bool {
 	return false
 }
 
+// DeletePhoto deletes the given photo by key. In order to handle
+// concurrent requests, or cases where photo deletion succeeds but
+// updating the message fails, etc., it does not return an if the
+// photo has already been deleted.
 func (m *Message) DeletePhoto(ctx context.Context, key string) error {
 	if m.HasPhotoKey(key) {
 		for i := range m.PhotoKeys {
@@ -190,10 +195,12 @@ func (m *Message) DeletePhoto(ctx context.Context, key string) error {
 			}
 		}
 
-		return storage.DeletePhoto(ctx, key)
+		if err := storage.DeletePhoto(ctx, key); err != nil {
+			reporter.Report(err)
+		}
 	}
 
-	return fmt.Errorf("message.DeletePhoto: No matching photo found")
+	return nil
 }
 
 func (m *Message) Commit(ctx context.Context) error {
