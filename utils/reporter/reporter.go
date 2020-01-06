@@ -26,3 +26,13 @@ func Log(s string) {
 
 	_logger.Println(s)
 }
+
+// JustReport is like Report but it just logs the error to stderr
+func JustReport(err error) {
+	_logger.Println(err.Error())
+}
+
+// JustLog is like Log but it just logs to stderr
+func JustLog(s string) {
+	_logger.Println(s)
+}

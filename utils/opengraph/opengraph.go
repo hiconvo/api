@@ -2,6 +2,7 @@ package opengraph
 
 import (
 	"context"
+	"fmt"
 
 	og "github.com/otiai10/opengraph"
 	xurls "mvdan.cc/xurls/v2"
@@ -26,7 +27,7 @@ func Extract(ctx context.Context, text string) LinkData {
 
 	data, err := og.FetchWithContext(ctx, url)
 	if err != nil {
-		reporter.Report(err)
+		reporter.JustReport(fmt.Errorf("opengraph.Extract: %v", err))
 		return LinkData{}
 	}
 
