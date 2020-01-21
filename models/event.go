@@ -24,7 +24,7 @@ type Event struct {
 	Users           []*User          `json:"-"        datastore:"-"`
 	RSVPKeys        []*datastore.Key `json:"-"`
 	RSVPs           []*UserPartial   `json:"rsvps"    datastore:"-"`
-	PlaceID         string           `json:"placeID"  datastore:",noindex"`
+	PlaceID         string           `json:"placeId"  datastore:",noindex"`
 	Address         string           `json:"address"  datastore:",noindex"`
 	Lat             float64          `json:"lat"      datastore:",noindex"`
 	Lng             float64          `json:"lng"      datastore:",noindex"`
@@ -34,7 +34,7 @@ type Event struct {
 	UTCOffset       int              `json:"-"        datastore:",noindex"`
 	UserReads       []*UserPartial   `json:"reads"    datastore:"-"`
 	Reads           []*Read          `json:"-"        datastore:",noindex"`
-	CreatedAt       time.Time        `json:"-"`
+	CreatedAt       time.Time        `json:"createdAt"`
 	GuestsCanInvite bool             `json:"guestsCanInvite"`
 }
 
