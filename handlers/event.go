@@ -87,7 +87,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	place, err := places.Resolve(ctx, payload.PlaceID)
 	if err != nil {
 		bjson.WriteJSON(w, map[string]string{
-			"placeID": err.Error(),
+			"placeId": err.Error(),
 		}, http.StatusBadRequest)
 		return
 	}

@@ -37,7 +37,7 @@ func TestCreateEvent(t *testing.T) {
 			AuthHeader: getAuthHeader(u1.Token),
 			InData: map[string]interface{}{
 				"name":        random.String(10),
-				"placeID":     random.String(10),
+				"placeId":     random.String(10),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
 				"description": random.String(10),
 				"users": []map[string]string{
@@ -54,7 +54,7 @@ func TestCreateEvent(t *testing.T) {
 			AuthHeader: getAuthHeader(u1.Token),
 			InData: map[string]interface{}{
 				"name":        random.String(10),
-				"placeID":     random.String(10),
+				"placeId":     random.String(10),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
 				"description": random.String(10),
 				"users": []map[string]string{
@@ -75,7 +75,7 @@ func TestCreateEvent(t *testing.T) {
 			AuthHeader: getAuthHeader(u1.Token),
 			InData: map[string]interface{}{
 				"name":        random.String(10),
-				"placeID":     random.String(10),
+				"placeId":     random.String(10),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
 				"description": random.String(10),
 				"users": []map[string]string{
@@ -91,7 +91,7 @@ func TestCreateEvent(t *testing.T) {
 			AuthHeader: map[string]string{"boop": "beep"},
 			InData: map[string]interface{}{
 				"name":        random.String(10),
-				"placeID":     random.String(10),
+				"placeId":     random.String(10),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
 				"description": random.String(10),
 				"users": []map[string]string{

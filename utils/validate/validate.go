@@ -30,11 +30,12 @@ func Do(dst interface{}, payload map[string]interface{}) *ValidationError {
 			if strings.ToLower(k) == "email" {
 				s = strings.ToLower(s)
 			}
+
 			trimmed := strings.TrimSpace(s)
 			sanitized := bluemonday.StrictPolicy().Sanitize(trimmed)
-			cleaned[k] = sanitized
+			cleaned[upperFirstLetter(k)] = sanitized
 		} else {
-			cleaned[k] = v
+			cleaned[upperFirstLetter(k)] = v
 		}
 	}
 
@@ -86,5 +87,22 @@ func lowerFirstLetter(s string) string {
 	if r := rune(s[0]); r >= 'A' && r <= 'Z' {
 		s = strings.ToLower(string(r)) + s[1:]
 	}
+
+	if s[len(s)-2:] == "ID" {
+		s = s[:len(s)-2] + "Id"
+	}
+
+	return s
+}
+
+func upperFirstLetter(s string) string {
+	if r := rune(s[0]); r >= 'A' && r <= 'Z' {
+		s = strings.ToUpper(string(r)) + s[1:]
+	}
+
+	if s[len(s)-2:] == "Id" {
+		s = s[:len(s)-2] + "ID"
+	}
+
 	return s
 }
