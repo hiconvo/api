@@ -24,8 +24,8 @@ func UserFromContext(ctx context.Context) models.User {
 func WithUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if token, ok := GetAuthToken(r.Header); ok {
-			octx := r.Context()
-			user, ok, err := models.GetUserByToken(octx, token)
+			ctx := r.Context()
+			user, ok, err := models.GetUserByToken(ctx, token)
 			if err != nil {
 				bjson.WriteJSON(w, map[string]string{
 					"message": "Could not get user",
@@ -34,8 +34,7 @@ func WithUser(next http.Handler) http.Handler {
 			}
 
 			if ok {
-				nctx := context.WithValue(octx, key, user)
-				next.ServeHTTP(w, r.WithContext(nctx))
+				next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, key, user)))
 				return
 			}
 		}

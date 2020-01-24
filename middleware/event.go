@@ -24,11 +24,11 @@ func EventFromContext(ctx context.Context) models.Event {
 // cannot be found, then a 404 reponse is returned.
 func WithEvent(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		octx := r.Context()
+		ctx := r.Context()
 		vars := mux.Vars(r)
 		id := vars["eventID"]
 
-		event, err := models.GetEventByID(octx, id)
+		event, err := models.GetEventByID(ctx, id)
 		if err != nil {
 			bjson.WriteJSON(w, map[string]string{
 				"message": "Could not get event",
@@ -36,8 +36,7 @@ func WithEvent(next http.Handler) http.Handler {
 			return
 		}
 
-		nctx := context.WithValue(octx, eventKey, event)
-		next.ServeHTTP(w, r.WithContext(nctx))
+		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, eventKey, event)))
 		return
 	})
 }

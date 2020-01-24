@@ -1,47 +1,18 @@
 package queue
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 
 	cloudtasks "cloud.google.com/go/cloudtasks/apiv2"
 	"github.com/googleapis/gax-go/v2"
 	taskspb "google.golang.org/genproto/googleapis/cloud/tasks/v2"
-
-	"github.com/hiconvo/api/utils/thelpers"
 )
 
-type taskMaster interface {
+type taskCreator interface {
 	CreateTask(context.Context, *taskspb.CreateTaskRequest, ...gax.CallOption) (*taskspb.Task, error)
-}
-
-type testTaskClient struct {
-	cloudtasks.Client
-}
-
-func (c testTaskClient) CreateTask(ctx context.Context, req *taskspb.CreateTaskRequest, opts ...gax.CallOption) (*taskspb.Task, error) {
-	if thelpers.IsTesting() {
-		return &taskspb.Task{}, nil
-	}
-
-	body := req.GetTask().GetAppEngineHttpRequest().GetBody()
-	bytesReader := bytes.NewReader(body)
-	httpReq, err := http.NewRequest(http.MethodPost, "http://localhost:8080/tasks/emails", bytesReader)
-	if err != nil {
-		return &taskspb.Task{}, fmt.Errorf("testTaskClient.CreateTask: %v", err)
-	}
-	httpReq.Header.Add("content-type", "application/json")
-	httpReq.Header.Add("X-Appengine-QueueName", "convo-emails")
-	_, err = http.DefaultClient.Do(httpReq)
-	if err != nil {
-		return &taskspb.Task{}, fmt.Errorf("testTaskClient.CreateTask: %v", err)
-	}
-
-	return &taskspb.Task{}, nil
 }
 
 type emailType string
@@ -70,7 +41,7 @@ var (
 	SendWelcome emailAction = "SendWelcome"
 )
 
-// EmailPayload is a representation of an async email task
+// EmailPayload is a representation of an async email task.
 type EmailPayload struct {
 	// IDs is a slice of strings that are the result of calling *datastore.Key.Encode().
 	IDs    []string    `json:"ids"`
@@ -79,7 +50,7 @@ type EmailPayload struct {
 }
 
 var (
-	_client    taskMaster
+	_client    taskCreator
 	_queuePath string
 )
 
@@ -91,7 +62,7 @@ func init() {
 		projectID = "local-convo-api"
 	}
 
-	var client taskMaster
+	var client taskCreator
 	var err error
 	if projectID == "local-convo-api" {
 		client = testTaskClient{}
@@ -106,14 +77,14 @@ func init() {
 	_queuePath = fmt.Sprintf("projects/%s/locations/us-central1/queues/convo-emails", projectID)
 }
 
-// PutEmail enqueues an email to be sent
+// PutEmail enqueues an email to be sent.
 func PutEmail(ctx context.Context, payload EmailPayload) error {
 	if payload.Type == Thread && payload.Action != SendThread {
-		return fmt.Errorf("'%v' is not a valid action for emailType.Thread", payload.Action)
+		return fmt.Errorf("queue.PutEmail: '%v' is not a valid action for emailType.Thread", payload.Action)
 	} else if payload.Type == Event && !(payload.Action == SendInvites || payload.Action == SendUpdatedInvites) {
-		return fmt.Errorf("'%v' is not a valid action for emailType.Event", payload.Action)
+		return fmt.Errorf("queue.PutEmail: '%v' is not a valid action for emailType.Event", payload.Action)
 	} else if payload.Type == User && payload.Action != SendWelcome {
-		return fmt.Errorf("'%v' is not a valid action for emailType.User", payload.Action)
+		return fmt.Errorf("queue.PutEmail: '%v' is not a valid action for emailType.User", payload.Action)
 	}
 
 	jsonBytes, err := json.Marshal(payload)
