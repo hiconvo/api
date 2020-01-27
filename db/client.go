@@ -20,8 +20,7 @@ type wrappedClient interface {
 	PutMultiWithTransaction(ctx context.Context, keys []*datastore.Key, src interface{}) (ret []*datastore.PendingKey, err error)
 	RunInTransaction(ctx context.Context, f func(tx *datastore.Transaction) error) (*datastore.Commit, error)
 	Run(ctx context.Context, q *datastore.Query) *datastore.Iterator
-
-	getUnderlyingClient() *datastore.Client
+	NewTransaction(ctx context.Context) (Transaction, error)
 }
 
 // wrappedClientImpl is a shim around datastore.Client that detects
@@ -30,6 +29,25 @@ type wrappedClient interface {
 // datastore.Client method.
 type wrappedClientImpl struct {
 	client *datastore.Client
+}
+
+type Transaction interface {
+	Commit() (c *datastore.Commit, err error)
+	Delete(key *datastore.Key) error
+	DeleteMulti(keys []*datastore.Key) (err error)
+	Get(key *datastore.Key, dst interface{}) (err error)
+	GetMulti(keys []*datastore.Key, dst interface{}) (err error)
+	Mutate(muts ...*datastore.Mutation) ([]*datastore.PendingKey, error)
+	Put(key *datastore.Key, src interface{}) (*datastore.PendingKey, error)
+	PutMulti(keys []*datastore.Key, src interface{}) (ret []*datastore.PendingKey, err error)
+	Rollback() (err error)
+	Pending() bool
+}
+
+type wrappedTransactionImpl struct {
+	transaction *datastore.Transaction
+
+	IsPending bool
 }
 
 func newClient(ctx context.Context, projectID string) wrappedClient {
@@ -149,6 +167,62 @@ func (c *wrappedClientImpl) Run(ctx context.Context, q *datastore.Query) *datast
 	return c.client.Run(ctx, q)
 }
 
-func (c *wrappedClientImpl) getUnderlyingClient() *datastore.Client {
-	return c.client
+func (c *wrappedClientImpl) NewTransaction(ctx context.Context) (Transaction, error) {
+	tx, err := c.client.NewTransaction(ctx)
+
+	return &wrappedTransactionImpl{transaction: tx, IsPending: true}, err
+}
+
+func (t *wrappedTransactionImpl) Commit() (c *datastore.Commit, err error) {
+	cm, err := t.transaction.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	t.IsPending = false
+
+	return cm, err
+}
+
+func (t *wrappedTransactionImpl) Delete(key *datastore.Key) error {
+	return t.transaction.Delete(key)
+}
+
+func (t *wrappedTransactionImpl) DeleteMulti(keys []*datastore.Key) error {
+	return t.transaction.DeleteMulti(keys)
+}
+
+func (t *wrappedTransactionImpl) Get(key *datastore.Key, dst interface{}) error {
+	return t.transaction.Get(key, dst)
+}
+
+func (t *wrappedTransactionImpl) GetMulti(keys []*datastore.Key, dst interface{}) error {
+	return t.transaction.GetMulti(keys, dst)
+}
+
+func (t *wrappedTransactionImpl) Mutate(muts ...*datastore.Mutation) ([]*datastore.PendingKey, error) {
+	return t.transaction.Mutate(muts...)
+}
+
+func (t *wrappedTransactionImpl) Put(key *datastore.Key, src interface{}) (*datastore.PendingKey, error) {
+	return t.transaction.Put(key, src)
+}
+
+func (t *wrappedTransactionImpl) PutMulti(keys []*datastore.Key, src interface{}) ([]*datastore.PendingKey, error) {
+	return t.transaction.PutMulti(keys, src)
+}
+
+func (t *wrappedTransactionImpl) Rollback() error {
+	err := t.transaction.Rollback()
+	if err != nil {
+		return err
+	}
+
+	t.IsPending = false
+
+	return nil
+}
+
+func (t *wrappedTransactionImpl) Pending() bool {
+	return t.IsPending
 }

@@ -186,7 +186,7 @@ func (u *User) Commit(ctx context.Context) error {
 	return nil
 }
 
-func (u *User) CommitWithTransaction(tx *datastore.Transaction) (*datastore.PendingKey, error) {
+func (u *User) CommitWithTransaction(tx db.Transaction) (*datastore.PendingKey, error) {
 	return tx.Put(u.Key, u)
 }
 

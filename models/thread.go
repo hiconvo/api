@@ -142,7 +142,7 @@ func (t *Thread) Commit(ctx context.Context) error {
 	return nil
 }
 
-func (t *Thread) CommitWithTransaction(tx *datastore.Transaction) (*datastore.PendingKey, error) {
+func (t *Thread) CommitWithTransaction(tx db.Transaction) (*datastore.PendingKey, error) {
 	return tx.Put(t.Key, t)
 }
 

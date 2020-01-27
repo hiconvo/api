@@ -131,7 +131,7 @@ func (e *Event) Commit(ctx context.Context) error {
 	return nil
 }
 
-func (e *Event) CommitWithTransaction(tx *datastore.Transaction) (*datastore.PendingKey, error) {
+func (e *Event) CommitWithTransaction(tx db.Transaction) (*datastore.PendingKey, error) {
 	return tx.Put(e.Key, e)
 }
 
