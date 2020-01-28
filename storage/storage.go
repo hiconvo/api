@@ -1,12 +1,17 @@
-// Package storage provides a high-level, app specific interface for working with storage.
-// It exposes functions that use keys, which are just strings, that correspond to files in
-// multiple storage buckets.
-//
-// There are two "types" of keys: avatar keys and photo keys. The images corresponding
-// to avatar keys are stored in a public bucket. The images corresponding to photo
-// keys are also currently stored in a dfferent public bucket, but at some point it is hoped that
-// this bucket will be made private and that only signed URLs will be used to access
-// the images.
+/*
+Package storage provides a high-level, app specific interface for working with storage.
+It exposes functions that use keys, which are just strings, that correspond to files in
+multiple storage buckets.
+
+There are two "types" of keys: avatar keys and photo keys. The images corresponding
+to avatar keys are stored in a public bucket. The images corresponding to photo
+keys are also currently stored in a dfferent public bucket, but at some point it is hoped that
+this bucket will be made private and that only signed URLs will be used to access
+the images.
+
+The biggest mistake I made is writing this package is not creating special types for
+the keys. This would be a good refactor later on.
+*/
 package storage
 
 import (
@@ -32,30 +37,29 @@ import (
 	"github.com/hiconvo/api/utils/secrets"
 )
 
-var avatarBucketName string
-var photoBucketName string
-var avatarURLPrefix string
-var photoURLPrefix string
+// Key corresponds to the path of an object in storage.
+// Example: EhEKBlRocmVhZBCAgICYu6KVCg/c2b4a5e6-e302-4ebc-b71a-78cd96c7abb1.jpg
+// TODO: Finish this sometime.
+// type Key string
 
-func init() {
-	avatarBucketName = secrets.Get("AVATAR_BUCKET_NAME", getFallbackBucketName())
-	photoBucketName = secrets.Get("PHOTO_BUCKET_NAME", getFallbackBucketName())
+var (
+	_avatarBucketName string = secrets.Get("AVATAR_BUCKET_NAME", getFallbackBucketName())
+	_photoBucketName  string = secrets.Get("PHOTO_BUCKET_NAME", getFallbackBucketName())
+)
 
-	avatarURLPrefix = getURLPrefix(avatarBucketName)
-	photoURLPrefix = getURLPrefix(photoBucketName)
+const _nullKey string = "null-key"
+
+// GetAvatarURLFromKey returns the public URL of the given avatar key.
+func GetAvatarURLFromKey(key string) string {
+	return getURLPrefix(_avatarBucketName) + key
 }
 
-// GetFullAvatarURL returns the public URL of the given avatar key.
-func GetFullAvatarURL(key string) string {
-	return avatarURLPrefix + key
+// GetPhotoURLFromKey returns the public URL of the given photo key.
+func GetPhotoURLFromKey(key string) string {
+	return getURLPrefix(_photoBucketName) + key
 }
 
-// GetFullPhotoURL returns the public URL of the given photo key.
-func GetFullPhotoURL(key string) string {
-	return photoURLPrefix + key
-}
-
-// GetSignedPhotoURL returns a signed URL of the given key.
+// GetSignedPhotoURL returns a signed URL of the given photo key.
 func GetSignedPhotoURL(ctx context.Context, key string) (string, error) {
 	b, err := getPhotoBucket(ctx)
 	if err != nil {
@@ -72,7 +76,7 @@ func GetSignedPhotoURL(ctx context.Context, key string) (string, error) {
 // storage.
 func GetKeyFromAvatarURL(url string) string {
 	if url == "" {
-		return "null-key"
+		return _nullKey
 	}
 
 	ss := strings.Split(url, "/")
@@ -84,7 +88,7 @@ func GetKeyFromAvatarURL(url string) string {
 // storage.
 func GetKeyFromPhotoURL(url string) string {
 	if url == "" {
-		return "null-key"
+		return _nullKey
 	}
 
 	ss := strings.Split(url, "/")
@@ -130,7 +134,7 @@ func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
 		return "", fmt.Errorf("storage.PutAvatarFromURL: %v", err)
 	}
 
-	return GetFullAvatarURL(key), nil
+	return GetAvatarURLFromKey(key), nil
 }
 
 // PutAvatarFromBlob crops and resizes the given image blob, saves it, and
@@ -166,7 +170,7 @@ func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey s
 		return "", fmt.Errorf("storage.PutAvatarFromBlob: %v", err)
 	}
 
-	if oldKey != "" && oldKey != "null-key" {
+	if oldKey != "" && oldKey != _nullKey {
 		exists, err := bucket.Exists(ctx, oldKey)
 		if err != nil {
 			reporter.Report(fmt.Errorf("storage.PutAvatarFromBlob: %v)", err))
@@ -176,7 +180,7 @@ func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey s
 		}
 	}
 
-	return GetFullAvatarURL(key), nil
+	return GetAvatarURLFromKey(key), nil
 }
 
 // PutPhotoFromBlob resizes the given image blob, saves it, and returns the key
@@ -268,10 +272,10 @@ func getURLPrefix(bucketName string) string {
 
 // getPhotoBucket gets the bucket for user photos.
 func getPhotoBucket(ctx context.Context) (*blob.Bucket, error) {
-	return blob.OpenBucket(ctx, photoBucketName)
+	return blob.OpenBucket(ctx, _photoBucketName)
 }
 
 // getAvatarBucket gets the bucket for user avatars.
 func getAvatarBucket(ctx context.Context) (*blob.Bucket, error) {
-	return blob.OpenBucket(ctx, avatarBucketName)
+	return blob.OpenBucket(ctx, _avatarBucketName)
 }

@@ -31,6 +31,9 @@ type wrappedClientImpl struct {
 	client *datastore.Client
 }
 
+// Transaction is a wrapper around datastore.Transaction. It adds a Pending() method that
+// allows it to be detected whether a transaction has been completed so that they are not
+// accidentally left hanging.
 type Transaction interface {
 	Commit() (c *datastore.Commit, err error)
 	Delete(key *datastore.Key) error

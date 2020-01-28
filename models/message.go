@@ -51,7 +51,7 @@ func NewThreadMessage(u *User, t *Thread, body, photoKey string, link og.LinkDat
 
 	if photoKey != "" {
 		message.PhotoKeys = []string{photoKey}
-		message.Photos = []string{storage.GetFullPhotoURL(photoKey)}
+		message.Photos = []string{storage.GetPhotoURLFromKey(photoKey)}
 	}
 
 	if t.Preview == nil {
@@ -81,7 +81,7 @@ func NewEventMessage(u *User, e *Event, body, photoKey string) (Message, error) 
 
 	if photoKey != "" {
 		message.PhotoKeys = []string{photoKey}
-		message.Photos = []string{storage.GetFullPhotoURL(photoKey)}
+		message.Photos = []string{storage.GetPhotoURLFromKey(photoKey)}
 	}
 
 	ClearReads(e)
@@ -131,7 +131,7 @@ func (m *Message) Load(ps []datastore.Property) error {
 				for i := range photoKeys {
 					photoKey, ok := photoKeys[i].(string)
 					if ok {
-						photos[i] = storage.GetFullPhotoURL(photoKey)
+						photos[i] = storage.GetPhotoURLFromKey(photoKey)
 					}
 				}
 
