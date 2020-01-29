@@ -10,13 +10,13 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	notif "github.com/hiconvo/api/notifications"
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/places"
-	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -290,7 +290,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		TargetName: event.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		reporter.Report(err)
+		log.Alarm(err)
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
@@ -349,7 +349,7 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 			TargetName: event.Name,
 		}); err != nil {
 			// Log the error but don't fail the request
-			reporter.Report(err)
+			log.Alarm(err)
 		}
 	}
 
@@ -383,7 +383,7 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 		userToBeAdded, err = models.GetUserByID(ctx, maybeUserID)
 	}
 	if err != nil {
-		reporter.Report(err)
+		log.Print(err)
 		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
 		return
 	}
@@ -502,7 +502,7 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 		TargetName: event.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		reporter.Report(err)
+		log.Alarm(err)
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
@@ -553,7 +553,7 @@ func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 		TargetName: event.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		reporter.Report(err)
+		log.Alarm(err)
 	}
 
 	bjson.WriteJSON(w, event, http.StatusOK)
@@ -640,7 +640,7 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 		TargetName: e.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		reporter.Report(err)
+		log.Alarm(err)
 	}
 
 	bjson.WriteJSON(w, u, http.StatusOK)

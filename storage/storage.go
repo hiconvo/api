@@ -33,7 +33,7 @@ import (
 	// This sets up the plumbing to use blob with GCS in production.
 	_ "gocloud.dev/blob/gcsblob"
 
-	"github.com/hiconvo/api/utils/reporter"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -130,7 +130,7 @@ func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		reporter.Log(stderr.String())
+		log.Print(stderr.String())
 		return "", fmt.Errorf("storage.PutAvatarFromURL: %v", err)
 	}
 
@@ -166,14 +166,14 @@ func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey s
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		reporter.Log(stderr.String())
+		log.Print(stderr.String())
 		return "", fmt.Errorf("storage.PutAvatarFromBlob: %v", err)
 	}
 
 	if oldKey != "" && oldKey != _nullKey {
 		exists, err := bucket.Exists(ctx, oldKey)
 		if err != nil {
-			reporter.Report(fmt.Errorf("storage.PutAvatarFromBlob: %v)", err))
+			log.Alarm(fmt.Errorf("storage.PutAvatarFromBlob: %v)", err))
 		}
 		if exists {
 			bucket.Delete(ctx, oldKey)
@@ -215,7 +215,7 @@ func PutPhotoFromBlob(ctx context.Context, parentID, dat string) (string, error)
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		reporter.Log(stderr.String())
+		log.Print(stderr.String())
 		return "", fmt.Errorf("storage.PutPhotoFromBlob: %v", err)
 	}
 

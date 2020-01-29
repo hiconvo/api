@@ -2,8 +2,6 @@ package mail
 
 import (
 	"encoding/base64"
-	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -12,7 +10,8 @@ import (
 	"github.com/sendgrid/sendgrid-go"
 	smail "github.com/sendgrid/sendgrid-go/helpers/mail"
 
-	"github.com/hiconvo/api/utils/reporter"
+	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -63,15 +62,12 @@ func Send(e EmailMessage) error {
 
 	resp, err := client.Send(email)
 	if err != nil {
-		reporter.Report(fmt.Errorf("mail.Send: %v", err))
-		return fmt.Errorf("mail.Send: %v", err)
+		return errors.E(errors.Op("mail.Send"), err)
 	}
 
 	if resp.StatusCode != http.StatusAccepted {
-		err := errors.New("mail.Send: received non-200 status from SendGrid")
-		reporter.Report(err)
-		reporter.Log(resp.Body)
-		return err
+		log.Print(resp.Body)
+		return errors.E(errors.Op("mail.Send"), errors.Str("received non-200 status from SendGrid"))
 	}
 
 	return nil

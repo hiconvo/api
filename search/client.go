@@ -6,7 +6,7 @@ import (
 
 	"github.com/olivere/elastic/v7"
 
-	"github.com/hiconvo/api/utils/reporter"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -23,7 +23,7 @@ func init() {
 			elastic.SetURL(fmt.Sprintf("http://%s:9200", esHost)),
 		)
 		if err != nil {
-			reporter.JustLogf("Failed to initialize elasticsearch; will retry in three seconds.\n%s\n", err)
+			log.Printf("Failed to initialize elasticsearch; will retry in three seconds.\n%s\n", err)
 			time.Sleep(3 * time.Second)
 		} else {
 			break

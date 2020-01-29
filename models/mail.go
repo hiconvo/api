@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/mail"
-	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/template"
 )
 
@@ -148,7 +149,7 @@ func sendThread(thread *Thread, messages []*Message) error {
 		}
 
 		if err := mail.Send(emailMessages[i]); err != nil {
-			reporter.Report(fmt.Errorf("models.sendThread: %v", err))
+			log.Alarm(errors.Errorf("models.sendThread: %v", err))
 		}
 	}
 
@@ -206,7 +207,7 @@ func sendEvent(event *Event, isUpdate bool) error {
 		}
 
 		if err := mail.Send(emailMessages[i]); err != nil {
-			reporter.Report(fmt.Errorf("models.sendEvent: %v", err))
+			log.Alarm(errors.Errorf("models.sendEvent: %v", err))
 		}
 	}
 
@@ -277,7 +278,7 @@ func sendCancellation(event *Event, message string) error {
 		}
 
 		if err := mail.Send(emailMessages[i]); err != nil {
-			reporter.Report(fmt.Errorf("models.sendCancellation: %v", err))
+			log.Alarm(errors.Errorf("models.sendCancellation: %v", err))
 		}
 	}
 

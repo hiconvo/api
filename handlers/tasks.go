@@ -9,10 +9,11 @@ import (
 	"google.golang.org/api/iterator"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/queue"
 	"github.com/hiconvo/api/utils/bjson"
-	"github.com/hiconvo/api/utils/reporter"
 )
 
 func CreateDigest(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +53,8 @@ func CreateDigest(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
+	var op errors.Op = "handlers.SendEmailsAsync"
+
 	if val := r.Header.Get("X-Appengine-QueueName"); val != "convo-emails" {
 		bjson.WriteJSON(w, map[string]string{
 			"message": "Not found",
@@ -76,7 +79,7 @@ func SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 		case queue.User:
 			u, err := models.GetUserByID(ctx, payload.IDs[i])
 			if err != nil {
-				reporter.Report(fmt.Errorf("SendEmailsAsync: queue.User: %v", err))
+				log.Alarm(errors.E(op, err))
 				break
 			}
 
@@ -86,7 +89,7 @@ func SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 		case queue.Event:
 			e, err := models.GetEventByID(ctx, payload.IDs[i])
 			if err != nil {
-				reporter.Report(fmt.Errorf("SendEmailsAsync: queue.Event: %v", err))
+				log.Alarm(errors.E(op, err))
 				break
 			}
 
@@ -98,13 +101,13 @@ func SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 		case queue.Thread:
 			t, err := models.GetThreadByID(ctx, payload.IDs[i])
 			if err != nil {
-				reporter.Report(fmt.Errorf("SendEmailsAsync: queue.Thread: %v", err))
+				log.Alarm(errors.E(op, err))
 				break
 			}
 
 			if payload.Action == queue.SendThread {
 				if err := t.Send(ctx); err != nil {
-					reporter.Report(fmt.Errorf("SendEmailsAsync: queue.Thread: %v", err))
+					log.Alarm(errors.E(op, err))
 				}
 			}
 		}

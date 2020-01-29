@@ -4,12 +4,10 @@ package bjson
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
-	"github.com/getsentry/raven-go"
-
 	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 )
 
 var encodedErrResp []byte = json.RawMessage(`{"message":"There was an internal server error while processing the request"}`)
@@ -85,8 +83,7 @@ func isWriteRequest(method string) bool {
 // handleInternalServerError writes the given error to stderr and returns a
 // 500 response with a default message.
 func handleInternalServerError(w http.ResponseWriter, e error) {
-	log.Printf("Internal Server Error: %v", e)
-	raven.CaptureError(e, nil)
+	log.Alarm(e)
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Write(encodedErrResp)

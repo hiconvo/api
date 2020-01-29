@@ -8,13 +8,13 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/storage"
 	"github.com/hiconvo/api/utils/bjson"
 	"github.com/hiconvo/api/utils/magic"
 	"github.com/hiconvo/api/utils/oauth"
-	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -263,7 +263,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 			avatarURI, err := storage.PutAvatarFromURL(ctx, oauthPayload.TempAvatar)
 			if err != nil {
 				// Print error but keep going. User might not have a profile pic.
-				reporter.Report(err)
+				log.Alarm(err)
 			}
 			u.Avatar = avatarURI
 		}
@@ -295,7 +295,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	avatarURI, err := storage.PutAvatarFromURL(ctx, oauthPayload.TempAvatar)
 	if err != nil {
 		// Print error but keep going. User might not have a profile pic.
-		reporter.Report(err)
+		log.Alarm(err)
 	}
 
 	u, err = models.NewUserWithOAuth(

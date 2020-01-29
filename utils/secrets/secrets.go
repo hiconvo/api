@@ -2,12 +2,12 @@ package secrets
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/log"
 )
 
 type secret struct {
@@ -34,11 +34,11 @@ func init() {
 func Get(id, fallback string) string {
 	s := secrets[id]
 	if s == "" {
-		fmt.Fprintf(os.Stderr, "Secret '%s' is empty, trying to read from environment...\n", id)
+		log.Printf("secrets.Get: '%s' is empty, trying to read from environment...\n", id)
 		s = os.Getenv(id)
 	}
 	if s == "" {
-		fmt.Fprintf(os.Stderr, "Secret '%s' is not defined in the environment either, using fallback\n", id)
+		log.Printf("secrets.Get: '%s' is not defined in the environment either, using fallback\n", id)
 		return fallback
 	}
 	return s

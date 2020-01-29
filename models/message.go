@@ -10,9 +10,10 @@ import (
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/storage"
 	og "github.com/hiconvo/api/utils/opengraph"
-	"github.com/hiconvo/api/utils/reporter"
 )
 
 type Message struct {
@@ -196,7 +197,7 @@ func (m *Message) DeletePhoto(ctx context.Context, key string) error {
 		}
 
 		if err := storage.DeletePhoto(ctx, key); err != nil {
-			reporter.Report(err)
+			log.Alarm(errors.E(errors.Op("models.DeletePhoto"), err))
 		}
 	}
 

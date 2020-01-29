@@ -6,11 +6,11 @@ import (
 	"html"
 	"net/http"
 
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/mail"
 	og "github.com/hiconvo/api/utils/opengraph"
 	"github.com/hiconvo/api/utils/pluck"
-	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -114,12 +114,12 @@ func Inbound(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleClientErrorResponse(w http.ResponseWriter, err error) {
-	reporter.Report(fmt.Errorf("Inbound: ClientError: %v", err))
+	log.Alarm(fmt.Errorf("Inbound: ClientError: %v", err))
 	w.WriteHeader(http.StatusOK)
 }
 
 func handleServerErrorResponse(w http.ResponseWriter, err error) {
-	reporter.Report(fmt.Errorf("Inbound: ServerError: %v", err))
+	log.Alarm(fmt.Errorf("Inbound: ServerError: %v", err))
 	w.WriteHeader(http.StatusInternalServerError)
 }
 
@@ -135,7 +135,7 @@ func sendErrorEmail(email string) {
 	})
 
 	if err != nil {
-		reporter.Report(fmt.Errorf("handlers.sendErrorEmail: %v", err))
+		log.Alarm(fmt.Errorf("handlers.sendErrorEmail: %v", err))
 	}
 }
 
@@ -151,6 +151,6 @@ func sendTryAgainEmail(email string) {
 	})
 
 	if err != nil {
-		reporter.Report(fmt.Errorf("handlers.sendTryAgainEmail: %v", err))
+		log.Alarm(fmt.Errorf("handlers.sendTryAgainEmail: %v", err))
 	}
 }

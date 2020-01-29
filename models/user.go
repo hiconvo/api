@@ -3,8 +3,8 @@ package models
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -14,13 +14,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 	notif "github.com/hiconvo/api/notifications"
 	"github.com/hiconvo/api/queue"
 	"github.com/hiconvo/api/search"
 	"github.com/hiconvo/api/utils/magic"
 	og "github.com/hiconvo/api/utils/opengraph"
 	"github.com/hiconvo/api/utils/random"
-	"github.com/hiconvo/api/utils/reporter"
 )
 
 type User struct {
@@ -199,7 +200,7 @@ func (u *User) CreateOrUpdateSearchIndex(ctx context.Context) {
 			Doc(MapUserToUserPartial(u)).
 			Do(ctx)
 		if upsertErr != nil {
-			reporter.Report(fmt.Errorf("Failed to index user in elasticsearch: %v", upsertErr))
+			log.Printf("Failed to index user in elasticsearch: %v", upsertErr)
 		}
 	}
 }
@@ -276,16 +277,21 @@ func (u *User) SendMergeAccountsEmail(emailToMerge string) error {
 }
 
 func (u *User) AddContact(c *User) error {
+	var op errors.Op = "models.AddContact"
+
 	if u.HasContact(c) {
-		return errors.New("You already have this contact")
+		return errors.E(op, http.StatusBadRequest, map[string]string{
+			"message": "You already have this contact"})
 	}
 
 	if u.Key.Equal(c.Key) {
-		return errors.New("You cannot add yourself as a contact")
+		return errors.E(op, http.StatusBadRequest, map[string]string{
+			"message": "You cannot add yourself as a contact"})
 	}
 
 	if len(u.ContactKeys) >= 50 {
-		return errors.New("You can have a maximum of 50 contacts")
+		return errors.E(op, http.StatusBadRequest, map[string]string{
+			"message": "You can have a maximum of 50 contacts"})
 	}
 
 	u.ContactKeys = append(u.ContactKeys, c.Key)
@@ -349,7 +355,8 @@ func (u *User) RemoveEmail(email string) error {
 	}
 
 	if u.Email == femail {
-		return errors.New("You cannot remove your primary email")
+		return errors.E(errors.Op("models.RemoveEmail"), http.StatusBadRequest, map[string]string{
+			"message": "You cannot remove your primary email"})
 	}
 
 	for i := range u.Emails {
@@ -365,7 +372,8 @@ func (u *User) RemoveEmail(email string) error {
 
 func (u *User) MakeEmailPrimary(email string) error {
 	if !u.HasEmail(email) {
-		return errors.New("You cannot make an unverified email primary")
+		return errors.E(errors.Op("models.MakeEmailPrimary"), http.StatusBadRequest, map[string]string{
+			"message": "You cannot make an unverified email primary"})
 	}
 
 	u.Email = strings.ToLower(email)
@@ -375,36 +383,38 @@ func (u *User) MakeEmailPrimary(email string) error {
 }
 
 func (u *User) Welcome(ctx context.Context) {
+	var op errors.Op = "user.Welcome"
+
 	thread, err := NewThread("Welcome", supportUser, []*User{u})
 	if err != nil {
-		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		log.Alarm(errors.E(op, err))
 		return
 	}
 
 	if err := thread.Commit(ctx); err != nil {
-		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		log.Alarm(errors.E(op, err))
 		return
 	}
 
 	if err := u.Commit(ctx); err != nil {
-		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		log.Alarm(errors.E(op, err))
 		return
 	}
 
 	message, err := NewThreadMessage(supportUser, &thread, welcomeMessage, "", og.LinkData{})
 	if err != nil {
-		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		log.Alarm(errors.E(op, err))
 		return
 	}
 
 	if err := message.Commit(ctx); err != nil {
-		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		log.Alarm(errors.E(op, err))
 		return
 	}
 
 	// We have to save the thread again, which is annoying
 	if err := thread.Commit(ctx); err != nil {
-		reporter.Report(fmt.Errorf("user.Welcome: %v", err))
+		log.Alarm(errors.E(op, err))
 		return
 	}
 }
@@ -460,39 +470,35 @@ func (u *User) SendDigest(ctx context.Context) error {
 
 func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 	if u.Key.Incomplete() {
-		return errors.New("MergeWith: User's key is incomplete")
+		return errors.Str("models.MergeWith: user's key is incomplete")
 	}
 
 	if oldUser.Key.Incomplete() {
-		return errors.New("MergeWith: oldUser's key is incomplete")
+		return errors.Str("models.MergeWith: oldUser's key is incomplete")
 	}
 
 	_, err := db.Client.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
 		// Contacts
 		err := reassignContacts(ctx, tx, oldUser, u)
 		if err != nil {
-			tx.Rollback()
 			return err
 		}
 
 		// Messages
 		err = reassignMessageUsers(ctx, tx, oldUser, u)
 		if err != nil {
-			tx.Rollback()
 			return err
 		}
 
 		// Threads
 		err = reassignThreadUsers(ctx, tx, oldUser, u)
 		if err != nil {
-			tx.Rollback()
 			return err
 		}
 
 		// Events
 		err = reassignEventUsers(ctx, tx, oldUser, u)
 		if err != nil {
-			tx.Rollback()
 			return err
 		}
 
@@ -515,7 +521,6 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 		// Save user
 		_, err = tx.Put(u.Key, u)
 		if err != nil {
-			tx.Rollback()
 			return err
 		}
 
@@ -526,7 +531,7 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 				Id(oldUser.ID).
 				Do(ctx)
 			if err != nil {
-				reporter.Report(fmt.Errorf("Failed to remove user from elasticsearch: %v", err))
+				log.Alarm(errors.Errorf("Failed to remove user from elasticsearch: %v", err))
 			}
 		}
 

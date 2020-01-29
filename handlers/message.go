@@ -7,13 +7,13 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	notif "github.com/hiconvo/api/notifications"
 	"github.com/hiconvo/api/storage"
 	"github.com/hiconvo/api/utils/bjson"
 	og "github.com/hiconvo/api/utils/opengraph"
-	"github.com/hiconvo/api/utils/reporter"
 	"github.com/hiconvo/api/utils/validate"
 )
 
@@ -137,7 +137,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 			TargetName: thread.Subject,
 		}); err != nil {
 			// Log the error but don't fail the request
-			reporter.Report(err)
+			log.Alarm(err)
 		}
 	}
 
@@ -228,7 +228,7 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		TargetName: event.Name,
 	}); err != nil {
 		// Log the error but don't fail the request
-		reporter.Report(err)
+		log.Alarm(err)
 	}
 
 	bjson.WriteJSON(w, message, http.StatusCreated)

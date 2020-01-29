@@ -2,9 +2,8 @@ package models
 
 import (
 	"context"
-	"fmt"
-	"os"
 
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -45,7 +44,7 @@ func init() {
 			panic(err)
 		}
 
-		fmt.Fprintf(os.Stderr, "Created new support user\n")
+		log.Print("models.init: Created new support user")
 	}
 
 	supportUser = &u
