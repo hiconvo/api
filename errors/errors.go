@@ -98,7 +98,7 @@ func (e *Error) ClientReport() map[string]string {
 		case http.StatusBadRequest:
 			return map[string]string{"message": "The request was invalid"}
 		case http.StatusUnauthorized:
-			return map[string]string{"message": "The request was not authenticated"}
+			return map[string]string{"message": "Unauthorized"}
 		case http.StatusForbidden:
 			return map[string]string{"message": "You do not have permission to perform this action"}
 		case http.StatusNotFound:

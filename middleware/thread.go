@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
 )
@@ -30,9 +31,7 @@ func WithThread(next http.Handler) http.Handler {
 
 		thread, err := models.GetThreadByID(ctx, id)
 		if err != nil {
-			bjson.WriteJSON(w, map[string]string{
-				"message": "Could not get thread",
-			}, http.StatusNotFound)
+			bjson.HandleError(w, errors.E(errors.Op("middleware.WithThread"), http.StatusNotFound, err))
 			return
 		}
 

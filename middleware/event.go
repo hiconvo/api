@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
 )
@@ -30,9 +31,7 @@ func WithEvent(next http.Handler) http.Handler {
 
 		event, err := models.GetEventByID(ctx, id)
 		if err != nil {
-			bjson.WriteJSON(w, map[string]string{
-				"message": "Could not get event",
-			}, http.StatusNotFound)
+			bjson.HandleError(w, errors.E(errors.Op("middleware.WithEvent"), http.StatusNotFound, err))
 			return
 		}
 

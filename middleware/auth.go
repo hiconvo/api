@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
 )
@@ -23,13 +24,13 @@ func UserFromContext(ctx context.Context) models.User {
 // found, then a 401 unauthorized reponse is returned.
 func WithUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var op errors.Op = "middleware.WithUser"
+
 		if token, ok := GetAuthToken(r.Header); ok {
 			ctx := r.Context()
 			user, ok, err := models.GetUserByToken(ctx, token)
 			if err != nil {
-				bjson.WriteJSON(w, map[string]string{
-					"message": "Could not get user",
-				}, http.StatusInternalServerError)
+				bjson.HandleError(w, errors.E(op, err))
 				return
 			}
 
@@ -39,9 +40,7 @@ func WithUser(next http.Handler) http.Handler {
 			}
 		}
 
-		bjson.WriteJSON(w, map[string]string{
-			"message": "Unauthorized",
-		}, http.StatusUnauthorized)
+		bjson.HandleError(w, errors.E(op, http.StatusUnauthorized))
 	})
 }
 

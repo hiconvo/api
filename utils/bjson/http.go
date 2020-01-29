@@ -12,7 +12,7 @@ import (
 	"github.com/hiconvo/api/errors"
 )
 
-var encodedErrResp []byte = json.RawMessage(`{"error":"There was an internal server error while processing the request"}`)
+var encodedErrResp []byte = json.RawMessage(`{"message":"There was an internal server error while processing the request"}`)
 
 // HandleError writes an appropriate error response to the given response
 // writer. If the given error implements ErrorReporter, then the values from
