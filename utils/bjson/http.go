@@ -1,92 +1,117 @@
+// Package bjson is better json. It provides helpers for working with JSON in http handlers.
 package bjson
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
-	"os"
 
 	"github.com/getsentry/raven-go"
+
+	"github.com/hiconvo/api/errors"
 )
 
-var decodeErrResp []byte
+var encodedErrResp []byte = json.RawMessage(`{"error":"There was an internal server error while processing the request"}`)
 
-func init() {
-	encoded, err := json.Marshal(map[string]string{
-		"message": "Could not encode JSON",
-	})
+// HandleError writes an appropriate error response to the given response
+// writer. If the given error implements ErrorReporter, then the values from
+// ErrorReport() and StatusCode() are written to the response, except in
+// the case of a 5XX error, where the error is logged and a default message is
+// written to the response.
+func HandleError(w http.ResponseWriter, e error) {
+	if r, ok := e.(errors.ClientReporter); ok {
+		code := r.StatusCode()
+		if code >= http.StatusInternalServerError {
+			handleInternalServerError(w, e)
+			return
+		}
 
-	if err != nil {
-		panic("Could not encode default error response")
-	} else {
-		decodeErrResp = encoded
+		WriteJSON(w, r.ClientReport(), code)
+		return
 	}
+
+	handleInternalServerError(w, e)
+}
+
+// HandleInternalServerError provides backwards compatibility.
+func HandleInternalServerError(w http.ResponseWriter, e error, message map[string]string) {
+	ee := errors.E(errors.Op("unknown handler error"), http.StatusInternalServerError, e, message)
+	handleInternalServerError(w, ee)
+}
+
+// ReadJSON unmarshals JSON from the incoming request to the given sturct pointer.
+func ReadJSON(dst interface{}, r *http.Request) error {
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(dst); err != nil {
+		return errors.E(errors.Op("bjson.ReadJSON"), http.StatusBadRequest, err,
+			map[string]string{"message": "Could not decode JSON"})
+	}
+	return nil
 }
 
 // WriteJSON writes the given interface to the response. If the interface
 // cannot be marshaled, a 500 error is written instead.
-func WriteJSON(w http.ResponseWriter, b interface{}, status int) {
-	encoded, err := json.Marshal(b)
-
+func WriteJSON(w http.ResponseWriter, payload interface{}, status int) {
+	encoded, err := json.Marshal(payload)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(decodeErrResp)
+		handleInternalServerError(w, errors.E(errors.Op("bjson.WriteJSON"), http.StatusInternalServerError, err))
 	} else {
+		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(status)
 		w.Write(encoded)
 	}
 }
 
-// HandleInternalServerError writes the given error to stderr and returns a
-// 500 response with the given payload.
-func HandleInternalServerError(w http.ResponseWriter, e error, b interface{}) {
-	raven.CaptureError(e, nil)
-	fmt.Fprintln(os.Stderr, e.Error())
-	WriteJSON(w, b, http.StatusInternalServerError)
-}
-
-// WithJSON is middleware that ensures that a content-type of "application/json"
-// is set on all requests and reponses. Rejects requests without this header.
-func WithJSON(next http.Handler) http.Handler {
+// WithJSONRequests is middleware that ensures that a content-type of "application/json"
+// is set on all write POST, PUT, and PATCH requets.
+func WithJSONRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "application/json")
-
-		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
-			WriteJSON(w, map[string]string{
-				"message": "Unsupported content-type",
-			}, http.StatusUnsupportedMediaType)
-			return
+		if isWriteRequest(r.Method) {
+			if ct := r.Header.Get("Content-Type"); ct != "application/json" {
+				HandleError(w, errors.E(errors.Op("bjson.WithJSONRequests"), http.StatusUnsupportedMediaType))
+				return
+			}
 		}
 
 		next.ServeHTTP(w, r)
 	})
 }
 
-type bodyContextKey string
+func isWriteRequest(method string) bool {
+	return method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch || method == http.MethodDelete
+}
 
-const key bodyContextKey = "body"
+// handleInternalServerError writes the given error to stderr and returns a
+// 500 response with a default message.
+func handleInternalServerError(w http.ResponseWriter, e error) {
+	log.Printf("Internal Server Error: %v", e)
+	raven.CaptureError(e, nil)
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Write(encodedErrResp)
+}
+
+type bodyContextKey int
+
+const key bodyContextKey = iota
 
 // BodyFromContext retuns the decoded JSON payload that was added to the
-// context via WithJSONReqBody middleware.
+// context via WithJSONRequestBody middleware.
 func BodyFromContext(ctx context.Context) map[string]interface{} {
 	return ctx.Value(key).(map[string]interface{})
 }
 
-// WithJSONReqBody decodes the bodies of incoming POST, PUT, and PATCH requests
+// WithJSONRequestBody decodes the bodies of incoming POST, PUT, and PATCH requests
 // and adds the result to the request context. If the body cannot be decoded,
 // then a 500 error is returned
-func WithJSONReqBody(next http.Handler) http.Handler {
+func WithJSONRequestBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" || r.Method == "DELETE" {
-			decoder := json.NewDecoder(r.Body)
-
+		if isWriteRequest(r.Method) {
 			var body map[string]interface{}
 
-			if decodeErr := decoder.Decode(&body); decodeErr != nil {
-				WriteJSON(w, map[string]string{
-					"message": "Could not decode JSON",
-				}, http.StatusUnsupportedMediaType)
+			if err := ReadJSON(&body, r); err != nil {
+				HandleError(w, errors.E(errors.Op("bjson.WithJSONRequestBody"), err))
 				return
 			}
 

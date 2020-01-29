@@ -28,7 +28,7 @@ func CreateRouter() http.Handler {
 
 	// JSON endpoints
 	jsonSubrouter := router.NewRoute().Subrouter()
-	jsonSubrouter.Use(bjson.WithJSON, bjson.WithJSONReqBody)
+	jsonSubrouter.Use(bjson.WithJSONRequests, bjson.WithJSONRequestBody)
 
 	jsonSubrouter.HandleFunc("/users", CreateUser).Methods("POST")
 	jsonSubrouter.HandleFunc("/users/auth", AuthenticateUser).Methods("POST")

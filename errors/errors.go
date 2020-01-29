@@ -22,7 +22,7 @@ type ClientReporter interface {
 // An Error value may leave some values unset.
 type Error struct {
 	err      error
-	kind     Kind
+	code     int
 	op       Op
 	messages map[string]string
 }
@@ -34,21 +34,14 @@ type Kind uint8
 // such as "models.GetUser".
 type Op string
 
-// Kinds of errors.
-const (
-	Validation Kind = iota // Validation errors are caused by invalid parameters
-	Permission
-	NotFound
-	Internal // Used for internal server errors
-)
-
-// E creates a new Error instance. The extras arguments can be either an error or
-// a message for the client as map[string]string. If one of the extras is an error,
-// its messages, if it has any, are merged into the new error's messages.
-func E(op Op, kind Kind, extras ...interface{}) error {
+// E creates a new Error instance. The extras arguments can be (1) an error, (2)
+// a message for the client as map[string]string, or (3) an HTTP status code. If
+// one of the extras is an error that implements ClientReporter, its messages,
+// if it has any, are merged into the new error's messages.
+func E(op Op, extras ...interface{}) error {
 	e := &Error{
 		op:       op,
-		kind:     kind,
+		code:     http.StatusInternalServerError,
 		messages: map[string]string{},
 	}
 
@@ -66,6 +59,14 @@ func E(op Op, kind Kind, extras ...interface{}) error {
 			// If there is more than one error, which, as a best practice, there
 			// shouldn't be, the last error wins.
 			e.err = t
+
+			// If the code has already been set to something other than the default
+			// don't reset it; otherwise, inherit from t.
+			if e.code == http.StatusInternalServerError {
+				e.code = t.StatusCode()
+			}
+		case int:
+			e.code = t
 		case error:
 			e.err = t
 		case map[string]string:
@@ -83,9 +84,9 @@ func E(op Op, kind Kind, extras ...interface{}) error {
 // This value should not be returned to the user.
 func (e *Error) Error() string {
 	b := new(strings.Builder)
-	b.WriteString(fmt.Sprintf("%s:%s", string(e.op), string(e.kind)))
+	b.WriteString(fmt.Sprintf("%s: ", string(e.op)))
 	if e.err != nil {
-		b.WriteString(fmt.Sprintf("::%v", e.err))
+		b.WriteString(e.err.Error())
 	}
 	return b.String()
 }
@@ -93,13 +94,17 @@ func (e *Error) Error() string {
 // ClientReport returns a map of strings suitable to be returned to the end user.
 func (e *Error) ClientReport() map[string]string {
 	if len(e.messages) == 0 {
-		switch e.kind {
-		case Validation:
+		switch e.code {
+		case http.StatusBadRequest:
 			return map[string]string{"message": "The request was invalid"}
-		case Permission:
+		case http.StatusUnauthorized:
+			return map[string]string{"message": "The request was not authenticated"}
+		case http.StatusForbidden:
 			return map[string]string{"message": "You do not have permission to perform this action"}
-		case NotFound:
+		case http.StatusNotFound:
 			return map[string]string{"message": "The requested resource was not found"}
+		case http.StatusUnsupportedMediaType:
+			return map[string]string{"message": "Unsupported content-type"}
 		default:
 			return map[string]string{"message": "Something went wrong"}
 		}
@@ -110,16 +115,11 @@ func (e *Error) ClientReport() map[string]string {
 
 // StatusCode returns the HTTP status code for the error.
 func (e *Error) StatusCode() int {
-	switch e.kind {
-	case Validation:
-		return http.StatusBadRequest
-	case Permission:
-		return http.StatusForbidden
-	case NotFound:
-		return http.StatusNotFound
-	default:
-		return http.StatusInternalServerError
+	if e.code >= 400 {
+		return e.code
 	}
+
+	return http.StatusInternalServerError
 }
 
 // Errorf is the same things as fmt.Errorf. It is exported for convenience and so that
