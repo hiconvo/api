@@ -27,9 +27,6 @@ type Error struct {
 	messages map[string]string
 }
 
-// Kind defines the kind of error this is.
-type Kind uint8
-
 // Op describes an operation, usually as the package and method,
 // such as "models.GetUser".
 type Op string
