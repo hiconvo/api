@@ -174,7 +174,7 @@ func (t *Thread) GetEmail() string {
 	if len(slugified) > 20 {
 		slugified = slugified[:20]
 	}
-	return fmt.Sprintf("%s-%d@mail.hiconvo.com", slugified, t.Key.ID)
+	return fmt.Sprintf("%s-%d@mail.convo.events", slugified, t.Key.ID)
 }
 
 func (t *Thread) HasUser(u *User) bool {

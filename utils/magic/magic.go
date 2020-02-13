@@ -26,7 +26,7 @@ func NewLink(k *datastore.Key, salt, action string) string {
 	// Get url-safe key
 	kenc := k.Encode()
 
-	return fmt.Sprintf("https://app.hiconvo.com/%s/%s/%s/%s",
+	return fmt.Sprintf("https://app.convo.events/%s/%s/%s/%s",
 		action, kenc, b64ts, getSignature(kenc, b64ts, salt))
 }
 

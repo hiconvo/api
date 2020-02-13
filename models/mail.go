@@ -12,14 +12,14 @@ import (
 )
 
 const (
-	_fromEmail = "robots@mail.hiconvo.com"
+	_fromEmail = "robots@mail.convo.events"
 	_fromName  = "Convo"
 )
 
 const (
 	_tplStrPasswordReset = "Please click the link below to set your password."
 	_tplStrVerifyEmail   = "Please click the link below to verify your email address."
-	_tplStrMergeAccounts = "Please click the link below to verify your email address. This will merge your account with %s into your account with %s. If you did not attempt to add a new email to your account, it might be a good idea to notifiy support@hiconvo.com."
+	_tplStrMergeAccounts = "Please click the link below to verify your email address. This will merge your account with %s into your account with %s. If you did not attempt to add a new email to your account, it might be a good idea to notifiy support@convo.events."
 )
 
 func sendPasswordResetEmail(u *User, magicLink string) error {

@@ -2,7 +2,7 @@
 
 [![CircleCI](https://img.shields.io/circleci/build/github/hiconvo/api?label=circleci)](https://circleci.com/gh/hiconvo/api) [![codecov](https://img.shields.io/codecov/c/gh/hiconvo/api)](https://codecov.io/gh/hiconvo/api) [![goreportcard](https://goreportcard.com/badge/github.com/hiconvo/api)](https://goreportcard.com/badge/github.com/hiconvo/api)
 
-The repo holds the source code for Convo's RESTful API ([Docs 📑](http://api.hiconvo.com/docs)). Learn more about Convo at [hiconvo.com](https://hiconvo.com). The core technologies and APIs used in the project are:
+The repo holds the source code for Convo's RESTful API ([Docs 📑](http://api.convo.events/docs)). Learn more about Convo at [convo.events](https://convo.events). The core technologies and APIs used in the project are:
 
 - [Golang](https://golang.org/)
 - [Gorilla](https://www.gorillatoolkit.org/)

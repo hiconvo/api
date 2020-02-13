@@ -1,10 +1,8 @@
-{{ define "message" }}
-
-{{if eq (.FromID) (.ToID)}}
-  <table role="presentation" class="message blue">
-{{- else}}
+{{ define "message" }} {{if eq (.FromID) (.ToID)}}
+<table role="presentation" class="message blue">
+  {{- else}}
   <table role="presentation" class="message">
-{{- end}}
+    {{- end}}
 
     <!-- START MESSAGE CONTENT AREA -->
     <tr>
@@ -22,13 +20,19 @@
 
               {{if .HasPhoto}}
               <p>
-                <i>[This message contains a photo. <a href="https://app.hiconvo.com">Login to Convo</a> to view it.]</i>
+                <i
+                  >[This message contains a photo.
+                  <a href="https://app.convo.events">Login to Convo</a> to view
+                  it.]</i
+                >
               </p>
-              {{- end}}
-
-              {{if .HasLink}}
+              {{- end}} {{if .HasLink}}
               <p>
-                <i>[This message contains a link. <a href="https://app.hiconvo.com">Login to Convo</a> to view it.]</i>
+                <i
+                  >[This message contains a link.
+                  <a href="https://app.convo.events">Login to Convo</a> to view
+                  it.]</i
+                >
               </p>
               {{- end}}
             </td>
@@ -37,6 +41,7 @@
       </td>
     </tr>
     <!-- END MESSAGE CONTENT AREA -->
-
   </table>
-{{ end }}
+
+  {{ end }}
+</table>

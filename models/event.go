@@ -262,7 +262,7 @@ func (e *Event) GetEmail() string {
 	if len(slugified) > 20 {
 		slugified = slugified[:20]
 	}
-	return fmt.Sprintf("%s-%d@mail.hiconvo.com", slugified, e.Key.ID)
+	return fmt.Sprintf("%s-%d@mail.convo.events", slugified, e.Key.ID)
 }
 
 func (e *Event) SendInvites(ctx context.Context) error {

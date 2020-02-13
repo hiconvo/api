@@ -16,7 +16,7 @@ Convo events make it easy to plan events with real people. Invite your guests by
 
 Convo also allows you to share content with people directly via *Convos*. A Convo is like a Facebook post except that it's private and only visible to the people you choose.
 
-Read more about Convo and why I built it on [the blog](https://blog.hiconvo.com/hello-world).
+Read more about Convo and why I built it on [the blog](https://blog.convo.events/hello-world).
 
 If you have any suggestions or feedback, please respond to this Convo directly and I'll get back to you.
 
@@ -28,13 +28,13 @@ func init() {
 	supportPw := secrets.Get("SUPPORT_PASSWORD", "support")
 	ctx := context.Background()
 
-	u, found, err := GetUserByEmail(ctx, "support@hiconvo.com")
+	u, found, err := GetUserByEmail(ctx, "support@convo.events")
 	if err != nil {
 		panic(err)
 	}
 
 	if !found {
-		u, err = NewUserWithPassword("support@hiconvo.com", "Convo Support", "", supportPw)
+		u, err = NewUserWithPassword("support@convo.events", "Convo Support", "", supportPw)
 		if err != nil {
 			panic(err)
 		}

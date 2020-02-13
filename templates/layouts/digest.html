@@ -1,84 +1,73 @@
 <!-- START TITLE DEF -->
 {{ define "title" }}
-  <title>Convo Digest</title>
+<title>Convo Digest</title>
 {{ end }}
 <!-- END TITLE DEF -->
 
 <!-- START CONTENT DEF -->
 {{ define "content" }}
-  <h1>Convo Digest</h1>
-  <p class="mb30">
-    {{ if and .Events .Items }}
-      You have unread messages and upcoming events on Convo.
-    {{ else }}
-      {{ if .Events }}
-        You have upcoming events on Convo.
-      {{ else }}
-        You have unread messages on Convo.
-      {{ end }}
-    {{ end }}
-    <a href="https://app.hiconvo.com">Login to Convo</a> to respond.
-  </p>
+<h1>Convo Digest</h1>
+<p class="mb30">
+  {{ if and .Events .Items }} You have unread messages and upcoming events on
+  Convo. {{ else }} {{ if .Events }} You have upcoming events on Convo. {{ else
+  }} You have unread messages on Convo. {{ end }} {{ end }}
+  <a href="https://app.convo.events">Login to Convo</a> to respond.
+</p>
 
-  <!-- START UPCOMING EVENTS -->
-  {{ if .Events }}
-    <h2>Upcoming Events</h2>
+<!-- START UPCOMING EVENTS -->
+{{ if .Events }}
+<h2>Upcoming Events</h2>
 
-    {{ range .Events }}
-      <table role="presentation" class="message">
+{{ range .Events }}
+<table role="presentation" class="message">
+  <tr>
+    <td class="wrapper">
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0">
         <tr>
-          <td class="wrapper">
-            <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-              <tr>
-                <td>
-                  <p>
-                    <strong>{{ .Name }}</strong>
-                    <br />
-                    <span>{{ .Time }}</span>
-                    <br />
-                    <span>{{ .Address }}</span>
-                  </p>
-                </td>
-              </tr>
-            </table>
+          <td>
+            <p>
+              <strong>{{ .Name }}</strong>
+              <br />
+              <span>{{ .Time }}</span>
+              <br />
+              <span>{{ .Address }}</span>
+            </p>
           </td>
         </tr>
       </table>
-    {{ end }}
-  {{ else }}
-  {{ end }}
-  <!-- END UPCOMING EVENTS -->
+    </td>
+  </tr>
+</table>
 
-  <!-- START UNREAD MESSAGES -->
-  {{ if .Items }}
-    <h2>Unread Messages</h2>
+{{ end }} {{ else }} {{ end }}
+<!-- END UPCOMING EVENTS -->
 
-    {{ range .Items }}
-      <div class="digest-item">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-          <tbody>
-            <tr>
-              <td align="left">
-                <h3>{{ .Subject }}</h3>
-                {{ range .Messages }}
-                  {{ template "message" .}}
-                {{ end }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    {{ end }}
-  {{ else }}
-  {{ end }}
-  <!-- END UNREAD MESSAGES -->
+<!-- START UNREAD MESSAGES -->
+{{ if .Items }}
+<h2>Unread Messages</h2>
+
+{{ range .Items }}
+<div class="digest-item">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+    <tbody>
+      <tr>
+        <td align="left">
+          <h3>{{ .Subject }}</h3>
+          {{ range .Messages }} {{ template "message" .}} {{ end }}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{{ end }} {{ else }} {{ end }}
+<!-- END UNREAD MESSAGES -->
 {{ end }}
 <!-- END CONTENT DEF -->
 
 <!-- START FOOTER DEF -->
 {{ define "footer" }}
-  <p>
-    <a href="https://app.hiconvo.com">Login to Convo</a>
-  </p>
+<p>
+  <a href="https://app.convo.events">Login to Convo</a>
+</p>
 {{ end }}
 <!-- END FOOTER DEF -->

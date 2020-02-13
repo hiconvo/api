@@ -6,7 +6,7 @@ info:
   title: Convo API
   version: 1.0.0
 
-host: api.hiconvo.com
+host: api.convo.events
 schemes:
 - http
 consumes:
