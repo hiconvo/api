@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"html"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -83,7 +84,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 	}
 	// With userPointers in hand, we can now create the thread object. We set
 	// the original requestor `ou` as the owner.
-	thread, tErr := models.NewThread(payload.Subject, &ou, userPointers)
+	thread, tErr := models.NewThread(html.UnescapeString(payload.Subject), &ou, userPointers)
 	if tErr != nil {
 		bjson.HandleInternalServerError(w, tErr, errMsgCreateThread)
 		return
@@ -135,7 +136,7 @@ func GetThread(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type updateThreadPayload struct {
-	Subject string `validate:"max=255,nonzero"`
+	Subject string `validate:"nonzero,max=255"`
 }
 
 // UpdateThread allows the owner to change the thread subject
@@ -158,7 +159,7 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	thread.Subject = payload.Subject
+	thread.Subject = html.UnescapeString(payload.Subject)
 
 	if _, err := thread.CommitWithTransaction(tx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
