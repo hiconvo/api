@@ -33,7 +33,7 @@ var (
 //
 // Request payload:
 type createUserPayload struct {
-	Email     string `validate:"regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4}$"`
+	Email     string `validate:"nonzero,regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]+$"`
 	FirstName string `validate:"nonzero"`
 	LastName  string
 	Password  string `validate:"min=8"`
@@ -132,7 +132,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type authenticateUserPayload struct {
-	Email    string `validate:"regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4}$"`
+	Email    string `validate:"nonzero,regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]+$"`
 	Password string `validate:"nonzero"`
 }
 
@@ -498,7 +498,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type forgotPasswordPayload struct {
-	Email string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+	Email string `validate:"nonzero,regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]+$"`
 }
 
 // ForgotPassword sends a set password email to the user whose email
@@ -544,7 +544,7 @@ func SendVerifyEmail(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type addEmailPayload struct {
-	Email string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+	Email string `validate:"nonzero,regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]+$"`
 }
 
 // AddEmail sends a verification email to the given email with a magic link that,
@@ -588,7 +588,7 @@ func AddEmail(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type removeEmailPayload struct {
-	Email string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+	Email string `validate:"nonzero,regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]+$"`
 }
 
 // RemoveEmail removes the given email from the user's account.
@@ -622,7 +622,7 @@ func RemoveEmail(w http.ResponseWriter, r *http.Request) {
 //
 // Request payload:
 type makePrimaryEmailPayload struct {
-	Email string `validate:"regexp=^([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2\\,4})?$"`
+	Email string `validate:"nonzero,regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]+$"`
 }
 
 // MakeEmailPrimary removes the given email from the user's account.
