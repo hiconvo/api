@@ -108,6 +108,11 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		for i := range thread.UserKeys {
 			models.MarkAsRead(&message, thread.UserKeys[i])
 		}
+
+		// Name the thread after the link, if included
+		if message.HasLink() && message.Link.Title != "" {
+			thread.Subject = message.Link.Title
+		}
 	}
 
 	if err := message.Commit(ctx); err != nil {
