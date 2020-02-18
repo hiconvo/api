@@ -2,13 +2,15 @@ package models
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"cloud.google.com/go/datastore"
 	"github.com/gosimple/slug"
+
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/queue"
 )
 
@@ -133,12 +135,14 @@ func (t *Thread) Commit(ctx context.Context) error {
 		t.CreatedAt = time.Now()
 	}
 
-	key, kErr := db.Client.Put(ctx, t.Key, t)
-	if kErr != nil {
-		return kErr
+	key, err := db.Client.Put(ctx, t.Key, t)
+	if err != nil {
+		return errors.E(errors.Op("thread.Commit"), err)
 	}
+
 	t.ID = key.Encode()
 	t.Key = key
+
 	return nil
 }
 
@@ -193,13 +197,21 @@ func (t *Thread) OwnerIs(u *User) bool {
 
 // AddUser adds a user to the thread.
 func (t *Thread) AddUser(u *User) error {
+	op := errors.Op("thread.AddUser")
+
 	// Cannot add owner or duplicate.
 	if t.OwnerIs(u) || t.HasUser(u) {
-		return errors.New("This user is already a member of this convo")
+		return errors.E(op,
+			map[string]string{"message": "This user is already a member of this Convo"},
+			http.StatusBadRequest,
+			errors.Str("already member"))
 	}
 
 	if len(t.UserKeys) >= 11 {
-		return errors.New("This convo has the maximum number of users")
+		return errors.E(op,
+			map[string]string{"message": "This Convo has the maximum number of users"},
+			http.StatusBadRequest,
+			errors.Str("max users"))
 	}
 
 	t.UserKeys = append(t.UserKeys, u.Key)
@@ -237,9 +249,9 @@ func (t *Thread) RemoveUser(u *User) {
 }
 
 func (t *Thread) Send(ctx context.Context) error {
-	messages, merr := GetMessagesByThread(ctx, t)
-	if merr != nil {
-		return merr
+	messages, err := GetMessagesByThread(ctx, t)
+	if err != nil {
+		return err
 	}
 
 	return sendThread(t, messages)

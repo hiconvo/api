@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
@@ -228,9 +229,7 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := thread.AddUser(&userToBeAdded); err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"message": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -272,9 +271,11 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 	if thread.HasUser(&userToBeRemoved) && (thread.OwnerIs(&u) || userToBeRemoved.Key.Equal(u.Key)) {
 		// The owner cannot remove herself
 		if userToBeRemoved.Key.Equal(thread.OwnerKey) {
-			bjson.WriteJSON(w, map[string]string{
-				"message": "The convo owner cannot be removed from the convo",
-			}, http.StatusBadRequest)
+			bjson.HandleError(w, errors.E(
+				errors.Op("handlers.RemoveUserFromThread"),
+				map[string]string{"message": "The Convo owner cannot be removed from the convo"},
+				http.StatusBadRequest,
+			))
 			return
 		}
 
