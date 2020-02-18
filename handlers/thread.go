@@ -60,9 +60,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 
 	userStructs, userKeys, emails, err := extractUsers(ctx, ou, payload.Users)
 	if err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"users": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 

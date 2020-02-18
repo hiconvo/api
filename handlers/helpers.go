@@ -2,20 +2,21 @@ package handlers
 
 import (
 	"context"
-	"net/http"
-	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
-	"strings"
 	"strconv"
+	"strings"
 
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/models"
 )
 
 func extractUsers(ctx context.Context, owner models.User, users []interface{}) ([]models.User, []*datastore.Key, []string, error) {
+	op := errors.Op("handlers.extractUsers")
 	// Make sure users actually exist and remove both duplicate ids and
 	// the owner's id from users
 	//
@@ -35,20 +36,26 @@ func extractUsers(ctx context.Context, owner models.User, users []interface{}) (
 		// First, check that the user key points to an array of maps.
 		userMap, ok := u.(map[string]interface{})
 		if !ok {
-			return []models.User{}, []*datastore.Key{}, []string{}, errors.New("Users must be an array of objects")
+			return []models.User{}, []*datastore.Key{}, []string{}, errors.E(op,
+				map[string]string{"users": "Users must be an array of objects"},
+				http.StatusBadRequest)
 		}
 		// Second, check that the `id` or `email` key points to a string.
 		id, idOk := userMap["id"].(string)
 		email, emailOk := userMap["email"].(string)
 		if !idOk && !emailOk {
-			return []models.User{}, []*datastore.Key{}, []string{}, errors.New("User ID or email must be a string")
+			return []models.User{}, []*datastore.Key{}, []string{}, errors.E(op,
+				map[string]string{"users": "User ID or email must be a string"},
+				http.StatusBadRequest)
 		}
 
 		// If we recived an email, save it to the emails slice if we haven't
 		// seen it before and keep going.
 		if emailOk {
 			if !isEmail(email) {
-				return []models.User{}, []*datastore.Key{}, []string{}, fmt.Errorf(`"%s" is not a valid email`, email)
+				return []models.User{}, []*datastore.Key{}, []string{}, errors.E(op,
+					map[string]string{"users": fmt.Sprintf(`"%s" is not a valid email`, email)},
+					http.StatusBadRequest)
 			}
 
 			if _, seenOk := seenEmails[email]; !seenOk {
@@ -68,7 +75,9 @@ func extractUsers(ctx context.Context, owner models.User, users []interface{}) (
 		// Decode the key and add to the slice.
 		key, err := datastore.DecodeKey(id)
 		if err != nil {
-			return []models.User{}, []*datastore.Key{}, []string{}, errors.New("Invalid users")
+			return []models.User{}, []*datastore.Key{}, []string{}, errors.E(op,
+				map[string]string{"users": "Invalid users"},
+				http.StatusBadRequest)
 		}
 		userKeys = append(userKeys, key)
 	}
@@ -76,7 +85,9 @@ func extractUsers(ctx context.Context, owner models.User, users []interface{}) (
 	// If this fails, then the input was not valid.
 	userStructs := make([]models.User, len(userKeys))
 	if err := db.Client.GetMulti(ctx, userKeys, userStructs); err != nil {
-		return []models.User{}, []*datastore.Key{}, []string{}, errors.New("Invalid users")
+		return []models.User{}, []*datastore.Key{}, []string{}, errors.E(op,
+			map[string]string{"users": "Invalid users"},
+			http.StatusBadRequest)
 	}
 
 	return userStructs, userKeys, emails, nil
@@ -85,14 +96,16 @@ func extractUsers(ctx context.Context, owner models.User, users []interface{}) (
 // createUserByEmail is a bit of a misnomer since we actually get or create
 // the user.
 func createUserByEmail(ctx context.Context, email string) (models.User, error) {
+	op := errors.Op("handlers.createUserByEmail")
+
 	u, created, err := models.GetOrCreateUserByEmail(ctx, email)
 	if err != nil {
-		return models.User{}, errors.New("Could not create user")
+		return models.User{}, errors.E(op, err)
 	}
 	if created {
 		err = u.Commit(ctx)
 		if err != nil {
-			return models.User{}, errors.New("Could not save user")
+			return models.User{}, errors.E(op, err)
 		}
 
 		u.Welcome(ctx)
@@ -102,6 +115,8 @@ func createUserByEmail(ctx context.Context, email string) (models.User, error) {
 }
 
 func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []*datastore.Key, error) {
+	op := errors.Op("handlers.createUsersByEmail")
+
 	var userStructs []models.User
 	var userKeys []*datastore.Key
 
@@ -111,7 +126,7 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 	for i := range emails {
 		u, created, err := models.GetOrCreateUserByEmail(ctx, emails[i])
 		if err != nil {
-			return []models.User{}, []*datastore.Key{}, err
+			return userStructs, userKeys, errors.E(op, err)
 		}
 
 		if created {
@@ -125,7 +140,7 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 
 	keys, err := db.Client.PutMulti(ctx, usersToCommitKeys, usersToCommit)
 	if err != nil {
-		return []models.User{}, []*datastore.Key{}, err
+		return []models.User{}, []*datastore.Key{}, errors.E(op, err)
 	}
 
 	for i := range keys {
@@ -142,7 +157,7 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 }
 
 func isEmail(email string) bool {
-	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,14}$`)
 	return re.MatchString(strings.ToLower(email))
 }
 
