@@ -1,3 +1,4 @@
 static
 .local-object-store
 .env
+coverage.txt
