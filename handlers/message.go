@@ -66,7 +66,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 	// Validate raw data
 	var payload createMessagePayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -184,7 +184,7 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 	// Validate raw data
 	var payload createMessagePayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -258,7 +258,7 @@ func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
 	// Validate raw data
 	var payload deleteMessagePayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 

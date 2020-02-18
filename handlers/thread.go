@@ -46,7 +46,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 	// Validate raw data
 	var payload createThreadPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -155,7 +155,7 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 
 	var payload updateThreadPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 

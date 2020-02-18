@@ -47,7 +47,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	var payload createUserPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -143,7 +143,7 @@ func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 
 	var payload authenticateUserPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -190,7 +190,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 
 	var payload oauth.UserPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -340,7 +340,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	var payload updateUserPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -382,7 +382,7 @@ func UpdatePassword(w http.ResponseWriter, r *http.Request) {
 
 	var payload updatePasswordPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -432,7 +432,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	var payload verifyEmailPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -510,7 +510,7 @@ func ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	var payload forgotPasswordPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -556,7 +556,7 @@ func AddEmail(w http.ResponseWriter, r *http.Request) {
 
 	var payload addEmailPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -599,7 +599,7 @@ func RemoveEmail(w http.ResponseWriter, r *http.Request) {
 
 	var payload removeEmailPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -633,7 +633,7 @@ func MakeEmailPrimary(w http.ResponseWriter, r *http.Request) {
 
 	var payload makePrimaryEmailPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -691,7 +691,7 @@ func PutAvatar(w http.ResponseWriter, r *http.Request) {
 
 	var payload putAvatarPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 

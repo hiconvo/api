@@ -58,7 +58,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	// Validate raw data
 	var payload createEventPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -217,7 +217,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 
 	var payload updateEventPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -318,7 +318,7 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 	var payload deleteEventPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -577,7 +577,7 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 
 	var payload magicRSVPPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.WriteJSON(w, err.ToMapString(), http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 

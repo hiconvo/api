@@ -1,28 +1,20 @@
 package validate
 
 import (
-	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/imdario/mergo"
 	"github.com/microcosm-cc/bluemonday"
 	"gopkg.in/validator.v2"
+
+	"github.com/hiconvo/api/errors"
 )
 
-type ValidationError struct {
-	errors map[string]string
-}
-
-func (v *ValidationError) Error() string {
-	return fmt.Sprintf("%v", v.errors)
-}
-
-func (v *ValidationError) ToMapString() map[string]string {
-	return v.errors
-}
-
 // Do validates the payload and casts it onto the given struct.
-func Do(dst interface{}, payload map[string]interface{}) *ValidationError {
+func Do(dst interface{}, payload map[string]interface{}) error {
+	op := errors.Op("validate.Do")
+
 	// Remove whitespace from any string fields and lower case email
 	cleaned := make(map[string]interface{})
 	for k, v := range payload {
@@ -40,11 +32,11 @@ func Do(dst interface{}, payload map[string]interface{}) *ValidationError {
 	}
 
 	if err := mergo.Map(dst, cleaned); err != nil {
-		return &ValidationError{map[string]string{"message": err.Error()}}
+		return errors.E(op, map[string]string{"message": err.Error()}, http.StatusBadRequest, err)
 	}
 
 	if errs := validator.Validate(dst); errs != nil {
-		return &ValidationError{normalizeErrors(errs)}
+		return errors.E(op, normalizeErrors(errs), http.StatusBadRequest)
 	}
 
 	return nil
