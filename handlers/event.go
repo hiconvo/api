@@ -86,9 +86,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	place, err := places.Resolve(ctx, payload.PlaceID)
 	if err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"placeId": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -249,9 +247,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	if payload.PlaceID != "" && payload.PlaceID != event.PlaceID {
 		place, err := places.Resolve(ctx, payload.PlaceID)
 		if err != nil {
-			bjson.WriteJSON(w, map[string]string{
-				"placeID": err.Error(),
-			}, http.StatusBadRequest)
+			bjson.HandleError(w, err)
 			return
 		}
 
@@ -387,9 +383,7 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := event.AddUser(&userToBeAdded); err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"message": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -474,9 +468,7 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := event.AddRSVP(&u); err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"message": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 

@@ -2,8 +2,8 @@ package models
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"cloud.google.com/go/datastore"
@@ -11,6 +11,7 @@ import (
 	"github.com/gosimple/slug"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/queue"
 )
 
@@ -189,13 +190,18 @@ func (e *Event) HasRSVP(u *User) bool {
 
 // AddUser adds a user to the event.
 func (e *Event) AddUser(u *User) error {
+	op := errors.Op("event.AddUser")
 	// Cannot add owner or duplicate.
 	if e.OwnerIs(u) || e.HasUser(u) {
-		return errors.New("This user is already invited to this event")
+		return errors.E(op,
+			map[string]string{"message": "This user is already invited to this event"},
+			http.StatusBadRequest)
 	}
 
 	if len(e.UserKeys) >= 300 {
-		return errors.New("This event has the maximum number of guests")
+		return errors.E(op,
+			map[string]string{"message": "This event has the maximum number of guests"},
+			http.StatusBadRequest)
 	}
 
 	e.UserKeys = append(e.UserKeys, u.Key)
@@ -227,7 +233,10 @@ func (e *Event) RemoveUser(u *User) {
 func (e *Event) AddRSVP(u *User) error {
 	// Cannot add owner or duplicate.
 	if e.OwnerIs(u) || e.HasRSVP(u) {
-		return errors.New("This user has already RSVP'd")
+		return errors.E(
+			errors.Op("event.AddRSVP"),
+			map[string]string{"message": "This user has already RSVP'd"},
+			http.StatusBadRequest)
 	}
 
 	e.RSVPKeys = append(e.RSVPKeys, u.Key)

@@ -2,11 +2,13 @@ package places
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"strings"
 
 	"googlemaps.github.io/maps"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -73,7 +75,10 @@ func Resolve(ctx context.Context, placeID string) (Place, error) {
 		Fields:  fields,
 	})
 	if err != nil {
-		return Place{}, err
+		return Place{}, errors.E(errors.Op("places.Resolve"),
+			map[string]string{"placeId": "Could not resolve place"},
+			http.StatusBadRequest,
+			err)
 	}
 
 	address := strings.Join([]string{result.Name, result.FormattedAddress}, ", ")

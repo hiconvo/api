@@ -51,9 +51,7 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.AddContact(&userToBeAdded); err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"message": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 

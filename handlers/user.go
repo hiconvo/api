@@ -604,9 +604,7 @@ func RemoveEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.RemoveEmail(payload.Email); err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"message": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -638,9 +636,7 @@ func MakeEmailPrimary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.MakeEmailPrimary(payload.Email); err != nil {
-		bjson.WriteJSON(w, map[string]string{
-			"message": err.Error(),
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 
