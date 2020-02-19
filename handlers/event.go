@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
@@ -44,14 +45,16 @@ type createEventPayload struct {
 
 // CreateEvent creates a event
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
+	var op errors.Op = "handlers.CreateEvent"
+
 	ctx := r.Context()
 	ou := middleware.UserFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 
 	if !ou.IsRegistered() {
-		bjson.WriteJSON(w, map[string]string{
+		bjson.HandleError(w, errors.E(op, map[string]string{
 			"message": "You must verify your account before you can create events",
-		}, http.StatusBadRequest)
+		}, http.StatusBadRequest))
 		return
 	}
 
@@ -63,24 +66,24 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(payload.Users) > 300 {
-		bjson.WriteJSON(w, map[string]string{
+		bjson.HandleError(w, errors.E(op, map[string]string{
 			"message": "Events have a maximum of 300 members",
-		}, http.StatusBadRequest)
+		}, http.StatusBadRequest))
 		return
 	}
 
 	timestamp, err := time.Parse(time.RFC3339, payload.Timestamp)
 	if err != nil {
-		bjson.WriteJSON(w, map[string]string{
+		bjson.HandleError(w, errors.E(op, map[string]string{
 			"time": "Invalid time",
-		}, http.StatusBadRequest)
+		}, http.StatusBadRequest))
 		return
 	}
 
 	if timestamp.Before(time.Now()) {
-		bjson.WriteJSON(w, map[string]string{
+		bjson.HandleError(w, errors.E(op, map[string]string{
 			"time": "Your event must be in the future",
-		}, http.StatusBadRequest)
+		}, http.StatusBadRequest))
 		return
 	}
 
@@ -377,8 +380,7 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 		userToBeAdded, err = models.GetUserByID(ctx, maybeUserID)
 	}
 	if err != nil {
-		log.Print(err)
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, err)
 		return
 	}
 

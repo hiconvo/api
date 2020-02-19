@@ -6,6 +6,8 @@ import (
 
 	"github.com/aymerick/douceur/inliner"
 	"github.com/russross/blackfriday/v2"
+
+	"github.com/hiconvo/api/errors"
 )
 
 type renderable struct {
@@ -17,16 +19,18 @@ func (r *renderable) RenderMarkdown(data string) {
 }
 
 func (r renderable) RenderHTML(tplName string, data interface{}) (string, error) {
+	var op errors.Op = "renderable.RenderHTML"
+
 	tmpl, _ := templates[tplName]
 
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "base.html", data); err != nil {
-		return "", err
+		return "", errors.E(op, err)
 	}
 
 	html, err := inliner.Inline(buf.String())
 	if err != nil {
-		return html, err
+		return html, errors.E(op, err)
 	}
 
 	return html, nil

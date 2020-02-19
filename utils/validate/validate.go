@@ -35,8 +35,8 @@ func Do(dst interface{}, payload map[string]interface{}) error {
 		return errors.E(op, map[string]string{"message": err.Error()}, http.StatusBadRequest, err)
 	}
 
-	if errs := validator.Validate(dst); errs != nil {
-		return errors.E(op, normalizeErrors(errs), http.StatusBadRequest)
+	if err := validator.Validate(dst); err != nil {
+		return errors.E(op, normalizeErrors(err), http.StatusBadRequest, err)
 	}
 
 	return nil

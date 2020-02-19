@@ -3,10 +3,10 @@ package oauth
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -39,19 +39,21 @@ func Verify(ctx context.Context, payload UserPayload) (ProviderPayload, error) {
 }
 
 func verifyGoogleToken(ctx context.Context, payload UserPayload) (ProviderPayload, error) {
+	var op errors.Op = "oauth.verifyGoogleToken"
+
 	url := fmt.Sprintf("https://oauth2.googleapis.com/tokeninfo?id_token=%s", payload.Token)
 	res, err := http.Get(url)
 	if err != nil {
-		return ProviderPayload{}, err
+		return ProviderPayload{}, errors.E(op, err)
 	}
 
 	data := make(map[string]string)
-	if decodeErr := json.NewDecoder(res.Body).Decode(&data); decodeErr != nil {
-		return ProviderPayload{}, decodeErr
+	if err = json.NewDecoder(res.Body).Decode(&data); err != nil {
+		return ProviderPayload{}, errors.E(op, err)
 	}
 
 	if data["aud"] != googleAud {
-		return ProviderPayload{}, errors.New("Aud did not match")
+		return ProviderPayload{}, errors.E(op, http.StatusBadRequest, errors.Str("Aud did not match"))
 	}
 
 	return ProviderPayload{
@@ -65,17 +67,19 @@ func verifyGoogleToken(ctx context.Context, payload UserPayload) (ProviderPayloa
 }
 
 func verifyFacebookToken(ctx context.Context, payload UserPayload) (ProviderPayload, error) {
+	var op errors.Op = "oauth.verifyFacebookToken"
+
 	url := fmt.Sprintf(
 		"https://graph.facebook.com/me?fields=id,email,first_name,last_name&access_token=%s",
 		payload.Token)
 	res, err := http.Get(url)
 	if err != nil {
-		return ProviderPayload{}, err
+		return ProviderPayload{}, errors.E(op, err)
 	}
 
 	data := make(map[string]interface{})
-	if decodeErr := json.NewDecoder(res.Body).Decode(&data); decodeErr != nil {
-		return ProviderPayload{}, decodeErr
+	if err = json.NewDecoder(res.Body).Decode(&data); err != nil {
+		return ProviderPayload{}, errors.E(op, err)
 	}
 
 	tempAvatarURI := fmt.Sprintf(

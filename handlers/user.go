@@ -196,7 +196,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 
 	oauthPayload, err := oauth.Verify(ctx, payload)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgCreds, http.StatusBadRequest)
+		bjson.HandleError(w, err)
 		return
 	}
 

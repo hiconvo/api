@@ -7,11 +7,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
 	"cloud.google.com/go/datastore"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -35,16 +37,18 @@ func Verify(kenc, b64ts, salt, sig string) bool {
 }
 
 func GetTimeFromB64(b64ts string) (time.Time, error) {
+	var op errors.Op = "magic.GetTimeFromB64"
+
 	byteTime, err := base64.URLEncoding.DecodeString(b64ts)
 	if err != nil {
-		return time.Now(), err
+		return time.Now(), errors.E(op, http.StatusBadRequest, err)
 	}
 
 	stringTime := bytes.NewBuffer(byteTime).String()
 
 	intTime, err := strconv.Atoi(stringTime)
 	if err != nil {
-		return time.Now(), err
+		return time.Now(), errors.E(op, http.StatusBadRequest, err)
 	}
 
 	timestamp := time.Unix(int64(intTime), 0)
