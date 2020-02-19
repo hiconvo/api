@@ -92,7 +92,7 @@ func upperFirstLetter(s string) string {
 		s = strings.ToUpper(string(r)) + s[1:]
 	}
 
-	if s[len(s)-2:] == "Id" {
+	if len(s) >= 2 && s[len(s)-2:] == "Id" {
 		s = s[:len(s)-2] + "ID"
 	}
 

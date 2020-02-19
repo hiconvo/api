@@ -28,7 +28,7 @@ type Message struct {
 	Reads     []*Read        `json:"-"        datastore:",noindex"`
 	PhotoKeys []string       `json:"-"`
 	Photos    []string       `json:"photos"   datastore:"-"`
-	Link      *og.LinkData   `json:"link"`
+	Link      *og.LinkData   `json:"link"     datastore:",noindex"`
 }
 
 func NewThreadMessage(u *User, t *Thread, body, photoKey string, link og.LinkData) (Message, error) {

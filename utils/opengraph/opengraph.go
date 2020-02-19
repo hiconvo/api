@@ -11,11 +11,11 @@ import (
 
 type LinkData struct {
 	URL         string `json:"url"`
-	Image       string `json:"image"`
-	Favicon     string `json:"favicon"`
+	Image       string `json:"image" datastore:",noindex"`
+	Favicon     string `json:"favicon" datastore:",noindex"`
 	Title       string `json:"title"`
 	Site        string `json:"site"`
-	Description string `json:"description"`
+	Description string `json:"description" datastore:",noindex"`
 }
 
 func Extract(ctx context.Context, text string) LinkData {
