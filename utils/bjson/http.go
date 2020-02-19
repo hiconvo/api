@@ -25,6 +25,8 @@ func HandleError(w http.ResponseWriter, e error) {
 			return
 		}
 
+		log.Printf("Client Error: %v", e)
+
 		WriteJSON(w, r.ClientReport(), code)
 		return
 	}
