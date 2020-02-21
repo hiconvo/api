@@ -124,9 +124,10 @@ func sendThread(thread *Thread, messages []*Message) error {
 		}
 
 		plainText, html, err := template.RenderThread(template.Thread{
-			Subject:  thread.Subject,
-			FromName: sender.FullName,
-			Messages: tplMessages,
+			Subject:   thread.Subject,
+			FromName:  sender.FullName,
+			Messages:  tplMessages,
+			MagicLink: magic.NewLink(curUser.Key, curUser.Token, "magic"),
 		})
 		if err != nil {
 			return err
@@ -319,8 +320,9 @@ func sendDigest(digestList []DigestItem, upcomingEvents []*Event, user *User) er
 
 	// Render all the stuff
 	plainText, html, err := template.RenderDigest(template.Digest{
-		Items:  items,
-		Events: templateEvents,
+		Items:     items,
+		Events:    templateEvents,
+		MagicLink: magic.NewLink(user.Key, user.Token, "magic"),
 	})
 	if err != nil {
 		return err

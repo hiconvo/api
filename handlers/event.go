@@ -590,13 +590,13 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !magic.Verify(
+	if err := magic.Verify(
 		payload.UserID,
 		payload.Timestamp,
 		strconv.FormatBool(!e.IsInFuture()),
 		payload.Signature,
-	) {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
+	); err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 

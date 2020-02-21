@@ -485,7 +485,7 @@ func TestUpdatePassword(t *testing.T) {
 				"password":  "12345678",
 			},
 			ExpectStatus: http.StatusUnauthorized,
-			ExpectBody:   `{"message":"This link is not valid anymore"}`,
+			ExpectBody:   `{"message":"Unauthorized"}`,
 		},
 		{
 			GivenBody: map[string]interface{}{
@@ -495,7 +495,7 @@ func TestUpdatePassword(t *testing.T) {
 				"password":  "12345678",
 			},
 			ExpectStatus: http.StatusUnauthorized,
-			ExpectBody:   `{"message":"This link is not valid anymore"}`,
+			ExpectBody:   `{"message":"Unauthorized"}`,
 		},
 	}
 
@@ -605,7 +605,7 @@ func TestVerifyEmail(t *testing.T) {
 				"email":     existingUser1.Email,
 			},
 			ExpectStatus: http.StatusUnauthorized,
-			ExpectBody:   `{"message":"This link is not valid anymore"}`,
+			ExpectBody:   `{"message":"Unauthorized"}`,
 		},
 
 		// Bad signature
@@ -617,7 +617,7 @@ func TestVerifyEmail(t *testing.T) {
 				"email":     existingUser2.Email,
 			},
 			ExpectStatus: http.StatusUnauthorized,
-			ExpectBody:   `{"message":"This link is not valid anymore"}`,
+			ExpectBody:   `{"message":"Unauthorized"}`,
 			VerifyFunc:   func() bool { return true },
 		},
 
@@ -827,6 +827,10 @@ func TestForgotPassword(t *testing.T) {
 	}
 }
 
+///////////////////////
+// POST /users/avatar
+///////////////////////
+
 func TestUploadAvatar(t *testing.T) {
 	payload := `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==","x":0,"y":0,"size":9.195831298828125}`
 
@@ -838,5 +842,51 @@ func TestUploadAvatar(t *testing.T) {
 		JSON(payload).
 		Headers(getAuthHeader(user.Token)).
 		Expect(t).
-		Status(http.StatusOK)
+		Status(http.StatusOK).
+		End()
+}
+
+///////////////////////
+// POST /users/magic
+///////////////////////
+
+func TestMagicLogin(t *testing.T) {
+	user, _ := createTestUser(t)
+	link := magic.NewLink(user.Key, user.Token, "magic")
+	split := strings.Split(link, "/")
+	kenc := split[len(split)-3]
+	b64ts := split[len(split)-2]
+	sig := split[len(split)-1]
+
+	tests := []struct {
+		GivenBody    string
+		ExpectStatus int
+	}{
+		{
+			GivenBody:    fmt.Sprintf(`{"signature": "%s", "timestamp": "%s", "userId": "%s"}`, sig, b64ts, kenc),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			GivenBody:    `{}`,
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			GivenBody:    fmt.Sprintf(`{"signature": "random", "timestamp": "%s", "userId": "%s"}`, b64ts, kenc),
+			ExpectStatus: http.StatusUnauthorized,
+		},
+		{
+			GivenBody:    fmt.Sprintf(`{"signature": "%s", "timestamp": "%s", "userId": "nonsense"}`, sig, b64ts),
+			ExpectStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, testCase := range tests {
+		apitest.New("MagicLogin").
+			Handler(th).
+			Post("/users/magic").
+			JSON(testCase.GivenBody).
+			Expect(t).
+			Status(testCase.ExpectStatus).
+			End()
+	}
 }

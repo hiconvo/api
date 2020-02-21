@@ -17,7 +17,7 @@
         You have unread messages on Convo.
       {{ end }}
     {{ end }}
-    <a href="https://app.convo.events">Login to Convo</a> to respond.
+    <a href="{{ .MagicLink }}">Login to Convo</a> to respond.
   </p>
 
   <!-- START UPCOMING EVENTS -->
@@ -79,7 +79,7 @@
 <!-- START FOOTER DEF -->
 {{ define "footer" }}
 <p>
-  <a href="https://app.convo.events">Login to Convo</a>
+  <a href="{{ .MagicLink }}">Login to Convo</a>
 </p>
 {{ end }}
 <!-- END FOOTER DEF -->

@@ -40,7 +40,7 @@ func WithUser(next http.Handler) http.Handler {
 			}
 		}
 
-		bjson.HandleError(w, errors.E(op, http.StatusUnauthorized))
+		bjson.HandleError(w, errors.E(op, http.StatusUnauthorized, errors.Str("NoToken")))
 	})
 }
 

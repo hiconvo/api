@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
@@ -392,13 +392,18 @@ func UpdatePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !magic.Verify(
+	if err := magic.Verify(
 		payload.UserID,
 		payload.Timestamp,
 		u.PasswordDigest,
 		payload.Signature,
-	) {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
+	); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	if err := magic.TooOld(payload.Timestamp); err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -406,6 +411,7 @@ func UpdatePassword(w http.ResponseWriter, r *http.Request) {
 	u.IsLocked = false
 	u.AddEmail(u.Email)
 	u.DeriveProperties()
+
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
 		return
@@ -445,25 +451,18 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	femail := strings.ToLower(payload.Email)
 	salt := femail + strconv.FormatBool(u.HasEmail(femail))
 
-	if !magic.Verify(
+	if err := magic.Verify(
 		payload.UserID,
 		payload.Timestamp,
 		salt,
 		payload.Signature,
-	) {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
+	); err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
-	// If the link is more than 30 min old, don't trust it.
-	ts, err := magic.GetTimeFromB64(payload.Timestamp)
-	if err != nil {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
-		return
-	}
-	diff := time.Now().Sub(ts)
-	if diff.Hours() > float64(24) {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+	if err := magic.TooOld(payload.Timestamp); err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -706,6 +705,51 @@ func PutAvatar(w http.ResponseWriter, r *http.Request) {
 	u.Avatar = avatarURL
 	if err := u.Commit(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSave)
+		return
+	}
+
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+// MagicLogin Endpoint: POST /users/magic
+//
+// Request payload:
+type magicLoginPayload struct {
+	Signature string `validate:"nonzero"`
+	Timestamp string `validate:"nonzero"`
+	UserID    string `validate:"nonzero"`
+}
+
+// MagicLogin logs in a user with a signature.
+func MagicLogin(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.MagicLogin")
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+
+	var payload magicLoginPayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	u, err := models.GetUserByID(ctx, payload.UserID)
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err, http.StatusUnauthorized))
+		return
+	}
+
+	if err := magic.Verify(
+		payload.UserID,
+		payload.Timestamp,
+		u.Token,
+		payload.Signature,
+	); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	if err := magic.TooOld(payload.Timestamp); err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
