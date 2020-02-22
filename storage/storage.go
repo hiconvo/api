@@ -49,6 +49,16 @@ var (
 
 const _nullKey string = "null-key"
 
+func init() {
+	// Make sure the storage dir exists when doing local dev
+	if _avatarBucketName[:8] == "file:///" {
+		log.Printf("storage.init: Creating temporary bucket storage at %s", _avatarBucketName)
+		if err := os.MkdirAll(_avatarBucketName[7:], 0777); err != nil {
+			panic(fmt.Errorf("storage.getURLPrefix: %v", err))
+		}
+	}
+}
+
 // GetAvatarURLFromKey returns the public URL of the given avatar key.
 func GetAvatarURLFromKey(key string) string {
 	return getURLPrefix(_avatarBucketName) + key
@@ -254,12 +264,7 @@ func getFallbackBucketName() string {
 // "https://storage.googleapis.com/convo-avatarts/". It also ensures
 // that, when doing local development, the local bucket directory exists.
 func getURLPrefix(bucketName string) string {
-	// Make sure the storage dir exists when doing local dev
 	if bucketName[:8] == "file:///" {
-		if err := os.MkdirAll(bucketName[7:], 0777); err != nil {
-			panic(fmt.Errorf("storage.getURLPrefix: %v", err))
-		}
-
 		return bucketName + "/"
 	}
 
