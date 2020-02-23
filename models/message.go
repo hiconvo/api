@@ -216,6 +216,13 @@ func (m *Message) Commit(ctx context.Context) error {
 	return nil
 }
 
+func (m *Message) Delete(ctx context.Context) error {
+	if err := db.Client.Delete(ctx, m.Key); err != nil {
+		return err
+	}
+	return nil
+}
+
 func GetMessagesByThread(ctx context.Context, t *Thread) ([]*Message, error) {
 	return GetMessagesByKey(ctx, t.Key)
 }
@@ -248,7 +255,7 @@ func GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*Message, error)
 
 	// TODO: Get Query#Order to work above.
 	sort.Slice(messages, func(i, j int) bool {
-		return messages[i].Timestamp.After(messages[j].Timestamp)
+		return messages[i].Timestamp.Before(messages[j].Timestamp)
 	})
 
 	return messages, nil
@@ -265,16 +272,20 @@ func GetUnhydratedMessagesByUser(ctx context.Context, u *User) ([]*Message, erro
 }
 
 func GetMessageByID(ctx context.Context, id string) (Message, error) {
+	var op errors.Op = "models.GetMessageByID"
 	var message Message
 
 	key, err := datastore.DecodeKey(id)
 	if err != nil {
-		return message, err
+		return message, errors.E(op, err)
 	}
 
-	err = db.Client.Get(ctx, key, message)
+	err = db.Client.Get(ctx, key, &message)
+	if err != nil {
+		return message, errors.E(op, err)
+	}
 
-	return message, fmt.Errorf("models.GetMessageByID: %v", err)
+	return message, nil
 }
 
 func removeLink(body string, linkPtr *og.LinkData) string {

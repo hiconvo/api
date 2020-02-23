@@ -60,6 +60,7 @@ func CreateRouter() http.Handler {
 	txThreadSubrouter.HandleFunc("/threads/{threadID}", UpdateThread).Methods("PATCH")
 	txThreadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", AddUserToThread).Methods("POST")
 	txThreadSubrouter.HandleFunc("/threads/{threadID}/users/{userID}", RemoveUserFromThread).Methods("DELETE")
+	txThreadSubrouter.HandleFunc("/threads/{threadID}/messages/{messageID}", DeleteThreadMessage).Methods("DELETE")
 
 	// JSON + Auth endpoints
 	authSubrouter := jsonSubrouter.NewRoute().Subrouter()
@@ -107,6 +108,7 @@ func CreateRouter() http.Handler {
 
 	eventSubrouter.HandleFunc("/events/{eventID}/messages", GetMessagesByEvent).Methods("GET")
 	eventSubrouter.HandleFunc("/events/{eventID}/messages", AddMessageToEvent).Methods("POST")
+	eventSubrouter.HandleFunc("/events/{eventID}/messages/{messageID}", DeleteEventMessage).Methods("DELETE")
 
 	eventSubrouter.HandleFunc("/events/{eventID}/reads", MarkEventAsRead).Methods("POST")
 

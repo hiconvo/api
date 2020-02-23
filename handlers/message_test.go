@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
@@ -62,7 +63,7 @@ func TestAddMessageToThread(t *testing.T) {
 		{
 			GivenAuthHeader: getAuthHeader(member1.Token),
 			GivenAuthor:     member1,
-			GivenBody:       `{"body": "hello"}`,
+			GivenBody:       `{}`,
 			ExpectCode:      http.StatusBadRequest,
 			ExpectPhoto:     false,
 		},
@@ -96,6 +97,75 @@ func TestAddMessageToThread(t *testing.T) {
 				tt.Assert(jsonpath.NotPresent("$.photos[0]"))
 			}
 		}
+
+		tt.End()
+	}
+}
+
+////////////////////////////////////
+// DELETE /threads/{id}/messages/{id} Tests
+////////////////////////////////////
+
+func TestDeleteThreadMessage(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member1, _ := createTestUser(t)
+	member2, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	thread := createTestThread(t, &owner, []*models.User{&member1, &member2})
+	message1 := createTestThreadMessage(t, &owner, &thread)
+	message2 := createTestThreadMessage(t, &member1, &thread)
+
+	message2encoded, err := json.Marshal(message2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	tests := []struct {
+		GivenAuthHeader map[string]string
+		GivenMessageID  string
+		ExpectCode      int
+		ExpectBody      string
+	}{
+		// Owner tries to delete top message
+		{
+			GivenAuthHeader: getAuthHeader(owner.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectBody:      `{"message":"You cannot delete this message"}`,
+		},
+		// Member tries to delete message he does not own
+		{
+			GivenAuthHeader: getAuthHeader(member1.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		// NonMember
+		{
+			GivenAuthHeader: getAuthHeader(nonmember.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		// EmptyPayload
+		{
+			GivenAuthHeader: getAuthHeader(member1.Token),
+			GivenMessageID:  message2.ID,
+			ExpectCode:      http.StatusOK,
+			ExpectBody:      string(message2encoded),
+		},
+	}
+
+	for _, testCase := range tests {
+		apitest.New("DeleteThreadMessage").
+			Handler(th).
+			Delete(fmt.Sprintf("/threads/%s/messages/%s", thread.ID, testCase.GivenMessageID)).
+			JSON(`{}`).
+			Headers(testCase.GivenAuthHeader).
+			Expect(t).
+			Status(testCase.ExpectCode).
+			Body(testCase.ExpectBody).
+			End()
 	}
 }
 
@@ -195,7 +265,7 @@ func TestAddMessageToEvent(t *testing.T) {
 		{
 			GivenAuthHeader: getAuthHeader(member1.Token),
 			GivenAuthor:     member1,
-			GivenBody:       `{"body": "hello"}`,
+			GivenBody:       `{}`,
 			ExpectCode:      http.StatusBadRequest,
 			ExpectPhoto:     false,
 		},
@@ -229,6 +299,8 @@ func TestAddMessageToEvent(t *testing.T) {
 				tt.Assert(jsonpath.NotPresent("$.photos[0]"))
 			}
 		}
+
+		tt.End()
 	}
 }
 

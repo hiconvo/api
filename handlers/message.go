@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
@@ -149,6 +150,68 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, message, http.StatusCreated)
 }
 
+// DeleteThreadMessage Endpoint: DELETE /threads/:threadId/messages/:messageId
+func DeleteThreadMessage(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.DeleteThreadMessage")
+	ctx := r.Context()
+	tx, _ := db.TransactionFromContext(ctx)
+	u := middleware.UserFromContext(ctx)
+	thread := middleware.ThreadFromContext(ctx)
+	vars := mux.Vars(r)
+	id := vars["messageID"]
+
+	messages, err := models.GetMessagesByThread(ctx, &thread)
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	var m *models.Message
+	for i := range messages {
+		if messages[i].ID == id {
+			m = messages[i]
+		}
+	}
+
+	if m == nil {
+		bjson.HandleError(w, errors.E(op, errors.Str("NotChild"), http.StatusNotFound))
+		return
+	}
+
+	// Check permissions
+	if !(m.OwnerIs(&u)) {
+		bjson.HandleError(w, errors.E(op, errors.Str("NoPermission"), http.StatusNotFound))
+		return
+	}
+
+	// The top message from a thread cannot be deleted.
+	if messages[0].Key.Equal(m.Key) {
+		bjson.HandleError(w, errors.E(op, errors.Str("DeleteHeadMessage"),
+			map[string]string{"message": "You cannot delete this message"},
+			http.StatusBadRequest))
+		return
+	}
+
+	if err := m.Delete(ctx); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	thread.ResponseCount--
+
+	if _, err := thread.CommitWithTransaction(tx); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	bjson.WriteJSON(w, m, http.StatusOK)
+}
+
 // GetMessagesByEvent Endpoint: GET /events/{id}/messages
 
 // GetMessagesByEvent gets the messages from the given thread.
@@ -237,6 +300,40 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bjson.WriteJSON(w, message, http.StatusCreated)
+}
+
+// DeleteEventMessage Endpoint: DELETE /events/:eventId/messages/:messageId
+func DeleteEventMessage(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.DeleteEventMessage")
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	event := middleware.EventFromContext(ctx)
+	vars := mux.Vars(r)
+	id := vars["messageID"]
+
+	m, err := models.GetMessageByID(ctx, id)
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
+		return
+	}
+
+	if !event.Key.Equal(m.ParentKey) {
+		bjson.HandleError(w, errors.E(op, errors.Str("MessageNotInEvent"), http.StatusNotFound))
+		return
+	}
+
+	// Check permissions
+	if !(m.OwnerIs(&u)) {
+		bjson.HandleError(w, errors.E(op, errors.Str("NoPermission"), http.StatusNotFound))
+		return
+	}
+
+	if err := m.Delete(ctx); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	bjson.WriteJSON(w, m, http.StatusOK)
 }
 
 // DeletePhotoFromMessage Endpoint: DELETE /messages/:id/photos
