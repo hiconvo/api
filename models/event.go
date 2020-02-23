@@ -195,12 +195,14 @@ func (e *Event) AddUser(u *User) error {
 	if e.OwnerIs(u) || e.HasUser(u) {
 		return errors.E(op,
 			map[string]string{"message": "This user is already invited to this event"},
+			errors.Str("AlreadyHasUser"),
 			http.StatusBadRequest)
 	}
 
 	if len(e.UserKeys) >= 300 {
 		return errors.E(op,
 			map[string]string{"message": "This event has the maximum number of guests"},
+			errors.Str("UserCountLimit"),
 			http.StatusBadRequest)
 	}
 
@@ -235,7 +237,8 @@ func (e *Event) AddRSVP(u *User) error {
 	if e.OwnerIs(u) || e.HasRSVP(u) {
 		return errors.E(
 			errors.Op("event.AddRSVP"),
-			map[string]string{"message": "This user has already RSVP'd"},
+			errors.Str("AlreadyHasRSVP"),
+			map[string]string{"message": "You have already RSVP'd"},
 			http.StatusBadRequest)
 	}
 

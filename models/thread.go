@@ -204,14 +204,14 @@ func (t *Thread) AddUser(u *User) error {
 		return errors.E(op,
 			map[string]string{"message": "This user is already a member of this Convo"},
 			http.StatusBadRequest,
-			errors.Str("already member"))
+			errors.Str("AlreadyHasUser"))
 	}
 
 	if len(t.UserKeys) >= 11 {
 		return errors.E(op,
 			map[string]string{"message": "This Convo has the maximum number of users"},
 			http.StatusBadRequest,
-			errors.Str("max users"))
+			errors.Str("UserCountLimit"))
 	}
 
 	t.UserKeys = append(t.UserKeys, u.Key)
