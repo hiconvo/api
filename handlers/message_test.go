@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/thelpers"
@@ -115,6 +116,12 @@ func TestDeleteThreadMessage(t *testing.T) {
 	message1 := createTestThreadMessage(t, &owner, &thread)
 	message2 := createTestThreadMessage(t, &member1, &thread)
 
+	// We reduce the time resolution because the test database does not
+	// store it with native resolution. When the time is retrieved
+	// from the database, the result of json marshaling is a couple fewer
+	// digits than marshaling the native time without truncating, which
+	// causes the tests to fail.
+	message2.Timestamp = message2.Timestamp.Truncate(time.Microsecond)
 	message2encoded, err := json.Marshal(message2)
 	if err != nil {
 		t.Error(err)
@@ -301,6 +308,79 @@ func TestAddMessageToEvent(t *testing.T) {
 		}
 
 		tt.End()
+	}
+}
+
+////////////////////////////////////
+// DELETE /events/{id}/messages/{id} Tests
+////////////////////////////////////
+
+func TestDeleteEventMessage(t *testing.T) {
+	owner, _ := createTestUser(t)
+	member1, _ := createTestUser(t)
+	member2, _ := createTestUser(t)
+	nonmember, _ := createTestUser(t)
+	event := createTestEvent(t, &owner, []*models.User{&member1, &member2})
+	message1 := createTestEventMessage(t, &owner, event)
+	message2 := createTestEventMessage(t, &member1, event)
+
+	// We reduce the time resolution because the test database does not
+	// store it with native resolution. When the time is retrieved
+	// from the database, the result of json marshaling is a couple fewer
+	// digits than marshaling the native time without truncating, which
+	// causes the tests to fail.
+	message2.Timestamp = message2.Timestamp.Truncate(time.Microsecond)
+	message2encoded, err := json.Marshal(message2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	tests := []struct {
+		GivenAuthHeader map[string]string
+		GivenMessageID  string
+		ExpectCode      int
+		ExpectBody      string
+	}{
+		// Owner tries to delete top message
+		{
+			GivenAuthHeader: getAuthHeader(owner.Token),
+			GivenMessageID:  message2.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		// Member tries to delete message he does not own
+		{
+			GivenAuthHeader: getAuthHeader(member1.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		// NonMember
+		{
+			GivenAuthHeader: getAuthHeader(nonmember.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		// EmptyPayload
+		{
+			GivenAuthHeader: getAuthHeader(member1.Token),
+			GivenMessageID:  message2.ID,
+			ExpectCode:      http.StatusOK,
+			ExpectBody:      string(message2encoded),
+		},
+	}
+
+	for _, testCase := range tests {
+		apitest.New("DeleteThreadMessage").
+			Handler(th).
+			Delete(fmt.Sprintf("/events/%s/messages/%s", event.ID, testCase.GivenMessageID)).
+			JSON(`{}`).
+			Headers(testCase.GivenAuthHeader).
+			Expect(t).
+			Status(testCase.ExpectCode).
+			Body(testCase.ExpectBody).
+			End()
 	}
 }
 

@@ -36,7 +36,7 @@ jobs:
       - run:
           name: run tests
           command: |
-            go test ./... -coverprofile=coverage.txt -covermode=atomic
+            go test ./... -coverprofile=coverage.txt -covermode=count
 
       - run:
           name: upload coverage report

@@ -59,21 +59,23 @@ type createMessagePayload struct {
 
 // AddMessageToThread adds a message to the given thread.
 func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.AddMessageToThread")
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
+	tx, _ := db.TransactionFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 
 	// Validate raw data
 	var payload createMessagePayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.HandleError(w, err)
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
 	// Check permissions
 	if !(thread.OwnerIs(&u) || thread.HasUser(&u)) {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(op, http.StatusNotFound, errors.Str("NoPermission")))
 		return
 	}
 
@@ -82,7 +84,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 	if payload.Blob != "" {
 		photoKey, err = storage.PutPhotoFromBlob(ctx, thread.ID, payload.Blob)
 		if err != nil {
-			bjson.WriteJSON(w, errMsgUpload, http.StatusBadRequest)
+			bjson.HandleError(w, errors.E(op, err))
 			return
 		}
 	}
@@ -98,7 +100,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		link,
 	)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
@@ -117,19 +119,24 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := message.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
-	if err := thread.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
+	if _, err := thread.CommitWithTransaction(tx); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
 	if thread.ResponseCount == 1 {
 		// Only send the first message as an email
 		if err := thread.SendAsync(ctx); err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgSendMessage)
+			bjson.HandleError(w, errors.E(op, err))
 			return
 		}
 	} else {
@@ -332,6 +339,8 @@ func DeleteEventMessage(w http.ResponseWriter, r *http.Request) {
 		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
+
+	m.User = models.MapUserToUserPartial(&u)
 
 	bjson.WriteJSON(w, m, http.StatusOK)
 }
