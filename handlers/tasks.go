@@ -17,6 +17,8 @@ import (
 )
 
 func CreateDigest(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.CreateDigest")
+
 	if val := r.Header.Get("X-Appengine-Cron"); val != "true" {
 		bjson.WriteJSON(w, map[string]string{
 			"message": "Not found",
@@ -35,17 +37,12 @@ func CreateDigest(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if err != nil {
-			bjson.HandleInternalServerError(w, err, map[string]string{
-				"message": "Could not send all digests",
-			})
+			bjson.HandleError(w, errors.E(op, err))
 			return
 		}
 
 		if err := user.SendDigest(ctx); err != nil {
-			bjson.HandleInternalServerError(w, err, map[string]string{
-				"message": fmt.Sprintf("Could not send digests for user %v", user.ID),
-			})
-			return
+			log.Alarm(errors.E(op, errors.Errorf("could not send digest for user='%v': %v", user.ID, err)))
 		}
 	}
 

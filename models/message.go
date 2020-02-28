@@ -107,19 +107,24 @@ func (m *Message) Save() ([]datastore.Property, error) {
 }
 
 func (m *Message) Load(ps []datastore.Property) error {
+	op := errors.Op("message.Load")
+
 	if err := datastore.LoadStruct(m, ps); err != nil {
 		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
 			if mismatch.FieldName != "ThreadKey" {
-				return err
+				return errors.E(op, err)
 			}
 		} else {
-			return err
+			return errors.E(op, err)
 		}
 	}
 
 	for _, p := range ps {
 		if p.Name == "ThreadKey" || p.Name == "ParentKey" {
-			k := p.Value.(*datastore.Key)
+			k, ok := p.Value.(*datastore.Key)
+			if !ok {
+				return errors.E(op, errors.Errorf("could not load parent key into message='%v'", m.ID))
+			}
 			m.ParentKey = k
 			m.ParentID = k.Encode()
 		}
