@@ -129,6 +129,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		place.UTCOffset,
 		&ou,
 		userPointers,
+		[]*models.User{},
 		payload.GuestsCanInvite)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)

@@ -20,6 +20,8 @@ type Event struct {
 	ID              string           `json:"id"       datastore:"-"`
 	OwnerKey        *datastore.Key   `json:"-"`
 	Owner           *UserPartial     `json:"owner"    datastore:"-"`
+	HostKeys        []*datastore.Key `json:"-"`
+	HostPartials    []*UserPartial   `json:"hosts"    datastore:"-"`
 	UserKeys        []*datastore.Key `json:"-"`
 	UserPartials    []*UserPartial   `json:"users"    datastore:"-"`
 	Users           []*User          `json:"-"        datastore:"-"`
@@ -45,19 +47,20 @@ func NewEvent(
 	timestamp time.Time,
 	utcOffset int,
 	owner *User,
+	hosts []*User,
 	users []*User,
 	guestsCanInvite bool,
 ) (Event, error) {
 	// Get all of the users' keys, remove duplicates, and check whether
 	// the owner was included in the users slice
 	userKeys := make([]*datastore.Key, 0)
-	seen := make(map[string]struct{})
+	seenUsers := make(map[string]struct{})
 	hasOwner := false
 	for _, u := range users {
-		if _, alreadySeen := seen[u.ID]; alreadySeen {
+		if _, alreadySeen := seenUsers[u.ID]; alreadySeen {
 			continue
 		}
-		seen[u.ID] = struct{}{}
+		seenUsers[u.ID] = struct{}{}
 		if u.Key.Equal(owner.Key) {
 			hasOwner = true
 		}
@@ -70,10 +73,32 @@ func NewEvent(
 		users = append(users, owner)
 	}
 
+	// Get all of the hosts' keys, remove duplicates, and check whether
+	// hosts were included in the users slice.
+	hostKeys := make([]*datastore.Key, 0)
+	seenHosts := make(map[string]struct{})
+	for _, u := range hosts {
+		if _, alreadySeenHost := seenHosts[u.ID]; alreadySeenHost {
+			continue
+		}
+
+		seenHosts[u.ID] = struct{}{}
+		hostKeys = append(hostKeys, u.Key)
+
+		if _, alreadySeenUser := seenUsers[u.ID]; alreadySeenUser {
+			continue
+		}
+
+		seenUsers[u.ID] = struct{}{}
+		userKeys = append(userKeys, u.Key)
+	}
+
 	return Event{
 		Key:             datastore.IncompleteKey("Event", nil),
 		OwnerKey:        owner.Key,
 		Owner:           MapUserToUserPartial(owner),
+		HostKeys:        hostKeys,
+		HostPartials:    MapUsersToUserPartials(hosts),
 		UserKeys:        userKeys,
 		UserPartials:    MapUsersToUserPartials(users),
 		Users:           users,
@@ -176,6 +201,16 @@ func (e *Event) HasUser(u *User) bool {
 
 func (e *Event) OwnerIs(u *User) bool {
 	return e.OwnerKey.Equal(u.Key)
+}
+
+func (e *Event) HostIs(u *User) bool {
+	for _, k := range e.HostKeys {
+		if k.Equal(u.Key) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (e *Event) HasRSVP(u *User) bool {
@@ -408,6 +443,7 @@ func GetEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, err
 		eventUsers := userPtrs[start : start+idxs[i]]
 
 		eventRSVPs := make([]*User, 0)
+		eventHosts := make([]*User, 0)
 		var owner *User
 		for j := range eventUsers {
 
@@ -418,12 +454,17 @@ func GetEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, err
 			if events[i].OwnerIs(eventUsers[j]) {
 				owner = eventUsers[j]
 			}
+
+			if events[i].HostIs(eventUsers[i]) {
+				eventHosts = append(eventHosts, eventUsers[i])
+			}
 		}
 
 		events[i].Owner = MapUserToUserPartial(owner)
 		events[i].UserPartials = MapUsersToUserPartials(eventUsers)
 		events[i].Users = eventUsers
 		events[i].RSVPs = MapUsersToUserPartials(eventRSVPs)
+		events[i].HostPartials = MapUsersToUserPartials(eventHosts)
 		events[i].UserReads = MapReadsToUserPartials(events[i], eventUsers)
 
 		start += idxs[i]
@@ -445,6 +486,7 @@ func handleGetEvent(ctx context.Context, key *datastore.Key, e Event) (Event, er
 
 	userPointers := make([]*User, len(users))
 	rsvpPointers := make([]*User, 0)
+	hostPointers := make([]*User, 0)
 	var owner User
 	for i := range users {
 		userPointers[i] = &users[i]
@@ -456,11 +498,16 @@ func handleGetEvent(ctx context.Context, key *datastore.Key, e Event) (Event, er
 		if e.HasRSVP(userPointers[i]) {
 			rsvpPointers = append(rsvpPointers, userPointers[i])
 		}
+
+		if e.HostIs(userPointers[i]) {
+			hostPointers = append(hostPointers, userPointers[i])
+		}
 	}
 
 	e.UserPartials = MapUsersToUserPartials(userPointers)
 	e.Users = userPointers
 	e.Owner = MapUserToUserPartial(&owner)
+	e.HostPartials = MapUsersToUserPartials(hostPointers)
 	e.RSVPs = MapUsersToUserPartials(rsvpPointers)
 	e.UserReads = MapReadsToUserPartials(&e, userPointers)
 
