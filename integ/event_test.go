@@ -1,6 +1,7 @@
 package router_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -8,6 +9,8 @@ import (
 	"testing"
 
 	"cloud.google.com/go/datastore"
+	"github.com/steinfletcher/apitest"
+	jsonpath "github.com/steinfletcher/apitest-jsonpath"
 
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/magic"
@@ -24,18 +27,19 @@ func TestCreateEvent(t *testing.T) {
 	u2, _ := createTestUser(t)
 
 	type test struct {
-		AuthHeader  map[string]string
-		InData      map[string]interface{}
-		OutCode     int
-		OutOwnerID  string
-		OutMemberID string
+		Name           string
+		AuthHeader     map[string]string
+		GivenPayload   map[string]interface{}
+		ExpectStatus   int
+		ExpectOwnerID  string
+		ExpectMemberID string
 	}
 
 	tests := []test{
-		// Good payload
 		{
+			Name:       "Good payload",
 			AuthHeader: getAuthHeader(u1.Token),
-			InData: map[string]interface{}{
+			GivenPayload: map[string]interface{}{
 				"name":        random.String(10),
 				"placeId":     random.String(10),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
@@ -46,13 +50,14 @@ func TestCreateEvent(t *testing.T) {
 					},
 				},
 			},
-			OutCode:     http.StatusCreated,
-			OutOwnerID:  u1.ID,
-			OutMemberID: u2.ID,
+			ExpectStatus:   http.StatusCreated,
+			ExpectOwnerID:  u1.ID,
+			ExpectMemberID: u2.ID,
 		},
 		{
+			Name:       "Good payload with new email",
 			AuthHeader: getAuthHeader(u1.Token),
-			InData: map[string]interface{}{
+			GivenPayload: map[string]interface{}{
 				"name":        random.String(10),
 				"placeId":     random.String(10),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
@@ -66,14 +71,14 @@ func TestCreateEvent(t *testing.T) {
 					},
 				},
 			},
-			OutCode:     http.StatusCreated,
-			OutOwnerID:  u1.ID,
-			OutMemberID: u2.ID,
+			ExpectStatus:   http.StatusCreated,
+			ExpectOwnerID:  u1.ID,
+			ExpectMemberID: u2.ID,
 		},
-		// Bad payload
 		{
+			Name:       "Bad payload",
 			AuthHeader: getAuthHeader(u1.Token),
-			InData: map[string]interface{}{
+			GivenPayload: map[string]interface{}{
 				"name":        random.String(10),
 				"placeId":     random.String(10),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
@@ -84,12 +89,28 @@ func TestCreateEvent(t *testing.T) {
 					},
 				},
 			},
-			OutCode: http.StatusBadRequest,
+			ExpectStatus: http.StatusBadRequest,
 		},
-		// Bad headers
 		{
+			Name:       "Bad payload with time in past",
+			AuthHeader: getAuthHeader(u1.Token),
+			GivenPayload: map[string]interface{}{
+				"name":        random.String(10),
+				"placeId":     random.String(10),
+				"timestamp":   "2019-09-08T01:19:20.915Z",
+				"description": random.String(10),
+				"users": []map[string]string{
+					map[string]string{
+						"id": u2.ID,
+					},
+				},
+			},
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			Name:       "Bad headers",
 			AuthHeader: map[string]string{"boop": "beep"},
-			InData: map[string]interface{}{
+			GivenPayload: map[string]interface{}{
 				"name":        random.String(10),
 				"placeId":     random.String(10),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
@@ -100,21 +121,30 @@ func TestCreateEvent(t *testing.T) {
 					},
 				},
 			},
-			OutCode: http.StatusUnauthorized,
+			ExpectStatus: http.StatusUnauthorized,
 		},
 	}
 
 	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/events", testCase.InData, testCase.AuthHeader)
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode < 400 {
-			gotOwnerID, _ := respData["owner"].(map[string]interface{})["id"].(string)
-			thelpers.AssertEqual(t, gotOwnerID, testCase.OutOwnerID)
-
-			gotParticipantID, _ := respData["users"].([]interface{})[0].(map[string]interface{})["id"].(string)
-			thelpers.AssertEqual(t, gotParticipantID, testCase.OutMemberID)
+		encoded, err := json.Marshal(testCase.GivenPayload)
+		if err != nil {
+			t.Error(err)
 		}
+
+		tt := apitest.New(fmt.Sprintf("CreateEvent: %s", testCase.Name)).
+			Handler(th).
+			Post("/events").
+			Headers(testCase.AuthHeader).
+			JSON(string(encoded)).
+			Expect(t).
+			Status(testCase.ExpectStatus)
+
+		if testCase.ExpectStatus < 300 {
+			tt.Assert(jsonpath.Equal("$.owner.id", testCase.ExpectOwnerID))
+			tt.Assert(jsonpath.Contains("$.users[*].id", testCase.ExpectMemberID))
+		}
+
+		tt.End()
 	}
 }
 

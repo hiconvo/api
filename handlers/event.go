@@ -128,8 +128,8 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		timestamp,
 		place.UTCOffset,
 		&ou,
-		userPointers,
 		[]*models.User{},
+		userPointers,
 		payload.GuestsCanInvite)
 	if err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)

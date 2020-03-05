@@ -115,6 +115,7 @@ func createTestEvent(t *testing.T, owner *models.User, users []*models.User) *mo
 		time.Now().Add(time.Duration(1000000000000000)),
 		-7*60*60,
 		owner,
+		[]*models.User{},
 		users,
 		false)
 	if err != nil {
