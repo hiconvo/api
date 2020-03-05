@@ -66,7 +66,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 
 	newUsers, newUserKeys, err := createUsersByEmail(ctx, emails)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreateThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -83,14 +83,14 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 	}
 	// With userPointers in hand, we can now create the thread object. We set
 	// the original requestor `ou` as the owner.
-	thread, tErr := models.NewThread(html.UnescapeString(payload.Subject), &ou, userPointers)
-	if tErr != nil {
-		bjson.HandleInternalServerError(w, tErr, errMsgCreateThread)
+	thread, err := models.NewThread(html.UnescapeString(payload.Subject), &ou, userPointers)
+	if err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if err := thread.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -107,7 +107,7 @@ func GetThreads(w http.ResponseWriter, r *http.Request) {
 
 	threads, err := models.GetThreadsByUser(ctx, &u, p)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgGetThreads)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -161,15 +161,14 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 	thread.Subject = html.UnescapeString(payload.Subject)
 
 	if _, err := thread.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
-
 	bjson.WriteJSON(w, thread, http.StatusOK)
 }
 
@@ -188,7 +187,7 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := thread.Delete(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -233,12 +232,12 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 
 	// Save the thread.
 	if _, err := thread.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -258,9 +257,9 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["userID"]
 
-	userToBeRemoved, uErr := models.GetUserByID(ctx, userID)
-	if uErr != nil {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+	userToBeRemoved, err := models.GetUserByID(ctx, userID)
+	if err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -285,12 +284,12 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 
 	// Save the thread.
 	if _, err := thread.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 

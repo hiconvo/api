@@ -605,6 +605,10 @@ func GetUserByID(ctx context.Context, id string) (User, error) {
 	}
 
 	if err := db.Client.Get(ctx, key, &u); err != nil {
+		if err == datastore.ErrNoSuchEntity {
+			return u, errors.E(errors.Op("models.GetUserByID"), http.StatusNotFound, err)
+		}
+
 		return u, err
 	}
 
