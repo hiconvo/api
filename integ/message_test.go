@@ -1,4 +1,4 @@
-package handlers_test
+package router_test
 
 import (
 	"encoding/json"
@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hiconvo/api/models"
-	"github.com/hiconvo/api/utils/thelpers"
 	"github.com/steinfletcher/apitest"
 	jsonpath "github.com/steinfletcher/apitest-jsonpath"
+
+	"github.com/hiconvo/api/models"
+	"github.com/hiconvo/api/utils/thelpers"
 )
 
 ////////////////////////////////////

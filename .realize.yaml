@@ -4,7 +4,7 @@ settings:
     interval: 0s
 schema:
 - name: main
-  path: ./main
+  path: ./cmd/main
   commands:
     run:
       status: true

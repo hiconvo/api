@@ -1,4 +1,4 @@
-package handlers
+package router
 
 import (
 	"net/http"
@@ -6,13 +6,14 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/db"
+	. "github.com/hiconvo/api/handlers"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/utils/bjson"
 )
 
-// CreateRouter mounts all of the application's endpoints. It is exported so
+// New mounts all of the application's endpoints. It is exported so
 // that it can be used in tests.
-func CreateRouter() http.Handler {
+func New() http.Handler {
 	router := mux.NewRouter()
 	router.Use(middleware.WithErrorReporting)
 
