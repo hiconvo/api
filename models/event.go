@@ -51,16 +51,22 @@ func NewEvent(
 	users []*User,
 	guestsCanInvite bool,
 ) (Event, error) {
+	if timestamp.Before(time.Now()) {
+		return Event{}, errors.E(errors.Op("models.NewEvent"), map[string]string{
+			"time": "Your event must be in the future",
+		}, http.StatusBadRequest)
+	}
+
 	// Get all of the users' keys, remove duplicates, and check whether
 	// the owner was included in the users slice
 	userKeys := make([]*datastore.Key, 0)
-	seenUsers := make(map[string]struct{})
+	seenUsers := make(map[string]*User)
 	hasOwner := false
 	for _, u := range users {
 		if _, alreadySeen := seenUsers[u.ID]; alreadySeen {
 			continue
 		}
-		seenUsers[u.ID] = struct{}{}
+		seenUsers[u.ID] = u
 		if u.Key.Equal(owner.Key) {
 			hasOwner = true
 		}
@@ -89,8 +95,13 @@ func NewEvent(
 			continue
 		}
 
-		seenUsers[u.ID] = struct{}{}
+		seenUsers[u.ID] = u
 		userKeys = append(userKeys, u.Key)
+	}
+
+	allUsers := make([]*User, 0)
+	for _, u := range seenUsers {
+		allUsers = append(allUsers, u)
 	}
 
 	return Event{
@@ -101,7 +112,7 @@ func NewEvent(
 		HostPartials:    MapUsersToUserPartials(hosts),
 		UserKeys:        userKeys,
 		UserPartials:    MapUsersToUserPartials(users),
-		Users:           users,
+		Users:           allUsers,
 		Name:            name,
 		PlaceID:         placeID,
 		Address:         address,

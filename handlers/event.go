@@ -39,6 +39,7 @@ type createEventPayload struct {
 	PlaceID         string `validate:"max=255,nonzero"`
 	Timestamp       string `validate:"max=255,nonzero"`
 	Description     string `validate:"max=4097,nonzero"`
+	Hosts           []interface{}
 	Users           []interface{}
 	GuestsCanInvite bool
 }
@@ -80,33 +81,41 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if timestamp.Before(time.Now()) {
-		bjson.HandleError(w, errors.E(op, map[string]string{
-			"time": "Your event must be in the future",
-		}, http.StatusBadRequest))
-		return
-	}
-
 	place, err := places.Resolve(ctx, payload.PlaceID)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
 
-	userStructs, userKeys, emails, err := extractUsers(ctx, ou, payload.Users)
+	// Handle users
+	userStructs, _, emails, err := extractUsers(ctx, ou, payload.Users)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
 
-	newUsers, newUserKeys, err := createUsersByEmail(ctx, emails)
+	newUsers, _, err := createUsersByEmail(ctx, emails)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	userStructs = append(userStructs, newUsers...)
-	userKeys = append(userKeys, newUserKeys...)
+
+	// Same thing for hosts
+	hostStructs, _, hostEmails, err := extractUsers(ctx, ou, payload.Hosts)
+	if err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	newHosts, _, err := createUsersByEmail(ctx, hostEmails)
+	if err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	hostStructs = append(hostStructs, newHosts...)
 
 	// Create the event object.
 	//
@@ -115,6 +124,10 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	userPointers := make([]*models.User, len(userStructs))
 	for i := range userStructs {
 		userPointers[i] = &userStructs[i]
+	}
+	hostPointers := make([]*models.User, len(hostStructs))
+	for i := range hostStructs {
+		hostPointers[i] = &hostStructs[i]
 	}
 	// With userPointers in hand, we can now create the event object. We set
 	// the original requestor `ou` as the owner.
@@ -128,21 +141,21 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		timestamp,
 		place.UTCOffset,
 		&ou,
-		[]*models.User{},
+		hostPointers,
 		userPointers,
 		payload.GuestsCanInvite)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreateEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if err := event.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if err := event.SendInvitesAsync(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSendEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
