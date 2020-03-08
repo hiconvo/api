@@ -25,6 +25,7 @@ import (
 func TestCreateEvent(t *testing.T) {
 	u1, _ := createTestUser(t)
 	u2, _ := createTestUser(t)
+	u3, _ := createTestUser(t)
 
 	type test struct {
 		Name           string
@@ -33,6 +34,7 @@ func TestCreateEvent(t *testing.T) {
 		ExpectStatus   int
 		ExpectOwnerID  string
 		ExpectMemberID string
+		ExpectHostID   string
 	}
 
 	tests := []test{
@@ -75,6 +77,34 @@ func TestCreateEvent(t *testing.T) {
 			ExpectOwnerID:  u1.ID,
 			ExpectMemberID: u2.ID,
 		},
+		{
+			Name:       "Good payload with host",
+			AuthHeader: getAuthHeader(u1.Token),
+			GivenPayload: map[string]interface{}{
+				"name":        random.String(10),
+				"placeId":     random.String(10),
+				"timestamp":   "2119-09-08T01:19:20.915Z",
+				"description": random.String(10),
+				"users": []map[string]string{
+					map[string]string{
+						"id": u2.ID,
+					},
+					map[string]string{
+						"email": "test@test.com",
+					},
+				},
+				"hosts": []map[string]string{
+					map[string]string{
+						"id": u3.ID,
+					},
+				},
+			},
+			ExpectStatus:   http.StatusCreated,
+			ExpectOwnerID:  u1.ID,
+			ExpectMemberID: u2.ID,
+			ExpectHostID:   u3.ID,
+		},
+
 		{
 			Name:       "Bad payload",
 			AuthHeader: getAuthHeader(u1.Token),
@@ -142,6 +172,9 @@ func TestCreateEvent(t *testing.T) {
 		if testCase.ExpectStatus < 300 {
 			tt.Assert(jsonpath.Equal("$.owner.id", testCase.ExpectOwnerID))
 			tt.Assert(jsonpath.Contains("$.users[*].id", testCase.ExpectMemberID))
+			if testCase.ExpectHostID != "" {
+				tt.Assert(jsonpath.Contains("$.hosts[*].id", testCase.ExpectHostID))
+			}
 		}
 
 		tt.End()

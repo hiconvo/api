@@ -156,6 +156,27 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 	return userStructs, userKeys, nil
 }
 
+func extractAndCreateUsers(ctx context.Context, ou models.User, users []interface{}) ([]*models.User, error) {
+	userStructs, _, emails, err := extractUsers(ctx, ou, users)
+	if err != nil {
+		return []*models.User{}, err
+	}
+
+	newUsers, _, err := createUsersByEmail(ctx, emails)
+	if err != nil {
+		return []*models.User{}, err
+	}
+
+	userStructs = append(userStructs, newUsers...)
+
+	userPointers := make([]*models.User, len(userStructs))
+	for i := range userStructs {
+		userPointers[i] = &userStructs[i]
+	}
+
+	return userPointers, nil
+}
+
 func isEmail(email string) bool {
 	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,14}$`)
 	return re.MatchString(strings.ToLower(email))

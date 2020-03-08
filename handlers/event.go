@@ -88,47 +88,19 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle users
-	userStructs, _, emails, err := extractUsers(ctx, ou, payload.Users)
+	users, err := extractAndCreateUsers(ctx, ou, payload.Users)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
-
-	newUsers, _, err := createUsersByEmail(ctx, emails)
-	if err != nil {
-		bjson.HandleError(w, err)
-		return
-	}
-
-	userStructs = append(userStructs, newUsers...)
 
 	// Same thing for hosts
-	hostStructs, _, hostEmails, err := extractUsers(ctx, ou, payload.Hosts)
+	hosts, err := extractAndCreateUsers(ctx, ou, payload.Hosts)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
 
-	newHosts, _, err := createUsersByEmail(ctx, hostEmails)
-	if err != nil {
-		bjson.HandleError(w, err)
-		return
-	}
-
-	hostStructs = append(hostStructs, newHosts...)
-
-	// Create the event object.
-	//
-	// Create another slice of pointers to the user structs to satisfy the
-	// event functions below.
-	userPointers := make([]*models.User, len(userStructs))
-	for i := range userStructs {
-		userPointers[i] = &userStructs[i]
-	}
-	hostPointers := make([]*models.User, len(hostStructs))
-	for i := range hostStructs {
-		hostPointers[i] = &hostStructs[i]
-	}
 	// With userPointers in hand, we can now create the event object. We set
 	// the original requestor `ou` as the owner.
 	event, err := models.NewEvent(
@@ -141,8 +113,8 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		timestamp,
 		place.UTCOffset,
 		&ou,
-		hostPointers,
-		userPointers,
+		hosts,
+		users,
 		payload.GuestsCanInvite)
 	if err != nil {
 		bjson.HandleError(w, err)
@@ -333,13 +305,6 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the users
-	users := make([]models.User, len(event.UserKeys))
-	if err := db.Client.GetMulti(ctx, event.UserKeys, users); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
-		return
-	}
-
 	if err := event.Delete(ctx); err != nil {
 		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
 		return
@@ -379,7 +344,7 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	maybeUserID := vars["userID"]
 
-	if !(event.OwnerIs(&u) || (event.GuestsCanInvite && event.HasUser(&u))) {
+	if !(event.OwnerIs(&u) || event.HostIs(&u) || (event.GuestsCanInvite && event.HasUser(&u))) {
 		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
 		return
 	}
