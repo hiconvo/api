@@ -247,9 +247,10 @@ func TestGetEvents(t *testing.T) {
 
 func TestGetEvent(t *testing.T) {
 	owner, _ := createTestUser(t)
+	host, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{&host})
 	url := fmt.Sprintf("/events/%s", event.ID)
 
 	type test struct {
@@ -278,9 +279,13 @@ func TestGetEvent(t *testing.T) {
 		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
 		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
 
+		gotEventHosts := respData["hosts"].([]interface{})
+		thelpers.AssetObjectsContainKeys(t, "id", []string{host.ID}, gotEventHosts)
+		thelpers.AssetObjectsContainKeys(t, "fullName", []string{host.FullName}, gotEventHosts)
+
 		gotEventUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member.ID}, gotEventUsers)
-		thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member.FullName}, gotEventUsers)
+		thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, host.ID, member.ID}, gotEventUsers)
+		thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, host.FullName, member.FullName}, gotEventUsers)
 	}
 }
 
@@ -290,9 +295,10 @@ func TestGetEvent(t *testing.T) {
 
 func TestUpdateEvent(t *testing.T) {
 	owner, _ := createTestUser(t)
+	host, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{&host})
 	url := fmt.Sprintf("/events/%s", event.ID)
 
 	type test struct {
@@ -304,6 +310,7 @@ func TestUpdateEvent(t *testing.T) {
 
 	tests := []test{
 		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, ShouldPass: true, InData: map[string]interface{}{"name": "Ruth Marcus"}},
+		{AuthHeader: getAuthHeader(host.Token), OutCode: http.StatusNotFound, ShouldPass: false, InData: map[string]interface{}{"name": "Ruth Marcus"}},
 		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, ShouldPass: false, InData: map[string]interface{}{"name": "Ruth Marcus"}},
 		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, ShouldPass: false},
 		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, ShouldPass: false},
@@ -392,11 +399,13 @@ func TestDeleteEvent(t *testing.T) {
 
 func TestAddToEvent(t *testing.T) {
 	owner, _ := createTestUser(t)
+	host, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	memberToAdd, _ := createTestUser(t)
 	secondMemberToAdd, _ := createTestUser(t)
+	thridMemberToAdd, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{&host})
 
 	eventAllowGuests := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
 	eventAllowGuests.GuestsCanInvite = true
@@ -436,21 +445,28 @@ func TestAddToEvent(t *testing.T) {
 			AuthHeader: getAuthHeader(owner.Token),
 			OutCode:    http.StatusOK,
 			InID:       memberToAdd.ID,
-			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName},
+			OutNames:   []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName},
 			InEventID:  event.ID,
 		},
 		{
 			AuthHeader: getAuthHeader(owner.Token),
 			OutCode:    http.StatusOK,
 			InID:       "addedOnTheFly@again.com",
-			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthefly"},
+			OutNames:   []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly"},
 			InEventID:  event.ID,
 		},
 		{
 			AuthHeader: getAuthHeader(owner.Token),
 			OutCode:    http.StatusOK,
 			InID:       secondMemberToAdd.Email,
-			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName},
+			OutNames:   []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName},
+			InEventID:  event.ID,
+		},
+		{
+			AuthHeader: getAuthHeader(host.Token),
+			OutCode:    http.StatusOK,
+			InID:       thridMemberToAdd.ID,
+			OutNames:   []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName, thridMemberToAdd.FullName},
 			InEventID:  event.ID,
 		},
 		{
@@ -483,6 +499,16 @@ func TestAddToEvent(t *testing.T) {
 		gotEventOwner := respData["owner"].(map[string]interface{})
 		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
 		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
+
+		// A host was not added for eventAllowGuests
+		gotEventHosts := respData["hosts"].([]interface{})
+		if testCase.InEventID == event.ID {
+			thelpers.AssetObjectsContainKeys(t, "id", []string{host.ID}, gotEventHosts)
+			thelpers.AssetObjectsContainKeys(t, "fullName", []string{host.FullName}, gotEventHosts)
+		} else {
+			thelpers.AssetObjectsContainKeys(t, "id", []string{}, gotEventHosts)
+			thelpers.AssetObjectsContainKeys(t, "fullName", []string{}, gotEventHosts)
+		}
 
 		gotEventUsers := respData["users"].([]interface{})
 		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutNames, gotEventUsers)
