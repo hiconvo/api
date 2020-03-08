@@ -13,7 +13,7 @@ func TestSendEmailsAsync(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member1, _ := createTestUser(t)
 	member2, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member1, &member2})
+	event := createTestEvent(t, &owner, []*models.User{&member1, &member2}, []*models.User{})
 	thread := createTestThread(t, &owner, []*models.User{&member1, &member2})
 
 	tests := []struct {

@@ -177,6 +177,14 @@ func extractAndCreateUsers(ctx context.Context, ou models.User, users []interfac
 	return userPointers, nil
 }
 
+func mapUsersToKeyPointers(users []*models.User) []*datastore.Key {
+	keyPointers := make([]*datastore.Key, len(users))
+	for i := range keyPointers {
+		keyPointers[i] = users[i].Key
+	}
+	return keyPointers
+}
+
 func isEmail(email string) bool {
 	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,14}$`)
 	return re.MatchString(strings.ToLower(email))

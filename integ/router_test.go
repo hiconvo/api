@@ -103,7 +103,7 @@ func createTestThreadMessage(t *testing.T, user *models.User, thread *models.Thr
 	return message
 }
 
-func createTestEvent(t *testing.T, owner *models.User, users []*models.User) *models.Event {
+func createTestEvent(t *testing.T, owner *models.User, users, hosts []*models.User) *models.Event {
 	// Create the thread.
 	event, err := models.NewEvent(
 		"test",
@@ -115,7 +115,7 @@ func createTestEvent(t *testing.T, owner *models.User, users []*models.User) *mo
 		time.Now().Add(time.Duration(1000000000000000)),
 		-7*60*60,
 		owner,
-		[]*models.User{},
+		hosts,
 		users,
 		false)
 	if err != nil {

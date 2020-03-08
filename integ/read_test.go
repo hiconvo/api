@@ -46,7 +46,7 @@ func TestMarkEventAsRead(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
 	url := fmt.Sprintf("/events/%s/reads", event.ID)
 
 	type test struct {

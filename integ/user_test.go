@@ -554,7 +554,7 @@ func TestVerifyEmail(t *testing.T) {
 	existingUser4, _ := createTestUser(t) // User to merge into
 	existingUser5, _ := createTestUser(t) // User to be merged
 	// Assign test event, thread, and messages to user to be merged
-	event := createTestEvent(t, &existingUser2, []*models.User{&existingUser5})
+	event := createTestEvent(t, &existingUser2, []*models.User{&existingUser5}, []*models.User{})
 	eventMessage := createTestEventMessage(t, &existingUser5, event)
 	thread := createTestThread(t, &existingUser5, []*models.User{&existingUser4, &existingUser3})
 	threadMessage := createTestThreadMessage(t, &existingUser5, &thread)

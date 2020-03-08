@@ -189,8 +189,9 @@ func TestGetEvents(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member1, _ := createTestUser(t)
 	member2, _ := createTestUser(t)
+	host1, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member1, &member2})
+	event := createTestEvent(t, &owner, []*models.User{&member1, &member2}, []*models.User{&host1})
 
 	type test struct {
 		AuthHeader   map[string]string
@@ -224,8 +225,12 @@ func TestGetEvents(t *testing.T) {
 			gotEvent := gotEvents[0].(map[string]interface{})
 
 			gotEventUsers := gotEvent["users"].([]interface{})
-			thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member1.ID, member2.ID}, gotEventUsers)
-			thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member1.FullName, member2.FullName}, gotEventUsers)
+			thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, host1.ID, member1.ID, member2.ID}, gotEventUsers)
+			thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, host1.FullName, member1.FullName, member2.FullName}, gotEventUsers)
+
+			gotEventHosts := gotEvent["hosts"].([]interface{})
+			thelpers.AssetObjectsContainKeys(t, "id", []string{host1.ID}, gotEventHosts)
+			thelpers.AssetObjectsContainKeys(t, "fullName", []string{host1.FullName}, gotEventHosts)
 
 			gotEventOwner := gotEvent["owner"].(map[string]interface{})
 			thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
@@ -244,7 +249,7 @@ func TestGetEvent(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
 	url := fmt.Sprintf("/events/%s", event.ID)
 
 	type test struct {
@@ -287,7 +292,7 @@ func TestUpdateEvent(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
 	url := fmt.Sprintf("/events/%s", event.ID)
 
 	type test struct {
@@ -329,7 +334,7 @@ func TestDeleteEvent(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
 	url := fmt.Sprintf("/events/%s", event.ID)
 
 	type test struct {
@@ -391,9 +396,9 @@ func TestAddToEvent(t *testing.T) {
 	memberToAdd, _ := createTestUser(t)
 	secondMemberToAdd, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
 
-	eventAllowGuests := createTestEvent(t, &owner, []*models.User{&member})
+	eventAllowGuests := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
 	eventAllowGuests.GuestsCanInvite = true
 	if err := eventAllowGuests.Commit(tc); err != nil {
 		t.Fatal(err)
@@ -494,7 +499,7 @@ func TestRemoveFromEvent(t *testing.T) {
 	memberToRemove, _ := createTestUser(t)
 	memberToLeave, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member, &memberToRemove, &memberToLeave})
+	event := createTestEvent(t, &owner, []*models.User{&member, &memberToRemove, &memberToLeave}, []*models.User{})
 
 	type test struct {
 		AuthHeader     map[string]string
@@ -566,7 +571,7 @@ func TestAddRSVPToEvent(t *testing.T) {
 	owner, _ := createTestUser(t)
 	member, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member})
+	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
 
 	type test struct {
 		AuthHeader map[string]string
@@ -611,7 +616,7 @@ func TestRemoveRSVPFromEvent(t *testing.T) {
 	member, _ := createTestUser(t)
 	memberToRemove, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member, &memberToRemove})
+	event := createTestEvent(t, &owner, []*models.User{&member, &memberToRemove}, []*models.User{})
 
 	if err := event.AddRSVP(&memberToRemove); err != nil {
 		t.Fatal(err)
@@ -684,7 +689,7 @@ func TestMagicRSVP(t *testing.T) {
 	existingUser2, _ := createTestUser(t)
 	owner, _ := createTestUser(t)
 
-	event := createTestEvent(t, &owner, []*models.User{&existingUser, &existingUser2})
+	event := createTestEvent(t, &owner, []*models.User{&existingUser, &existingUser2}, []*models.User{})
 
 	link := magic.NewLink(existingUser.Key, strconv.FormatBool(event.HasRSVP(&existingUser)), "rsvp")
 	split := strings.Split(link, "/")

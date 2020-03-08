@@ -231,7 +231,7 @@ func TestAddMessageToEvent(t *testing.T) {
 	member1, _ := createTestUser(t)
 	member2, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member1, &member2})
+	event := createTestEvent(t, &owner, []*models.User{&member1, &member2}, []*models.User{})
 
 	url := fmt.Sprintf("/events/%s/messages", event.ID)
 
@@ -321,7 +321,7 @@ func TestDeleteEventMessage(t *testing.T) {
 	member1, _ := createTestUser(t)
 	member2, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member1, &member2})
+	event := createTestEvent(t, &owner, []*models.User{&member1, &member2}, []*models.User{})
 	message1 := createTestEventMessage(t, &owner, event)
 	message2 := createTestEventMessage(t, &member1, event)
 
@@ -394,7 +394,7 @@ func TestGetEventMessages(t *testing.T) {
 	member1, _ := createTestUser(t)
 	member2, _ := createTestUser(t)
 	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member1, &member2})
+	event := createTestEvent(t, &owner, []*models.User{&member1, &member2}, []*models.User{})
 	message1 := createTestEventMessage(t, &owner, event)
 	message2 := createTestEventMessage(t, &member1, event)
 	url := fmt.Sprintf("/events/%s/messages", event.ID)

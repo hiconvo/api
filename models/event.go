@@ -466,8 +466,8 @@ func GetEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, err
 				owner = eventUsers[j]
 			}
 
-			if events[i].HostIs(eventUsers[i]) {
-				eventHosts = append(eventHosts, eventUsers[i])
+			if events[i].HostIs(eventUsers[j]) {
+				eventHosts = append(eventHosts, eventUsers[j])
 			}
 		}
 

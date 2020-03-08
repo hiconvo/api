@@ -176,6 +176,7 @@ type updateEventPayload struct {
 	PlaceID         string `validate:"max=255"`
 	Timestamp       string `validate:"max=255"`
 	Description     string `validate:"max=4097"`
+	Hosts           []interface{}
 	GuestsCanInvite bool
 	Resend          bool
 }
@@ -206,7 +207,17 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Come up with something better than this.
+	hosts, err := extractAndCreateUsers(ctx, u, payload.Hosts)
+	if err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	if len(hosts) > 0 {
+		event.HostPartials = models.MapUsersToUserPartials(hosts)
+		event.HostKeys = mapUsersToKeyPointers(hosts)
+	}
+
 	if payload.Name != "" && payload.Name != event.Name {
 		event.Name = html.UnescapeString(payload.Name)
 	}

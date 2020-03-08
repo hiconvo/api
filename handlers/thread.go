@@ -58,32 +58,13 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userStructs, userKeys, emails, err := extractUsers(ctx, ou, payload.Users)
+	users, err := extractAndCreateUsers(ctx, ou, payload.Users)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
 
-	newUsers, newUserKeys, err := createUsersByEmail(ctx, emails)
-	if err != nil {
-		bjson.HandleError(w, err)
-		return
-	}
-
-	userStructs = append(userStructs, newUsers...)
-	userKeys = append(userKeys, newUserKeys...)
-
-	// Create the thread object.
-	//
-	// Create another slice of pointers to the user structs to satisfy the
-	// thread functions below.
-	userPointers := make([]*models.User, len(userStructs))
-	for i := range userStructs {
-		userPointers[i] = &userStructs[i]
-	}
-	// With userPointers in hand, we can now create the thread object. We set
-	// the original requestor `ou` as the owner.
-	thread, err := models.NewThread(html.UnescapeString(payload.Subject), &ou, userPointers)
+	thread, err := models.NewThread(html.UnescapeString(payload.Subject), &ou, users)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
