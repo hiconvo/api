@@ -7,7 +7,8 @@ require (
 	github.com/arran4/golang-ical v0.0.0-20191011054615-fb8af82a1cf8
 	github.com/aymerick/douceur v0.2.0
 	github.com/certifi/gocertifi v0.0.0-20190506164543-d2eda7129713 // indirect
-	github.com/fatih/color v1.7.0 // indirect
+	github.com/cosmtrek/air v1.12.0 // indirect
+	github.com/fatih/color v1.9.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-siris/siris v7.4.0+incompatible // indirect
@@ -23,6 +24,7 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible // indirect
 	github.com/labstack/gommon v0.2.9 // indirect
 	github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e // indirect
+	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.2
 	github.com/olekukonko/tablewriter v0.0.1 // indirect
@@ -44,6 +46,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	gocloud.dev v0.15.0
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
+	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	google.golang.org/api v0.10.0
 	google.golang.org/genproto v0.0.0-20190716160619-c506a9f90610

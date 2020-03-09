@@ -10,8 +10,8 @@ COPY . .
 
 RUN go get ./...
 
-RUN go get github.com/oxequa/realize
+RUN go get -u github.com/cosmtrek/air
 
 VOLUME ["/var/www"]
 
-CMD realize s
+CMD ["air"]
