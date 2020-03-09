@@ -206,7 +206,7 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(hosts) > 0 {
+	if isHostsDifferent(event.HostKeys, hosts) {
 		event.HostPartials = models.MapUsersToUserPartials(hosts)
 		event.HostKeys = mapUsersToKeyPointers(hosts)
 	}

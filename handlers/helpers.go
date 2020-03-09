@@ -190,6 +190,25 @@ func isEmail(email string) bool {
 	return re.MatchString(strings.ToLower(email))
 }
 
+func isHostsDifferent(eventHosts []*datastore.Key, payloadHosts []*models.User) bool {
+	for i := range eventHosts {
+		target := eventHosts[i].Encode()
+		seen := false
+		for j := range payloadHosts {
+			if payloadHosts[j].ID == target {
+				seen = true
+				break
+			}
+		}
+
+		if !seen {
+			return true
+		}
+	}
+
+	return false
+}
+
 func getPagination(r *http.Request) *models.Pagination {
 	pageNum, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("size"))
