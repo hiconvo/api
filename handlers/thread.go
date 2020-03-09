@@ -14,15 +14,6 @@ import (
 	"github.com/hiconvo/api/utils/validate"
 )
 
-var (
-	errMsgGetUsers     = map[string]string{"users": "Not all users are valid"}
-	errMsgCreateThread = map[string]string{"message": "Could not create thread"}
-	errMsgSaveThread   = map[string]string{"message": "Could not save thread"}
-	errMsgGetThreads   = map[string]string{"message": "Could not get threads"}
-	errMsgGetThread    = map[string]string{"message": "Could not get thread"}
-	errMsgDeleteThread = map[string]string{"message": "Could not delete thread"}
-)
-
 // CreateThread Endpoint: POST /threads
 //
 // Request payload:
@@ -109,7 +100,10 @@ func GetThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Otherwise throw a 404.
-	bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+	bjson.HandleError(w, errors.E(
+		errors.Op("handlers.GetThread"),
+		errors.Str("no permission"),
+		http.StatusNotFound))
 }
 
 // UpdateThread Endpoint: PATCH /threads/{id}
@@ -129,7 +123,10 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 
 	// If the requestor is not the owner, throw an error
 	if !thread.OwnerIs(&u) {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.UpdateThread"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
@@ -163,7 +160,10 @@ func DeleteThread(w http.ResponseWriter, r *http.Request) {
 
 	// If the requestor is not the owner, throw an error
 	if !thread.OwnerIs(&u) {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.DeleteThread"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
@@ -188,7 +188,10 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 
 	// If the requestor is not the owner, throw an error.
 	if !thread.OwnerIs(&u) {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.AddUserToThread"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
@@ -202,7 +205,7 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 		userToBeAdded, err = models.GetUserByID(ctx, maybeUserID)
 	}
 	if err != nil {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -230,6 +233,7 @@ func AddUserToThread(w http.ResponseWriter, r *http.Request) {
 // RemoveUserFromThread removed a user from the thread. The owner can remove
 // anyone. Participants can remove themselves.
 func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.RemoveUserFromThread")
 	ctx := r.Context()
 	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
@@ -249,8 +253,7 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 	if thread.HasUser(&userToBeRemoved) && (thread.OwnerIs(&u) || userToBeRemoved.Key.Equal(u.Key)) {
 		// The owner cannot remove herself
 		if userToBeRemoved.Key.Equal(thread.OwnerKey) {
-			bjson.HandleError(w, errors.E(
-				errors.Op("handlers.RemoveUserFromThread"),
+			bjson.HandleError(w, errors.E(op,
 				map[string]string{"message": "The Convo owner cannot be removed from the convo"},
 				http.StatusBadRequest,
 			))
@@ -259,7 +262,9 @@ func RemoveUserFromThread(w http.ResponseWriter, r *http.Request) {
 
 		thread.RemoveUser(&userToBeRemoved)
 	} else {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(op,
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 

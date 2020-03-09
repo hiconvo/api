@@ -18,17 +18,6 @@ import (
 	"github.com/hiconvo/api/utils/validate"
 )
 
-var (
-	errMsgCreate = map[string]string{"message": "Could not create user"}
-	errMsgSave   = map[string]string{"message": "Could not save user"}
-	errMsgGet    = map[string]string{"message": "Could not get user"}
-	errMsgReg    = map[string]string{"message": "This email has already been registered"}
-	errMsgCreds  = map[string]string{"message": "Invalid credentials"}
-	errMsgMagic  = map[string]string{"message": "This link is not valid anymore"}
-	errMsgSend   = map[string]string{"message": "Could not send email"}
-	errMsgUpload = map[string]string{"message": "Could not upload image"}
-)
-
 // CreateUser Endpoint: POST /users
 //
 // Request payload:
@@ -42,6 +31,7 @@ type createUserPayload struct {
 // CreateUser is an endpoint that creates a user with password based
 // authentication.
 func CreateUser(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.CreateUser")
 	ctx := r.Context()
 	body := bjson.BodyFromContext(ctx)
 
@@ -54,7 +44,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	// Make sure the user is not already registered
 	foundUser, found, err := models.GetUserByEmail(ctx, payload.Email)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreate)
+		bjson.HandleError(w, err)
 		return
 	} else if found {
 		if !foundUser.IsPasswordSet && !foundUser.IsGoogleLinked && !foundUser.IsFacebookLinked {
@@ -67,33 +57,37 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			foundUser.IsLocked = true
 			foundUser.SendPasswordResetEmail()
 			if err := foundUser.Commit(ctx); err != nil {
-				bjson.HandleInternalServerError(w, err, errMsgSave)
+				bjson.HandleError(w, err)
 				return
 			}
+
 			bjson.WriteJSON(w, map[string]string{
 				"message": "Please verify your email to proceed",
 			}, http.StatusOK)
 			return
 		}
 
-		bjson.WriteJSON(w, errMsgReg, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(op,
+			errors.Str("already registered"),
+			map[string]string{"message": "This email has already been registered"},
+			http.StatusBadRequest))
 		return
 	}
 
 	// Create the user object
-	user, uerr := models.NewUserWithPassword(
+	user, err := models.NewUserWithPassword(
 		payload.Email,
 		payload.FirstName,
 		payload.LastName,
 		payload.Password)
-	if uerr != nil {
-		bjson.HandleInternalServerError(w, uerr, errMsgCreate)
+	if err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
 	// Save the user object
 	if err := user.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreate)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -121,7 +115,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 
 	u, err := models.GetUserByID(ctx, userID)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgGet, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(errors.Op("handlers.GetUser"), err, http.StatusNotFound))
 		return
 	}
 
@@ -138,6 +132,7 @@ type authenticateUserPayload struct {
 
 // AuthenticateUser is an endpoint that authenticates a user with a password.
 func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.AuthenticateUser")
 	ctx := r.Context()
 	body := bjson.BodyFromContext(ctx)
 
@@ -149,10 +144,13 @@ func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 
 	u, found, err := models.GetUserByEmail(ctx, payload.Email)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgGet)
+		bjson.HandleError(w, err)
 		return
 	} else if !found {
-		bjson.WriteJSON(w, errMsgCreds, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(op,
+			errors.Str("unknown email"),
+			map[string]string{"message": "Invalid credentials"},
+			http.StatusBadRequest))
 		return
 	}
 
@@ -160,9 +158,10 @@ func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 		if u.IsLocked {
 			u.SendVerifyEmail(u.Email)
 
-			bjson.WriteJSON(w, map[string]string{
-				"message": "You must verify your email before you can login",
-			}, http.StatusBadRequest)
+			bjson.HandleError(w, errors.E(op,
+				errors.Str("unknown email"),
+				map[string]string{"message": "You must verify your email before you can login"},
+				http.StatusBadRequest))
 			return
 		}
 
@@ -170,7 +169,10 @@ func AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bjson.WriteJSON(w, errMsgCreds, http.StatusBadRequest)
+	bjson.HandleError(w, errors.E(op,
+		errors.Str("invalid password"),
+		map[string]string{"message": "Invalid credentials"},
+		http.StatusBadRequest))
 }
 
 // OAuth Endpoint: POST /users/oauth
@@ -221,14 +223,14 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	// Get the user and return if found
 	u, found, err := models.GetUserByOAuthID(ctx, oauthPayload.ID, oauthPayload.Provider)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgGet)
+		bjson.HandleError(w, err)
 		return
 	} else if found {
 		// If the user associated with the token is different from the user
 		// received via oauth, merge the token user into the oauth user.
 		if canMergeTokenUser && u.Token != tokenUser.Token {
 			if err := u.MergeWith(ctx, tokenUser); err != nil {
-				bjson.HandleInternalServerError(w, err, errMsgSave)
+				bjson.HandleError(w, err)
 				return
 			}
 		}
@@ -240,7 +242,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 	// If found, associate the new token with the existing user.
 	u, found, err = models.GetUserByEmail(ctx, oauthPayload.Email)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgGet)
+		bjson.HandleError(w, err)
 		return
 	} else if found {
 		if oauthPayload.Provider == "google" {
@@ -272,7 +274,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		u.DeriveProperties()
 
 		if err := u.Commit(ctx); err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgSave)
+			bjson.HandleError(w, err)
 			return
 		}
 
@@ -281,7 +283,7 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		// received via oauth, merge the token user into the oauth user.
 		if canMergeTokenUser && u.Token != tokenUser.Token {
 			if err := u.MergeWith(ctx, tokenUser); err != nil {
-				bjson.HandleInternalServerError(w, err, errMsgSave)
+				bjson.HandleError(w, err)
 				return
 			}
 		}
@@ -306,13 +308,13 @@ func OAuth(w http.ResponseWriter, r *http.Request) {
 		oauthPayload.Provider,
 		oauthPayload.ID)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreate)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	// Save the user and create the welcome convo.
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+		bjson.HandleError(w, err)
 		return
 	}
 	u.Welcome(ctx)
@@ -358,7 +360,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -388,7 +390,10 @@ func UpdatePassword(w http.ResponseWriter, r *http.Request) {
 
 	u, err := models.GetUserByID(ctx, payload.UserID)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.UpdatePassword"),
+			err,
+			http.StatusBadRequest))
 		return
 	}
 
@@ -413,7 +418,7 @@ func UpdatePassword(w http.ResponseWriter, r *http.Request) {
 	u.DeriveProperties()
 
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -444,7 +449,10 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	u, err := models.GetUserByID(ctx, payload.UserID)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.VerifyEmail"),
+			err,
+			http.StatusBadRequest))
 		return
 	}
 
@@ -471,9 +479,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	if found {
 		err := u.MergeWith(ctx, &dupUser)
 		if err != nil {
-			bjson.HandleInternalServerError(w, err, map[string]string{
-				"message": "Could not merge accounts",
-			})
+			bjson.HandleError(w, err)
 			return
 		}
 	}
@@ -486,7 +492,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -515,7 +521,7 @@ func ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	u, found, err := models.GetUserByEmail(ctx, payload.Email)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgGet)
+		bjson.HandleError(w, err)
 		return
 	} else if found {
 		u.SendPasswordResetEmail()
@@ -533,7 +539,7 @@ func SendVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(r.Context())
 	err := u.SendVerifyEmail(u.Email)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSend)
+		bjson.HandleError(w, err)
 		return
 	}
 	bjson.WriteJSON(w, u, http.StatusOK)
@@ -561,7 +567,7 @@ func AddEmail(w http.ResponseWriter, r *http.Request) {
 
 	foundUser, found, err := models.GetUserByEmail(ctx, payload.Email)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSend)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -570,12 +576,12 @@ func AddEmail(w http.ResponseWriter, r *http.Request) {
 		// is attempting to add. Send an email to this address with some details
 		// about what's going on.
 		if err := u.SendMergeAccountsEmail(payload.Email); err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgSend)
+			bjson.HandleError(w, err)
 			return
 		}
 	} else {
 		if err := u.SendVerifyEmail(payload.Email); err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgSend)
+			bjson.HandleError(w, err)
 			return
 		}
 	}
@@ -608,7 +614,7 @@ func RemoveEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -640,7 +646,7 @@ func MakeEmailPrimary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -661,7 +667,7 @@ func UserSearch(w http.ResponseWriter, r *http.Request) {
 
 	contacts, err := models.UserSearch(ctx, query)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgGetUsers)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -698,13 +704,13 @@ func PutAvatar(w http.ResponseWriter, r *http.Request) {
 		int(payload.Y),
 		storage.GetKeyFromAvatarURL(u.Avatar))
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgUpload)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	u.Avatar = avatarURL
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+		bjson.HandleError(w, err)
 		return
 	}
 

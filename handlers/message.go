@@ -18,14 +18,6 @@ import (
 	"github.com/hiconvo/api/utils/validate"
 )
 
-var (
-	errMsgCreateMessage = map[string]string{"message": "Could not create message"}
-	errMsgSaveMessage   = map[string]string{"message": "Could not save message"}
-	errMsgSendMessage   = map[string]string{"message": "Could not send message"}
-	errMsgGetMessages   = map[string]string{"message": "Could not get messages"}
-	errMsgGetMessage    = map[string]string{"message": "Could not find message"}
-)
-
 // GetMessagesByThread Endpoint: GET /threads/{id}/messages
 
 // GetMessagesByThread gets the messages from the given thread.
@@ -35,14 +27,16 @@ func GetMessagesByThread(w http.ResponseWriter, r *http.Request) {
 	thread := middleware.ThreadFromContext(ctx)
 
 	if !(thread.OwnerIs(&u) || thread.HasUser(&u)) {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.GetMessagesByThread"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
-	// TODO: Paginate
-	messages, merr := models.GetMessagesByThread(ctx, &thread)
-	if merr != nil {
-		bjson.HandleInternalServerError(w, merr, errMsgGetMessages)
+	messages, err := models.GetMessagesByThread(ctx, &thread)
+	if err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -228,14 +222,16 @@ func GetMessagesByEvent(w http.ResponseWriter, r *http.Request) {
 	event := middleware.EventFromContext(ctx)
 
 	if !(event.OwnerIs(&u) || event.HasUser(&u)) {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.GetMessagesByEvent"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
-	// TODO: Paginate
-	messages, merr := models.GetMessagesByEvent(ctx, &event)
-	if merr != nil {
-		bjson.HandleInternalServerError(w, merr, errMsgGetMessages)
+	messages, err := models.GetMessagesByEvent(ctx, &event)
+	if err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -246,6 +242,7 @@ func GetMessagesByEvent(w http.ResponseWriter, r *http.Request) {
 
 // AddMessageToEvent adds a message to the given thread.
 func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.AddMessageToEvent")
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
@@ -260,7 +257,9 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Check permissions
 	if !(event.OwnerIs(&u) || event.HasUser(&u)) {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(op,
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
@@ -269,7 +268,7 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 	if payload.Blob != "" {
 		photoKey, err = storage.PutPhotoFromBlob(ctx, event.ID, payload.Blob)
 		if err != nil {
-			bjson.WriteJSON(w, errMsgUpload, http.StatusBadRequest)
+			bjson.HandleError(w, errors.E(op, err))
 			return
 		}
 	}
@@ -280,17 +279,17 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		html.UnescapeString(payload.Body),
 		photoKey)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgCreateMessage)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if err := message.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if err := event.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -354,6 +353,7 @@ type deleteMessagePayload struct {
 
 // DeletePhotoFromMessage deletes a photo from the given message
 func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.DeletePhotoFromMessage")
 	ctx := r.Context()
 	tx, _ := db.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
@@ -370,20 +370,20 @@ func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
 
 	m, err := models.GetMessageByID(ctx, id)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgGetMessage, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
 		return
 	}
 
 	// Check permissions
 	if !(m.OwnerIs(&u)) {
-		bjson.WriteJSON(w, errMsgGetMessage, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(op, errors.Str("no permission"), http.StatusNotFound))
 		return
 	}
 
 	key := storage.GetKeyFromPhotoURL(payload.Key)
 
 	if !m.HasPhotoKey(key) {
-		bjson.WriteJSON(w, errMsgGetMessage, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(op, errors.Str("no photo in message"), http.StatusBadRequest))
 		return
 	}
 
@@ -395,7 +395,7 @@ func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveMessage)
+		bjson.HandleError(w, err)
 		return
 	}
 

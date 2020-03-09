@@ -21,16 +21,6 @@ import (
 	"github.com/hiconvo/api/utils/validate"
 )
 
-var (
-	errMsgCreateEvent = map[string]string{"message": "Could not create event"}
-	errMsgSaveEvent   = map[string]string{"message": "Could not save event"}
-	errMsgGetEvents   = map[string]string{"message": "Could not get events"}
-	errMsgGetEvent    = map[string]string{"message": "Could not get event"}
-	errMsgDeleteEvent = map[string]string{"message": "Could not delete event"}
-	errMsgSendEvent   = map[string]string{"message": "Could not send event invitations"}
-	errMsgUpdateEvent = map[string]string{"message": "You cannot update past events"}
-)
-
 // CreateEvent Endpoint: POST /events
 //
 // Request payload:
@@ -144,7 +134,7 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 
 	events, err := models.GetEventsByUser(ctx, &u, p)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgGetEvents)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -165,7 +155,7 @@ func GetEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Otherwise throw a 404.
-	bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+	bjson.HandleError(w, errors.E(errors.Op("handlers.GetEvent"), http.StatusNotFound))
 }
 
 // UpdateEvent Endpoint: PATCH /events/{id}
@@ -183,6 +173,7 @@ type updateEventPayload struct {
 
 // UpdateEvent allows the owner to change the event name and location
 func UpdateEvent(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.UpdateEvent")
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
@@ -191,13 +182,15 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 
 	// If the requestor is not the owner, throw an error
 	if !event.OwnerIs(&u) {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(op, http.StatusNotFound))
 		return
 	}
 
 	// Only allow updating future events
 	if !event.IsInFuture() {
-		bjson.WriteJSON(w, errMsgUpdateEvent, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(op,
+			map[string]string{"message": "You cannot update past events"},
+			http.StatusBadRequest))
 		return
 	}
 
@@ -233,9 +226,9 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	if payload.Timestamp != "" {
 		timestamp, err := time.Parse(time.RFC3339, payload.Timestamp)
 		if err != nil {
-			bjson.WriteJSON(w, map[string]string{
-				"time": "Invalid time",
-			}, http.StatusBadRequest)
+			bjson.HandleError(w, errors.E(op,
+				map[string]string{"time": "Invalid time"},
+				http.StatusBadRequest))
 			return
 		}
 
@@ -259,18 +252,18 @@ func UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := event.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if payload.Resend {
 		if err := event.SendUpdatedInvitesAsync(ctx); err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgSendEvent)
+			bjson.HandleError(w, err)
 			return
 		}
 	}
@@ -306,7 +299,10 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 	// If the requestor is not the owner, throw an error
 	if !event.OwnerIs(&u) {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.DeleteEvent"),
+			errors.Str("non-owner trying to delete event"),
+			http.StatusNotFound))
 		return
 	}
 
@@ -317,13 +313,13 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := event.Delete(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if event.IsInFuture() {
 		if err := event.SendCancellation(ctx, html.UnescapeString(payload.Message)); err != nil {
-			bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+			bjson.HandleError(w, err)
 			return
 		}
 
@@ -356,7 +352,10 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 	maybeUserID := vars["userID"]
 
 	if !(event.OwnerIs(&u) || event.HostIs(&u) || (event.GuestsCanInvite && event.HasUser(&u))) {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.AddUserToEvent"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
@@ -381,12 +380,12 @@ func AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Save the event.
 	if _, err := event.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -408,37 +407,32 @@ func RemoveUserFromEvent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["userID"]
 
-	userToBeRemoved, uErr := models.GetUserByID(ctx, userID)
-	if uErr != nil {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+	userToBeRemoved, err := models.GetUserByID(ctx, userID)
+	if err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
 
 	// If the requestor is the owner or the requestor is the user to be
 	// removed, then remove the user.
-	if event.HasUser(&userToBeRemoved) && (event.OwnerIs(&u) || userToBeRemoved.Key.Equal(u.Key)) {
-		// The owner cannot remove herself
-		if userToBeRemoved.Key.Equal(event.OwnerKey) {
-			bjson.WriteJSON(w, map[string]string{
-				"message": "The event owner cannot be removed from the event",
-			}, http.StatusBadRequest)
+	if event.OwnerIs(&u) || userToBeRemoved.Key.Equal(u.Key) {
+		if err := event.RemoveUser(&userToBeRemoved); err != nil {
+			bjson.HandleError(w, err)
 			return
 		}
-
-		event.RemoveUser(&userToBeRemoved)
 	} else {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(errors.Op("handlers.RemoveUserFromEvent"), http.StatusNotFound))
 		return
 	}
 
 	// Save the event.
 	if _, err := event.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -455,7 +449,10 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 	event := middleware.EventFromContext(ctx)
 
 	if !event.HasUser(&u) {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.AddRSVPToEvent"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
@@ -466,12 +463,12 @@ func AddRSVPToEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Save the event.
 	if _, err := event.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -501,7 +498,10 @@ func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 	event := middleware.EventFromContext(ctx)
 
 	if !event.HasUser(&u) {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.RemoveRSVPFromEvent"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
@@ -517,12 +517,12 @@ func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Save the event.
 	if _, err := event.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -553,30 +553,33 @@ type magicRSVPPayload struct {
 
 // MagicRSVP rsvps a user without a registered account
 func MagicRSVP(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.MagicRSVP")
 	ctx := r.Context()
 	body := bjson.BodyFromContext(ctx)
 	tx, _ := db.TransactionFromContext(ctx)
 
 	var payload magicRSVPPayload
 	if err := validate.Do(&payload, body); err != nil {
-		bjson.HandleError(w, err)
+		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
 		return
 	}
 
 	u, err := models.GetUserByID(ctx, payload.UserID)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
 		return
 	}
 
 	e, err := models.GetEventByID(ctx, payload.EventID)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
 		return
 	}
 
 	if !e.HasUser(&u) {
-		bjson.WriteJSON(w, errMsgMagic, http.StatusUnauthorized)
+		bjson.HandleError(w, errors.E(op,
+			errors.Str("user not in event"),
+			http.StatusUnauthorized))
 		return
 	}
 
@@ -599,17 +602,17 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	u.Verified = true
 
 	if _, err := e.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
 	if _, err := u.CommitWithTransaction(tx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSave)
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
 	if _, err := tx.Commit(); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 

@@ -7,6 +7,7 @@ import (
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
@@ -18,12 +19,15 @@ func MarkThreadAsRead(w http.ResponseWriter, r *http.Request) {
 	thread := middleware.ThreadFromContext(ctx)
 
 	if !(thread.OwnerIs(&user) || thread.HasUser(&user)) {
-		bjson.WriteJSON(w, errMsgGetThread, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.MarkThreadAsRead"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
 	if err := markMessagesAsRead(ctx, &thread, &user, thread.Key); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -31,7 +35,7 @@ func MarkThreadAsRead(w http.ResponseWriter, r *http.Request) {
 	thread.UserReads = models.MapReadsToUserPartials(&thread, thread.Users)
 
 	if err := thread.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveThread)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -44,12 +48,15 @@ func MarkEventAsRead(w http.ResponseWriter, r *http.Request) {
 	event := middleware.EventFromContext(ctx)
 
 	if !(event.OwnerIs(&user) || event.HasUser(&user)) {
-		bjson.WriteJSON(w, errMsgGetEvent, http.StatusNotFound)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.MarkEventAsRead"),
+			errors.Str("no permission"),
+			http.StatusNotFound))
 		return
 	}
 
 	if err := markMessagesAsRead(ctx, &event, &user, event.Key); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -57,7 +64,7 @@ func MarkEventAsRead(w http.ResponseWriter, r *http.Request) {
 	event.UserReads = models.MapReadsToUserPartials(&event, event.Users)
 
 	if err := event.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgSaveEvent)
+		bjson.HandleError(w, err)
 		return
 	}
 

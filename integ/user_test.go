@@ -186,7 +186,7 @@ func TestGetUser(t *testing.T) {
 			GivenAuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
 			URL:             fmt.Sprintf("/users/%s", "somenonsense"),
 			ExpectStatus:    http.StatusNotFound,
-			ExpectBody:      `{"message":"Could not get user"}`,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
 		},
 	}
 

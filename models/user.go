@@ -300,6 +300,13 @@ func (u *User) AddContact(c *User) error {
 }
 
 func (u *User) RemoveContact(c *User) error {
+	if !u.HasContact(c) {
+		return errors.E(
+			errors.Op("user.RemoveContact"),
+			http.StatusBadRequest,
+			map[string]string{"message": "You don't have this contact"})
+	}
+
 	for i, k := range u.ContactKeys {
 		if k.Equal(c.Key) {
 			u.ContactKeys[i] = u.ContactKeys[len(u.ContactKeys)-1]

@@ -5,17 +5,10 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/models"
 	"github.com/hiconvo/api/utils/bjson"
-)
-
-var (
-	errMsgGetContact      = map[string]string{"message": "Could not find contact"}
-	errMsgAddContact      = map[string]string{"message": "Could not add contact"}
-	errMsgAddSelf         = map[string]string{"message": "Cannot add self as contact"}
-	errMsgHasContact      = map[string]string{"message": "You already have this contact"}
-	errMsgTooManyContacts = map[string]string{"message": "You cannot have more than 50 contacts"}
 )
 
 func GetContacts(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +17,7 @@ func GetContacts(w http.ResponseWriter, r *http.Request) {
 
 	contacts, err := models.GetContactsByUser(ctx, &u)
 	if err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgGetContact)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -38,15 +31,17 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 	userID := vars["userID"]
 
 	if !u.IsRegistered() {
-		bjson.WriteJSON(w, map[string]string{
-			"message": "You must register before you can add contacts",
-		}, http.StatusBadRequest)
+		bjson.HandleError(w, errors.E(
+			errors.Op("handlers.AddContact"),
+			errors.Str("not verified"),
+			map[string]string{"message": "You must register before you can add contacts"},
+			http.StatusBadRequest))
 		return
 	}
 
 	userToBeAdded, err := models.GetUserByID(ctx, userID)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgGetContact, http.StatusNotFound)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -56,7 +51,7 @@ func AddContact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgAddContact)
+		bjson.HandleError(w, err)
 		return
 	}
 
@@ -71,19 +66,17 @@ func RemoveContact(w http.ResponseWriter, r *http.Request) {
 
 	userToBeRemoved, err := models.GetUserByID(ctx, userID)
 	if err != nil {
-		bjson.WriteJSON(w, errMsgGetContact, http.StatusNotFound)
+		bjson.HandleError(w, err)
 		return
 	}
 
-	if !u.HasContact(&userToBeRemoved) {
-		bjson.WriteJSON(w, errMsgGetContact, http.StatusBadRequest)
+	if err := u.RemoveContact(&userToBeRemoved); err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
-
-	u.RemoveContact(&userToBeRemoved)
 
 	if err := u.Commit(ctx); err != nil {
-		bjson.HandleInternalServerError(w, err, errMsgAddContact)
+		bjson.HandleError(w, err)
 		return
 	}
 

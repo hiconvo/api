@@ -258,7 +258,20 @@ func (e *Event) AddUser(u *User) error {
 	return nil
 }
 
-func (e *Event) RemoveUser(u *User) {
+func (e *Event) RemoveUser(u *User) error {
+	op := errors.Op("modles.RemoveUser")
+
+	if !e.HasUser(u) {
+		return errors.E(op, errors.Str("event does not have user"), http.StatusBadRequest)
+	}
+
+	if e.OwnerIs(u) {
+		return errors.E(op,
+			map[string]string{"message": "You cannot remove yourself from your own event"},
+			errors.Str("user cannot remove herself"),
+			http.StatusBadRequest)
+	}
+
 	// Remove from keys.
 	for i, k := range e.UserKeys {
 		if k.Equal(u.Key) {
@@ -275,6 +288,8 @@ func (e *Event) RemoveUser(u *User) {
 			break
 		}
 	}
+
+	return nil
 }
 
 // AddRSVP RSVPs a user for the event.
@@ -295,7 +310,14 @@ func (e *Event) AddRSVP(u *User) error {
 	return nil
 }
 
-func (e *Event) RemoveRSVP(u *User) {
+func (e *Event) RemoveRSVP(u *User) error {
+	if e.OwnerIs(u) {
+		return errors.E(errors.Op("event.RemoveRSVP"),
+			map[string]string{"message": "You cannot remove yourself from your own event"},
+			errors.Str("user cannot remove herself"),
+			http.StatusBadRequest)
+	}
+
 	// Remove from keys.
 	for i, k := range e.RSVPKeys {
 		if k.Equal(u.Key) {
@@ -313,6 +335,8 @@ func (e *Event) RemoveRSVP(u *User) {
 			break
 		}
 	}
+
+	return nil
 }
 
 func (e *Event) GetEmail() string {
