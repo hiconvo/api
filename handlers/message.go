@@ -388,9 +388,7 @@ func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := m.DeletePhoto(ctx, key); err != nil {
-		bjson.HandleInternalServerError(w, err, map[string]string{
-			"message": "Could not delete photo",
-		})
+		bjson.HandleError(w, err)
 		return
 	}
 

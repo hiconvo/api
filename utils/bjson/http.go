@@ -34,12 +34,6 @@ func HandleError(w http.ResponseWriter, e error) {
 	handleInternalServerError(w, e)
 }
 
-// HandleInternalServerError provides backwards compatibility.
-func HandleInternalServerError(w http.ResponseWriter, e error, message map[string]string) {
-	ee := errors.E(errors.Op("unknown handler error"), http.StatusInternalServerError, e, message)
-	handleInternalServerError(w, ee)
-}
-
 // ReadJSON unmarshals JSON from the incoming request to the given sturct pointer.
 func ReadJSON(dst interface{}, r *http.Request) error {
 	decoder := json.NewDecoder(r.Body)
