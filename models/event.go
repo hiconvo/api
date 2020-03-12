@@ -294,11 +294,16 @@ func (e *Event) RemoveUser(u *User) error {
 
 // AddRSVP RSVPs a user for the event.
 func (e *Event) AddRSVP(u *User) error {
+	op := errors.Op("event.AddRSVP")
+
+	if !e.HasUser(u) {
+		return errors.E(op, errors.Str("user not in event"), http.StatusUnauthorized)
+	}
+
 	// Cannot add owner or duplicate.
 	if e.OwnerIs(u) || e.HasRSVP(u) {
-		return errors.E(
-			errors.Op("event.AddRSVP"),
-			errors.Str("AlreadyHasRSVP"),
+		return errors.E(op,
+			errors.Str("already has rsvp"),
 			map[string]string{"message": "You have already RSVP'd"},
 			http.StatusBadRequest)
 	}
@@ -311,8 +316,14 @@ func (e *Event) AddRSVP(u *User) error {
 }
 
 func (e *Event) RemoveRSVP(u *User) error {
+	op := errors.Op("event.RemoveRSVP")
+
+	if !e.HasUser(u) {
+		return errors.E(op, errors.Str("no permission"), http.StatusNotFound)
+	}
+
 	if e.OwnerIs(u) {
-		return errors.E(errors.Op("event.RemoveRSVP"),
+		return errors.E(op,
 			map[string]string{"message": "You cannot remove yourself from your own event"},
 			errors.Str("user cannot remove herself"),
 			http.StatusBadRequest)
@@ -511,6 +522,10 @@ func GetEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, err
 
 func handleGetEvent(ctx context.Context, key *datastore.Key, e Event) (Event, error) {
 	if err := db.Client.Get(ctx, key, &e); err != nil {
+		if err == datastore.ErrNoSuchEntity {
+			return e, errors.E(errors.Op("models.handleGetEvent"), http.StatusNotFound, err)
+		}
+
 		return e, err
 	}
 

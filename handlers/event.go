@@ -497,23 +497,10 @@ func RemoveRSVPFromEvent(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
 
-	if !event.HasUser(&u) {
-		bjson.HandleError(w, errors.E(
-			errors.Op("handlers.RemoveRSVPFromEvent"),
-			errors.Str("no permission"),
-			http.StatusNotFound))
+	if err := event.RemoveRSVP(&u); err != nil {
+		bjson.HandleError(w, err)
 		return
 	}
-
-	// The owner cannot remove herself
-	if event.OwnerIs(&u) {
-		bjson.WriteJSON(w, map[string]string{
-			"message": "The event owner cannot be removed from the event",
-		}, http.StatusBadRequest)
-		return
-	}
-
-	event.RemoveRSVP(&u)
 
 	// Save the event.
 	if _, err := event.CommitWithTransaction(tx); err != nil {
@@ -566,20 +553,13 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 
 	u, err := models.GetUserByID(ctx, payload.UserID)
 	if err != nil {
-		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
 	e, err := models.GetEventByID(ctx, payload.EventID)
 	if err != nil {
-		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
-		return
-	}
-
-	if !e.HasUser(&u) {
-		bjson.HandleError(w, errors.E(op,
-			errors.Str("user not in event"),
-			http.StatusUnauthorized))
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
@@ -594,6 +574,7 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := e.AddRSVP(&u); err != nil {
+		log.Print(errors.E(op, err))
 		// Just return the user and be done with it
 		bjson.WriteJSON(w, u, http.StatusOK)
 		return
