@@ -13,10 +13,13 @@ import (
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/queue"
+	"github.com/hiconvo/api/utils/magic"
+	"github.com/hiconvo/api/utils/random"
 )
 
 type Event struct {
 	Key             *datastore.Key   `json:"-"        datastore:"__key__"`
+	Token           string           `json:"-"`
 	ID              string           `json:"id"       datastore:"-"`
 	OwnerKey        *datastore.Key   `json:"-"`
 	Owner           *UserPartial     `json:"owner"    datastore:"-"`
@@ -106,6 +109,7 @@ func NewEvent(
 
 	return Event{
 		Key:             datastore.IncompleteKey("Event", nil),
+		Token:           random.Token(),
 		OwnerKey:        owner.Key,
 		Owner:           MapUserToUserPartial(owner),
 		HostKeys:        hostKeys,
@@ -424,6 +428,14 @@ func (e *Event) GetICS() string {
 	ev.SetOrganizer(e.GetEmail(), ics.WithCN(e.Owner.FullName))
 
 	return cal.Serialize()
+}
+
+func (e *Event) RollToken() {
+	e.Token = random.Token()
+}
+
+func (e *Event) GetMagicLink() string {
+	return magic.NewLink(e.Key, e.Token, "invite")
 }
 
 func GetEventByID(ctx context.Context, id string) (Event, error) {

@@ -611,3 +611,80 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 
 	bjson.WriteJSON(w, u, http.StatusOK)
 }
+
+// MagicInvite Endpoint: POST /events/rsvp
+//
+// Request payload:
+type magicInvitePayload struct {
+	Signature string `validate:"nonzero"`
+	Timestamp string `validate:"nonzero"`
+	UserID    string `validate:"nonzero"`
+	EventID   string `validate:"nonzero"`
+}
+
+// MagicInvite rsvps a user without a registered account
+func MagicInvite(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.MagicInvite")
+	ctx := r.Context()
+	body := bjson.BodyFromContext(ctx)
+	tx, _ := db.TransactionFromContext(ctx)
+
+	var payload magicInvitePayload
+	if err := validate.Do(&payload, body); err != nil {
+		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
+		return
+	}
+
+	u, err := models.GetUserByID(ctx, payload.UserID)
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	e, err := models.GetEventByID(ctx, payload.EventID)
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	if err := magic.Verify(
+		payload.EventID,
+		payload.Timestamp,
+		e.Token,
+		payload.Signature,
+	); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	if err := e.AddRSVP(&u); err != nil {
+		log.Print(errors.E(op, err))
+		// Just return the user and be done with it
+		bjson.WriteJSON(w, u, http.StatusOK)
+		return
+	}
+
+	if _, err := e.CommitWithTransaction(tx); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	if err := notif.Put(notif.Notification{
+		UserKeys:   []*datastore.Key{e.OwnerKey},
+		Actor:      u.FullName,
+		Verb:       notif.AddRSVP,
+		Target:     notif.Event,
+		TargetID:   e.ID,
+		TargetName: e.Name,
+	}); err != nil {
+		// Log the error but don't fail the request
+		log.Alarm(err)
+	}
+
+	bjson.WriteJSON(w, u, http.StatusOK)
+}
