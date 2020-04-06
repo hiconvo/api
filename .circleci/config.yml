@@ -26,7 +26,6 @@ jobs:
           discovery.type: single-node
 
     steps:
-
       - checkout
 
       - restore_cache:
@@ -36,7 +35,7 @@ jobs:
       - run:
           name: run tests
           command: |
-            go test ./... -coverprofile=coverage.txt -covermode=count
+            go test -coverprofile=cover.out -coverpkg=./... ./...
 
       - run:
           name: upload coverage report
@@ -53,7 +52,6 @@ jobs:
       - image: hiconvo/docker:ci
 
     steps:
-
       - run:
           name: authenticate gcloud sdk
           command: |
@@ -87,4 +85,3 @@ workflows:
           filters:
             branches:
               only: master
-
