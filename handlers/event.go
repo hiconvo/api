@@ -719,7 +719,7 @@ func RollMagicLink(w http.ResponseWriter, r *http.Request) {
 	event := middleware.EventFromContext(ctx)
 	tx, _ := db.TransactionFromContext(ctx)
 
-	if !(event.OwnerIs(&u) || event.HostIs(&u)) {
+	if !event.OwnerIs(&u) {
 		bjson.HandleError(w, errors.E(op, errors.Str("no permission"), http.StatusNotFound))
 		return
 	}

@@ -800,3 +800,98 @@ func TestMagicRSVP(t *testing.T) {
 		thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
 	}
 }
+
+func TestGetMagicLink(t *testing.T) {
+	u1, _ := createTestUser(t)
+	u2, _ := createTestUser(t)
+	u3, _ := createTestUser(t)
+	u4, _ := createTestUser(t)
+	event := createTestEvent(t, &u1, []*models.User{&u3}, []*models.User{&u2})
+
+	tests := []struct {
+		Name         string
+		AuthToken    string
+		ExpectStatus int
+	}{
+		{
+			Name:         "Owner",
+			AuthToken:    u1.Token,
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			Name:         "Host",
+			AuthToken:    u2.Token,
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			Name:         "Guest",
+			AuthToken:    u3.Token,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			Name:         "Random",
+			AuthToken:    u4.Token,
+			ExpectStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.Name, func(t *testing.T) {
+			apitest.New("GetMagic").
+				Handler(th).
+				Get(fmt.Sprintf("/events/%s/magic", event.ID)).
+				Headers(getAuthHeader(testCase.AuthToken)).
+				Expect(t).
+				Status(testCase.ExpectStatus).
+				End()
+		})
+	}
+}
+
+func TestRollMagicLink(t *testing.T) {
+	u1, _ := createTestUser(t)
+	u2, _ := createTestUser(t)
+	u3, _ := createTestUser(t)
+	u4, _ := createTestUser(t)
+	event := createTestEvent(t, &u1, []*models.User{&u3}, []*models.User{&u2})
+
+	tests := []struct {
+		Name         string
+		AuthToken    string
+		ExpectStatus int
+	}{
+		{
+			Name:         "Owner",
+			AuthToken:    u1.Token,
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			Name:         "Host",
+			AuthToken:    u2.Token,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			Name:         "Guest",
+			AuthToken:    u3.Token,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			Name:         "Random",
+			AuthToken:    u4.Token,
+			ExpectStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.Name, func(t *testing.T) {
+			apitest.New(fmt.Sprintf("GetMagic: %s", testCase.Name)).
+				Handler(th).
+				Put(fmt.Sprintf("/events/%s/magic", event.ID)).
+				JSON("{}").
+				Headers(getAuthHeader(testCase.AuthToken)).
+				Expect(t).
+				Status(testCase.ExpectStatus).
+				End()
+		})
+	}
+}
