@@ -612,13 +612,12 @@ func MagicRSVP(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, u, http.StatusOK)
 }
 
-// MagicInvite Endpoint: POST /events/rsvp
+// MagicInvite Endpoint: POST /events/{eventID}/magic
 //
 // Request payload:
 type magicInvitePayload struct {
 	Signature string `validate:"nonzero"`
 	Timestamp string `validate:"nonzero"`
-	UserID    string `validate:"nonzero"`
 	EventID   string `validate:"nonzero"`
 }
 
@@ -626,24 +625,14 @@ type magicInvitePayload struct {
 func MagicInvite(w http.ResponseWriter, r *http.Request) {
 	op := errors.Op("handlers.MagicInvite")
 	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	e := middleware.EventFromContext(ctx)
 	body := bjson.BodyFromContext(ctx)
 	tx, _ := db.TransactionFromContext(ctx)
 
 	var payload magicInvitePayload
 	if err := validate.Do(&payload, body); err != nil {
 		bjson.HandleError(w, errors.E(op, err, http.StatusNotFound))
-		return
-	}
-
-	u, err := models.GetUserByID(ctx, payload.UserID)
-	if err != nil {
-		bjson.HandleError(w, errors.E(op, err))
-		return
-	}
-
-	e, err := models.GetEventByID(ctx, payload.EventID)
-	if err != nil {
-		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
@@ -657,10 +646,13 @@ func MagicInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := e.AddUser(&u); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
 	if err := e.AddRSVP(&u); err != nil {
-		log.Print(errors.E(op, err))
-		// Just return the user and be done with it
-		bjson.WriteJSON(w, u, http.StatusOK)
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
@@ -686,7 +678,7 @@ func MagicInvite(w http.ResponseWriter, r *http.Request) {
 		log.Alarm(err)
 	}
 
-	bjson.WriteJSON(w, u, http.StatusOK)
+	bjson.WriteJSON(w, e, http.StatusOK)
 }
 
 // GetMagicLink Endpoint: GET /events/{eventID}/magic

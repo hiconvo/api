@@ -55,6 +55,7 @@ func New() http.Handler {
 	txEventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE")
 	txEventSubrouter.HandleFunc("/events/{eventID}/rsvps", AddRSVPToEvent).Methods("POST")
 	txEventSubrouter.HandleFunc("/events/{eventID}/rsvps", RemoveRSVPFromEvent).Methods("DELETE")
+	txEventSubrouter.HandleFunc("/events/{eventID}/magic", MagicInvite).Methods("POST")
 	txEventSubrouter.HandleFunc("/events/{eventID}/magic", RollMagicLink).Methods("PUT")
 
 	txThreadSubrouter := txSubrouter.NewRoute().Subrouter()

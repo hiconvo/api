@@ -895,3 +895,68 @@ func TestRollMagicLink(t *testing.T) {
 		})
 	}
 }
+
+func TestMagicInvite(t *testing.T) {
+	u1, _ := createTestUser(t)
+	u2, _ := createTestUser(t)
+	u3, _ := createTestUser(t)
+	event := createTestEvent(t, &u1, []*models.User{}, []*models.User{&u2})
+	event2 := createTestEvent(t, &u1, []*models.User{}, []*models.User{&u2})
+
+	magicLink := event.GetMagicLink()
+
+	split := strings.Split(magicLink, "/")
+	eventID := split[len(split)-3]
+	b64ts := split[len(split)-2]
+	sig := split[len(split)-1]
+
+	tests := []struct {
+		Name         string
+		EventID      string
+		AuthToken    string
+		ExpectStatus int
+	}{
+		{
+			Name:         "Owner",
+			EventID:      event.ID,
+			AuthToken:    u1.Token,
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			Name:         "Host",
+			EventID:      event.ID,
+			AuthToken:    u2.Token,
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			Name:         "Random",
+			EventID:      event.ID,
+			AuthToken:    u3.Token,
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			Name:         "Unrelated Event",
+			EventID:      event2.ID,
+			AuthToken:    u3.Token,
+			ExpectStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.Name, func(t *testing.T) {
+			tt := apitest.New(fmt.Sprintf("GetMagic: %s", testCase.Name)).
+				Handler(th).
+				Post(fmt.Sprintf("/events/%s/magic", testCase.EventID)).
+				JSON(fmt.Sprintf(`{"eventId": "%s", "signature": "%s", "timestamp": "%s"}`, eventID, sig, b64ts)).
+				Headers(getAuthHeader(testCase.AuthToken)).
+				Expect(t).
+				Status(testCase.ExpectStatus)
+			if testCase.ExpectStatus == http.StatusOK {
+				tt.Assert(jsonpath.Equal("$.id", event.ID))
+				tt.Assert(jsonpath.Equal("$.owner.id", u1.ID))
+				tt.Assert(jsonpath.Contains("$.users[*].id", u3.ID))
+			}
+			tt.End()
+		})
+	}
+}
