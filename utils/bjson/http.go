@@ -63,7 +63,10 @@ func WithJSONRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isWriteRequest(r.Method) {
 			if ct := r.Header.Get("Content-Type"); ct != "application/json" {
-				HandleError(w, errors.E(errors.Op("bjson.WithJSONRequests"), http.StatusUnsupportedMediaType))
+				HandleError(w, errors.E(
+					errors.Op("bjson.WithJSONRequests"),
+					errors.Str("correct header not present"),
+					http.StatusUnsupportedMediaType))
 				return
 			}
 		}

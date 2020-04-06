@@ -6,13 +6,14 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/db"
+	// All handlers are imported because it would be annoying to write
+	// "handlers" so many times.
 	. "github.com/hiconvo/api/handlers"
 	"github.com/hiconvo/api/middleware"
 	"github.com/hiconvo/api/utils/bjson"
 )
 
-// New mounts all of the application's endpoints. It is exported so
-// that it can be used in tests.
+// New mounts all of the application's endpoints.
 func New() http.Handler {
 	router := mux.NewRouter()
 	router.Use(middleware.WithErrorReporting)
@@ -54,6 +55,7 @@ func New() http.Handler {
 	txEventSubrouter.HandleFunc("/events/{eventID}/users/{userID}", RemoveUserFromEvent).Methods("DELETE")
 	txEventSubrouter.HandleFunc("/events/{eventID}/rsvps", AddRSVPToEvent).Methods("POST")
 	txEventSubrouter.HandleFunc("/events/{eventID}/rsvps", RemoveRSVPFromEvent).Methods("DELETE")
+	txEventSubrouter.HandleFunc("/events/{eventID}/magic", RollMagicLink).Methods("PUT")
 
 	txThreadSubrouter := txSubrouter.NewRoute().Subrouter()
 	txThreadSubrouter.Use(middleware.WithUser, middleware.WithThread)
@@ -112,6 +114,7 @@ func New() http.Handler {
 	eventSubrouter.HandleFunc("/events/{eventID}/messages/{messageID}", DeleteEventMessage).Methods("DELETE")
 
 	eventSubrouter.HandleFunc("/events/{eventID}/reads", MarkEventAsRead).Methods("POST")
+	eventSubrouter.HandleFunc("/events/{eventID}/magic", GetMagicLink).Methods("GET")
 
 	return middleware.WithLogging(middleware.WithCORS(router))
 }

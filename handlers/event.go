@@ -688,3 +688,53 @@ func MagicInvite(w http.ResponseWriter, r *http.Request) {
 
 	bjson.WriteJSON(w, u, http.StatusOK)
 }
+
+// GetMagicLink Endpoint: GET /events/{eventID}/magic
+
+// GetMagicLink gets the magic link for the given event.
+func GetMagicLink(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	event := middleware.EventFromContext(ctx)
+
+	if event.OwnerIs(&u) || event.HostIs(&u) {
+		bjson.WriteJSON(w, map[string]string{"url": event.GetMagicLink()}, http.StatusOK)
+		return
+	}
+
+	// Otherwise throw a 404.
+	bjson.HandleError(w, errors.E(
+		errors.Op("handlers.GetMagicLink"),
+		errors.Str("no permission"),
+		http.StatusNotFound))
+}
+
+// RollMagicLink Endpoint: PUT /events/{eventID}/magic
+
+// RollMagicLink invalidates the current magic link and generates a new one.
+func RollMagicLink(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.RollMagicLink")
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	event := middleware.EventFromContext(ctx)
+	tx, _ := db.TransactionFromContext(ctx)
+
+	if !(event.OwnerIs(&u) || event.HostIs(&u)) {
+		bjson.HandleError(w, errors.E(op, errors.Str("no permission"), http.StatusNotFound))
+		return
+	}
+
+	event.RollToken()
+
+	if _, err := event.CommitWithTransaction(tx); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	bjson.WriteJSON(w, map[string]string{"url": event.GetMagicLink()}, http.StatusOK)
+}

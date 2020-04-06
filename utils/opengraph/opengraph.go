@@ -26,7 +26,7 @@ func Extract(ctx context.Context, text string) LinkData {
 
 	data, err := og.FetchWithContext(ctx, url)
 	if err != nil {
-		log.Printf("opengraph.Extract: %v", err)
+		log.Printf("opengraph.Extract(%s): %v", url, err)
 		return LinkData{}
 	}
 
