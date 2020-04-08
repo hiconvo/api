@@ -416,7 +416,7 @@ func RemoveUserFromEvent(w http.ResponseWriter, r *http.Request) {
 	// If the requestor is the owner or the requestor is the user to be
 	// removed, then remove the user.
 	if event.OwnerIs(&u) || userToBeRemoved.Key.Equal(u.Key) {
-		if err := event.RemoveRSVP(&u); err != nil {
+		if err := event.RemoveRSVP(&userToBeRemoved); err != nil {
 			bjson.HandleError(w, err)
 			return
 		}
