@@ -886,7 +886,7 @@ func TestRollMagicLink(t *testing.T) {
 		t.Run(testCase.Name, func(t *testing.T) {
 			apitest.New(fmt.Sprintf("GetMagic: %s", testCase.Name)).
 				Handler(th).
-				Put(fmt.Sprintf("/events/%s/magic", event.ID)).
+				Delete(fmt.Sprintf("/events/%s/magic", event.ID)).
 				JSON("{}").
 				Headers(getAuthHeader(testCase.AuthToken)).
 				Expect(t).
