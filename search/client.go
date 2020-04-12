@@ -10,17 +10,25 @@ import (
 	"github.com/hiconvo/api/utils/secrets"
 )
 
-// Client is an unwrapped elastic.Client.
-var Client *elastic.Client
+var DefaultClient Client
 
 func init() {
-	esHost := secrets.Get("ELASTICSEARCH_HOST", "elasticsearch")
+	DefaultClient = NewClient(secrets.Get("ELASTICSEARCH_HOST", "elasticsearch"))
+}
 
+type Client interface {
+	Update() *elastic.UpdateService
+	Delete() *elastic.DeleteService
+	Search(indicies ...string) *elastic.SearchService
+}
+
+func NewClient(hostname string) Client {
+	var client *elastic.Client
 	var err error
 	for {
-		Client, err = elastic.NewClient(
+		client, err = elastic.NewClient(
 			elastic.SetSniff(false),
-			elastic.SetURL(fmt.Sprintf("http://%s:9200", esHost)),
+			elastic.SetURL(fmt.Sprintf("http://%s:9200", hostname)),
 		)
 		if err != nil {
 			log.Printf("Failed to initialize elasticsearch; will retry in three seconds.\n%s\n", err)
@@ -29,4 +37,5 @@ func init() {
 			break
 		}
 	}
+	return client
 }

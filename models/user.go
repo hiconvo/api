@@ -193,7 +193,7 @@ func (u *User) CommitWithTransaction(tx db.Transaction) (*datastore.PendingKey, 
 
 func (u *User) CreateOrUpdateSearchIndex(ctx context.Context) {
 	if u.IsRegistered() {
-		_, upsertErr := search.Client.Update().
+		_, upsertErr := search.DefaultClient.Update().
 			Index("users").
 			Id(u.ID).
 			DocAsUpsert(true).
@@ -533,7 +533,7 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 
 		// Remove the old user from search
 		if oldUser.IsRegistered() {
-			_, err = search.Client.Delete().
+			_, err = search.DefaultClient.Delete().
 				Index("users").
 				Id(oldUser.ID).
 				Do(ctx)
@@ -568,7 +568,7 @@ func UserSearch(ctx context.Context, query string) ([]UserPartial, error) {
 	esQuery := elastic.NewMultiMatchQuery(query, "fullName", "firstName", "lastName").
 		Fuzziness("3").
 		MinimumShouldMatch("0")
-	result, err := search.Client.Search().
+	result, err := search.DefaultClient.Search().
 		Index("users").
 		Query(esQuery).
 		From(skip).Size(take).
