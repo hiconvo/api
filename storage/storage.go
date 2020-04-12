@@ -8,9 +8,6 @@ to avatar keys are stored in a public bucket. The images corresponding to photo
 keys are also currently stored in a dfferent public bucket, but at some point it is hoped that
 this bucket will be made private and that only signed URLs will be used to access
 the images.
-
-The biggest mistake I made is writing this package is not creating special types for
-the keys. This would be a good refactor later on.
 */
 package storage
 
@@ -18,7 +15,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -28,53 +24,80 @@ import (
 
 	uuid "github.com/gofrs/uuid"
 	"gocloud.dev/blob"
+
 	// This sets up the plumbing to use blob with the local file system in development mode.
 	_ "gocloud.dev/blob/fileblob"
 	// This sets up the plumbing to use blob with GCS in production.
 	_ "gocloud.dev/blob/gcsblob"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
-// Key corresponds to the path of an object in storage.
-// Example: EhEKBlRocmVhZBCAgICYu6KVCg/c2b4a5e6-e302-4ebc-b71a-78cd96c7abb1.jpg
-// TODO: Finish this sometime.
-// type Key string
-
-var (
-	_avatarBucketName string = secrets.Get("AVATAR_BUCKET_NAME", getFallbackBucketName())
-	_photoBucketName  string = secrets.Get("PHOTO_BUCKET_NAME", getFallbackBucketName())
-)
-
 const _nullKey string = "null-key"
 
+var DefaultClient *Client
+
 func init() {
-	// Make sure the storage dir exists when doing local dev
-	if _avatarBucketName[:8] == "file:///" {
-		log.Printf("storage.init: Creating temporary bucket storage at %s", _avatarBucketName)
-		if err := os.MkdirAll(_avatarBucketName[7:], 0777); err != nil {
-			panic(fmt.Errorf("storage.getURLPrefix: %v", err))
+	DefaultClient = NewClient(secrets.Get("AVATAR_BUCKET_NAME", ""), secrets.Get("PHOTO_BUCKET_NAME", ""))
+}
+
+type Client struct {
+	avatarBucketName string
+	photoBucketName  string
+}
+
+func NewClient(avatarBucketName, photoBucketName string) *Client {
+	if avatarBucketName == "" || photoBucketName == "" {
+		localBucketName := initLocalStorageDir()
+		return &Client{
+			avatarBucketName: localBucketName,
+			photoBucketName:  localBucketName,
 		}
 	}
+
+	return &Client{
+		avatarBucketName: avatarBucketName,
+		photoBucketName:  photoBucketName,
+	}
+}
+
+func initLocalStorageDir() string {
+	op := errors.Op("storage.initLocalStorageDir")
+
+	localpath, err := filepath.Abs("./.local-object-store/")
+	if err != nil {
+		panic(errors.E(op, err))
+	}
+
+	fp := fmt.Sprintf("file://%s", localpath)
+
+	log.Printf("storage.initLocalStorageDir: Creating temporary bucket storage at %s", fp)
+	if err := os.MkdirAll(localpath, 0777); err != nil {
+		panic(errors.E(op, err))
+	}
+
+	return fp
 }
 
 // GetAvatarURLFromKey returns the public URL of the given avatar key.
-func GetAvatarURLFromKey(key string) string {
-	return getURLPrefix(_avatarBucketName) + key
+func (c *Client) GetAvatarURLFromKey(key string) string {
+	return getURLPrefix(c.avatarBucketName) + key
 }
 
 // GetPhotoURLFromKey returns the public URL of the given photo key.
-func GetPhotoURLFromKey(key string) string {
-	return getURLPrefix(_photoBucketName) + key
+func (c *Client) GetPhotoURLFromKey(key string) string {
+	return getURLPrefix(c.photoBucketName) + key
 }
 
 // GetSignedPhotoURL returns a signed URL of the given photo key.
-func GetSignedPhotoURL(ctx context.Context, key string) (string, error) {
-	b, err := getPhotoBucket(ctx)
+func (c *Client) GetSignedPhotoURL(ctx context.Context, key string) (string, error) {
+	b, err := blob.OpenBucket(ctx, c.photoBucketName)
 	if err != nil {
-		return "", fmt.Errorf("storage.GetSignedPhotoURL: %v", err)
+		return "", errors.E(errors.Op("storage.GetSignedPhotoURL"), err)
 	}
+	defer b.Close()
 
 	return b.SignedURL(ctx, key, &blob.SignedURLOptions{
 		Expiry: blob.DefaultSignedURLExpiry,
@@ -84,7 +107,7 @@ func GetSignedPhotoURL(ctx context.Context, key string) (string, error) {
 // GetKeyFromAvatarURL accepts a url and returns the last segment of the
 // URL, which corresponds with the key of the avatar image, used in cloud
 // storage.
-func GetKeyFromAvatarURL(url string) string {
+func (c *Client) GetKeyFromAvatarURL(url string) string {
 	if url == "" {
 		return _nullKey
 	}
@@ -96,7 +119,7 @@ func GetKeyFromAvatarURL(url string) string {
 // GetKeyFromPhotoURL accepts a url and returns the last segment of the
 // URL, which corresponds with the key of the image, used in cloud
 // storage.
-func GetKeyFromPhotoURL(url string) string {
+func (c *Client) GetKeyFromPhotoURL(url string) string {
 	if url == "" {
 		return _nullKey
 	}
@@ -107,20 +130,22 @@ func GetKeyFromPhotoURL(url string) string {
 
 // PutAvatarFromURL requests the image at the given URL, resizes it to 256x256 and
 // saves it to the avatar bucket. It returns the full avatar URL.
-func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
+func (c *Client) PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
+	op := errors.Op("storage.PutAvatarFromURL")
+
 	res, err := http.Get(uri)
 	if err != nil {
 		return "", err
 	}
 	if res.StatusCode != http.StatusOK {
-		return "", errors.New("storage.PutAvatarFromURL: Could not download avatar image")
+		return "", errors.E(op, errors.Str("Could not download avatar image"))
 	}
 
 	key := uuid.Must(uuid.NewV4()).String() + ".jpg"
 
-	bucket, err := getAvatarBucket(ctx)
+	bucket, err := blob.OpenBucket(ctx, c.avatarBucketName)
 	if err != nil {
-		return "", err
+		return "", errors.E(op, err)
 	}
 	defer bucket.Close()
 
@@ -128,7 +153,7 @@ func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
 		CacheControl: "525600",
 	})
 	if err != nil {
-		return "", err
+		return "", errors.E(op, err)
 	}
 	defer outputBlob.Close()
 
@@ -141,18 +166,20 @@ func PutAvatarFromURL(ctx context.Context, uri string) (string, error) {
 
 	if err := cmd.Run(); err != nil {
 		log.Print(stderr.String())
-		return "", fmt.Errorf("storage.PutAvatarFromURL: %v", err)
+		return "", errors.E(op, err)
 	}
 
-	return GetAvatarURLFromKey(key), nil
+	return c.GetAvatarURLFromKey(key), nil
 }
 
 // PutAvatarFromBlob crops and resizes the given image blob, saves it, and
 // returns the full URL of the image.
-func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey string) (string, error) {
-	bucket, err := getAvatarBucket(ctx)
+func (c *Client) PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey string) (string, error) {
+	op := errors.Op("storage.PutAvatarFromBlob")
+
+	bucket, err := blob.OpenBucket(ctx, c.avatarBucketName)
 	if err != nil {
-		return "", fmt.Errorf("storage.PutAvatarFromBlob: %v", err)
+		return "", errors.E(op, err)
 	}
 	defer bucket.Close()
 
@@ -162,7 +189,7 @@ func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey s
 		CacheControl: "525600",
 	})
 	if err != nil {
-		return "", fmt.Errorf("storage.PutAvatarFromBlob: %v", err)
+		return "", errors.E(op, err)
 	}
 	defer outputBlob.Close()
 
@@ -177,32 +204,33 @@ func PutAvatarFromBlob(ctx context.Context, dat string, size, x, y int, oldKey s
 
 	if err := cmd.Run(); err != nil {
 		log.Print(stderr.String())
-		return "", fmt.Errorf("storage.PutAvatarFromBlob: %v", err)
+		return "", errors.E(op, err)
 	}
 
 	if oldKey != "" && oldKey != _nullKey {
 		exists, err := bucket.Exists(ctx, oldKey)
 		if err != nil {
-			log.Alarm(fmt.Errorf("storage.PutAvatarFromBlob: %v)", err))
+			log.Alarm(errors.E(op, err))
 		}
 		if exists {
 			bucket.Delete(ctx, oldKey)
 		}
 	}
 
-	return GetAvatarURLFromKey(key), nil
+	return c.GetAvatarURLFromKey(key), nil
 }
 
-// PutPhotoFromBlob resizes the given image blob, saves it, and returns the key
-// of the image.
-func PutPhotoFromBlob(ctx context.Context, parentID, dat string) (string, error) {
+// PutPhotoFromBlob resizes the given image blob, saves it, and returns full url of the image.
+func (c *Client) PutPhotoFromBlob(ctx context.Context, parentID, dat string) (string, error) {
+	op := errors.Op("storage.PutPhotoFromBlob")
+
 	if parentID == "" {
-		return "", errors.New("storage.PutPhotoFromBlob: No parentID given")
+		return "", errors.E(op, errors.Str("No parentID given"))
 	}
 
-	bucket, err := getPhotoBucket(ctx)
+	bucket, err := blob.OpenBucket(ctx, c.photoBucketName)
 	if err != nil {
-		return "", fmt.Errorf("storage.PutPhotoFromBlob: %v", err)
+		return "", errors.E(op, err)
 	}
 	defer bucket.Close()
 
@@ -212,7 +240,7 @@ func PutPhotoFromBlob(ctx context.Context, parentID, dat string) (string, error)
 		CacheControl: "525600",
 	})
 	if err != nil {
-		return "", fmt.Errorf("storage.PutPhotoFromBlob: %v", err)
+		return "", errors.E(op, err)
 	}
 	defer outputBlob.Close()
 
@@ -226,43 +254,33 @@ func PutPhotoFromBlob(ctx context.Context, parentID, dat string) (string, error)
 
 	if err := cmd.Run(); err != nil {
 		log.Print(stderr.String())
-		return "", fmt.Errorf("storage.PutPhotoFromBlob: %v", err)
+		return "", errors.E(op, err)
 	}
 
-	return key, nil
+	return c.GetPhotoURLFromKey(key), nil
 }
 
 // DeletePhoto deletes the given photo from the photo bucket.
 // This does not work for avatars.
-func DeletePhoto(ctx context.Context, key string) error {
-	bucket, err := getPhotoBucket(ctx)
+func (c *Client) DeletePhoto(ctx context.Context, key string) error {
+	op := errors.Op("storage.DeletePhoto")
+
+	bucket, err := blob.OpenBucket(ctx, c.photoBucketName)
 	if err != nil {
-		return fmt.Errorf("storage.DeletePhoto: %v", err)
+		return errors.E(op, err)
 	}
 	defer bucket.Close()
 
 	if err := bucket.Delete(ctx, key); err != nil {
-		return fmt.Errorf("storage.DeletePhoto: %v", err)
+		return errors.E(op, err)
 	}
 
 	return nil
 }
 
-// getFallbackBucketName provides a fallback bucketName for local development
-// which is just a local directory name.
-func getFallbackBucketName() string {
-	localpath, err := filepath.Abs("./.local-object-store/")
-	if err != nil {
-		panic(err)
-	}
-
-	return fmt.Sprintf("file://%s", localpath)
-}
-
 // getURLPrefix returns the public URL prefix of the given bucket.
 // For example, it will convert "gs://convo-avatars" to
-// "https://storage.googleapis.com/convo-avatarts/". It also ensures
-// that, when doing local development, the local bucket directory exists.
+// "https://storage.googleapis.com/convo-avatarts/".
 func getURLPrefix(bucketName string) string {
 	if bucketName[:8] == "file:///" {
 		return bucketName + "/"
@@ -272,15 +290,7 @@ func getURLPrefix(bucketName string) string {
 		return fmt.Sprintf("https://storage.googleapis.com/%s/", bucketName[5:])
 	}
 
-	panic(fmt.Errorf("storage.getURLPrefix: '%v' is not a valid bucketName", bucketName))
-}
-
-// getPhotoBucket gets the bucket for user photos.
-func getPhotoBucket(ctx context.Context) (*blob.Bucket, error) {
-	return blob.OpenBucket(ctx, _photoBucketName)
-}
-
-// getAvatarBucket gets the bucket for user avatars.
-func getAvatarBucket(ctx context.Context) (*blob.Bucket, error) {
-	return blob.OpenBucket(ctx, _avatarBucketName)
+	panic(errors.E(
+		errors.Op("storage.getURLPrefix"),
+		errors.Errorf("'%v' is not a valid bucketName", bucketName)))
 }

@@ -76,7 +76,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 	var photoKey string
 	var err error
 	if payload.Blob != "" {
-		photoKey, err = storage.PutPhotoFromBlob(ctx, thread.ID, payload.Blob)
+		photoKey, err = storage.DefaultClient.PutPhotoFromBlob(ctx, thread.ID, payload.Blob)
 		if err != nil {
 			bjson.HandleError(w, errors.E(op, err))
 			return
@@ -266,7 +266,7 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 	var photoKey string
 	var err error
 	if payload.Blob != "" {
-		photoKey, err = storage.PutPhotoFromBlob(ctx, event.ID, payload.Blob)
+		photoKey, err = storage.DefaultClient.PutPhotoFromBlob(ctx, event.ID, payload.Blob)
 		if err != nil {
 			bjson.HandleError(w, errors.E(op, err))
 			return
@@ -380,7 +380,7 @@ func DeletePhotoFromMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := storage.GetKeyFromPhotoURL(payload.Key)
+	key := storage.DefaultClient.GetKeyFromPhotoURL(payload.Key)
 
 	if !m.HasPhotoKey(key) {
 		bjson.HandleError(w, errors.E(op, errors.Str("no photo in message"), http.StatusBadRequest))

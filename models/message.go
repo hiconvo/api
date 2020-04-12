@@ -52,7 +52,7 @@ func NewThreadMessage(u *User, t *Thread, body, photoKey string, link og.LinkDat
 
 	if photoKey != "" {
 		message.PhotoKeys = []string{photoKey}
-		message.Photos = []string{storage.GetPhotoURLFromKey(photoKey)}
+		message.Photos = []string{storage.DefaultClient.GetPhotoURLFromKey(photoKey)}
 	}
 
 	if t.Preview == nil {
@@ -82,7 +82,7 @@ func NewEventMessage(u *User, e *Event, body, photoKey string) (Message, error) 
 
 	if photoKey != "" {
 		message.PhotoKeys = []string{photoKey}
-		message.Photos = []string{storage.GetPhotoURLFromKey(photoKey)}
+		message.Photos = []string{storage.DefaultClient.GetPhotoURLFromKey(photoKey)}
 	}
 
 	ClearReads(e)
@@ -137,7 +137,7 @@ func (m *Message) Load(ps []datastore.Property) error {
 				for i := range photoKeys {
 					photoKey, ok := photoKeys[i].(string)
 					if ok {
-						photos[i] = storage.GetPhotoURLFromKey(photoKey)
+						photos[i] = storage.DefaultClient.GetPhotoURLFromKey(photoKey)
 					}
 				}
 
@@ -201,7 +201,7 @@ func (m *Message) DeletePhoto(ctx context.Context, key string) error {
 			}
 		}
 
-		if err := storage.DeletePhoto(ctx, key); err != nil {
+		if err := storage.DefaultClient.DeletePhoto(ctx, key); err != nil {
 			log.Alarm(errors.E(errors.Op("models.DeletePhoto"), err))
 		}
 	}
