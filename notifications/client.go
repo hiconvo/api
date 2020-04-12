@@ -6,12 +6,30 @@ import (
 	"cloud.google.com/go/datastore"
 	"gopkg.in/GetStream/stream-go2.v1"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
-type verb string
+var DefaultClient Client
 
-type target string
+func init() {
+	streamKey := secrets.Get("STREAM_API_KEY", "streamKey")
+	streamSecret := secrets.Get("STREAM_API_SECRET", "streamSecret")
+	DefaultClient = NewClient(streamKey, streamSecret, "us-east")
+}
+
+func Put(n Notification) error {
+	return DefaultClient.Put(n)
+}
+
+func GenerateToken(userID string) string {
+	return DefaultClient.GenerateToken(userID)
+}
+
+type (
+	verb   string
+	target string
+)
 
 const (
 	// NewEvent is a notification type that means a new event was created.
@@ -44,28 +62,33 @@ type Notification struct {
 	TargetName string
 }
 
-var client *stream.Client
+type Client interface {
+	Put(n Notification) error
+	GenerateToken(userID string) string
+}
 
-// Setup the stream.Client.
-func init() {
-	streamKey := secrets.Get("STREAM_API_KEY", "streamKey")
-	streamSecret := secrets.Get("STREAM_API_SECRET", "streamSecret")
+type clientImpl struct {
+	client *stream.Client
+}
 
+func NewClient(apiKey, apiSecret, apiRegion string) Client {
 	c, err := stream.NewClient(
-		streamKey,
-		streamSecret,
-		stream.WithAPIRegion("us-east"))
+		apiKey,
+		apiSecret,
+		stream.WithAPIRegion(apiRegion))
 	if err != nil {
-		panic(err)
+		panic(errors.E(errors.Op("notifications.NewClient"), err))
 	}
 
-	client = c
+	return &clientImpl{
+		client: c,
+	}
 }
 
 // put is something like an adapter for stream.io. It takes the incoming notification
 // and dispatches it in the appropriate way.
-func put(n Notification, userID string) error {
-	feed := client.NotificationFeed("notification", userID)
+func (c *clientImpl) put(n Notification, userID string) error {
+	feed := c.client.NotificationFeed("notification", userID)
 
 	_, err := feed.AddActivity(stream.Activity{
 		Actor:  n.Actor,
@@ -84,9 +107,9 @@ func put(n Notification, userID string) error {
 }
 
 // Put dispatches a notification.
-func Put(n Notification) error {
+func (c *clientImpl) Put(n Notification) error {
 	for _, key := range n.UserKeys {
-		if err := put(n, key.Encode()); err != nil {
+		if err := c.put(n, key.Encode()); err != nil {
 			return err
 		}
 	}
@@ -95,8 +118,8 @@ func Put(n Notification) error {
 }
 
 // GenerateToken generates a token for use on the frontend to retireve notifications.
-func GenerateToken(userID string) string {
-	feed := client.NotificationFeed("notification", userID)
+func (c *clientImpl) GenerateToken(userID string) string {
+	feed := c.client.NotificationFeed("notification", userID)
 	return feed.RealtimeToken(true)
 }
 
