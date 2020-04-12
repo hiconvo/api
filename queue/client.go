@@ -7,19 +7,18 @@ import (
 	"os"
 
 	cloudtasks "cloud.google.com/go/cloudtasks/apiv2"
-	"github.com/googleapis/gax-go/v2"
 	taskspb "google.golang.org/genproto/googleapis/cloud/tasks/v2"
+
+	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 )
 
-type taskCreator interface {
-	CreateTask(context.Context, *taskspb.CreateTaskRequest, ...gax.CallOption) (*taskspb.Task, error)
-}
+type (
+	emailType   string
+	emailAction string
+)
 
-type emailType string
-
-type emailAction string
-
-var (
+const (
 	// User denotes a User object type, for use in an EmailPayload
 	User emailType = "User"
 	// Event denotes a Event object type, for use in an EmailPayload
@@ -41,6 +40,20 @@ var (
 	SendWelcome emailAction = "SendWelcome"
 )
 
+var DefaultClient Client
+
+func init() {
+	if projectID := os.Getenv("GOOGLE_CLOUD_PROJECT"); projectID == "local-convo-api" || projectID == "" {
+		DefaultClient = NewLocalClient()
+	} else {
+		DefaultClient = NewClient(context.Background(), projectID)
+	}
+}
+
+func PutEmail(ctx context.Context, payload EmailPayload) error {
+	return DefaultClient.PutEmail(ctx, payload)
+}
+
 // EmailPayload is a representation of an async email task.
 type EmailPayload struct {
 	// IDs is a slice of strings that are the result of calling *datastore.Key.Encode().
@@ -49,36 +62,29 @@ type EmailPayload struct {
 	Action emailAction `json:"action"`
 }
 
-var (
-	_client    taskCreator
-	_queuePath string
-)
+type Client interface {
+	PutEmail(ctx context.Context, payload EmailPayload) error
+}
 
-func init() {
-	ctx := context.Background()
+type clientImpl struct {
+	client *cloudtasks.Client
+	path   string
+}
 
-	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
-	if projectID == "" {
-		projectID = "local-convo-api"
-	}
-
-	var client taskCreator
-	var err error
-	if projectID == "local-convo-api" {
-		client = testTaskClient{}
-	} else {
-		client, err = cloudtasks.NewClient(ctx)
-	}
+func NewClient(ctx context.Context, projectID string) Client {
+	tc, err := cloudtasks.NewClient(ctx)
 	if err != nil {
-		panic(err)
+		panic(errors.E(errors.Op("queue.NewClient"), err))
 	}
 
-	_client = client
-	_queuePath = fmt.Sprintf("projects/%s/locations/us-central1/queues/convo-emails", projectID)
+	return &clientImpl{
+		client: tc,
+		path:   fmt.Sprintf("projects/%s/locations/us-central1/queues/convo-emails", projectID),
+	}
 }
 
 // PutEmail enqueues an email to be sent.
-func PutEmail(ctx context.Context, payload EmailPayload) error {
+func (c *clientImpl) PutEmail(ctx context.Context, payload EmailPayload) error {
 	if payload.Type == Thread && payload.Action != SendThread {
 		return fmt.Errorf("queue.PutEmail: '%v' is not a valid action for emailType.Thread", payload.Action)
 	} else if payload.Type == Event && !(payload.Action == SendInvites || payload.Action == SendUpdatedInvites) {
@@ -93,7 +99,7 @@ func PutEmail(ctx context.Context, payload EmailPayload) error {
 	}
 
 	req := &taskspb.CreateTaskRequest{
-		Parent: _queuePath,
+		Parent: c.path,
 		Task: &taskspb.Task{
 			// https://godoc.org/google.golang.org/genproto/googleapis/cloud/tasks/v2#AppEngineHttpRequest
 			MessageType: &taskspb.Task_AppEngineHttpRequest{
@@ -106,10 +112,22 @@ func PutEmail(ctx context.Context, payload EmailPayload) error {
 		},
 	}
 
-	_, err = _client.CreateTask(ctx, req)
+	_, err = c.client.CreateTask(ctx, req)
 	if err != nil {
 		return fmt.Errorf("queue.PutEmail: %v", err)
 	}
 
+	return nil
+}
+
+type localClientImpl struct{}
+
+func NewLocalClient() Client {
+	log.Print("queue.NewLocalClient: USING QUEUE LOGGER FOR LOCAL DEVELOPMENT")
+	return &localClientImpl{}
+}
+
+func (c *localClientImpl) PutEmail(ctx context.Context, payload EmailPayload) error {
+	log.Printf("queue.PutEmail(EmailPayload{IDs=[], Type=%s, Action=%s})", payload.Type, payload.Action)
 	return nil
 }
