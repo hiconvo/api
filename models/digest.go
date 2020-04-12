@@ -79,7 +79,7 @@ func MarkDigestedMessagesAsRead(ctx context.Context, digestList []DigestItem, us
 		}
 	}
 
-	_, err := db.Client.PutMulti(ctx, keys, messages)
+	_, err := db.DefaultClient.PutMulti(ctx, keys, messages)
 	if err != nil {
 		return err
 	}

@@ -73,7 +73,7 @@ func mergeContacts(a, b []*datastore.Key) []*datastore.Key {
 func reassignContacts(ctx context.Context, tx *datastore.Transaction, oldUser, newUser *User) error {
 	var users []*User
 	q := datastore.NewQuery("User").Filter("ContactKeys =", oldUser.Key)
-	keys, err := db.Client.GetAll(ctx, q, &users)
+	keys, err := db.DefaultClient.GetAll(ctx, q, &users)
 	if err != nil {
 		return err
 	}

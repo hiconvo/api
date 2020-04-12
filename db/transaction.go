@@ -2,36 +2,31 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/utils/bjson"
 )
 
-type txContextKey string
+type ctxKey int
 
-const key txContextKey = "tx"
+const txKey ctxKey = iota
 
 // TransactionFromContext extracts a transaction from the given
 // context is one is present.
 func TransactionFromContext(ctx context.Context) (Transaction, bool) {
-	maybeTx := ctx.Value(key)
-	tx, ok := maybeTx.(Transaction)
-	if ok && tx != nil {
-		return tx, ok
-	}
-
-	return &wrappedTransactionImpl{}, false
+	tx, ok := ctx.Value(txKey).(Transaction)
+	return tx, ok
 }
 
 // AddTransactionToContext returns a new context with a transaction added.
 func AddTransactionToContext(ctx context.Context) (context.Context, Transaction, error) {
-	tx, err := Client.NewTransaction(ctx)
+	tx, err := DefaultClient.NewTransaction(ctx)
 	if err != nil {
-		return ctx, tx, fmt.Errorf("db.AddTransactionToContext: %v", err)
+		return ctx, tx, errors.E(errors.Op("db.AddTransactionToContext"), err)
 	}
 
-	nctx := context.WithValue(ctx, key, tx)
+	nctx := context.WithValue(ctx, txKey, tx)
 
 	return nctx, tx, nil
 }
@@ -41,9 +36,10 @@ func WithTransaction(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, tx, err := AddTransactionToContext(r.Context())
 		if err != nil {
-			bjson.WriteJSON(w, map[string]string{
-				"message": "Could not initialize database transaction",
-			}, http.StatusInternalServerError)
+			bjson.HandleError(w, errors.E(
+				errors.Op("db.WithTransaction"),
+				errors.Str("could not initialize database transaction"),
+				err))
 			return
 		}
 

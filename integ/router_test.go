@@ -11,8 +11,8 @@ import (
 
 	"cloud.google.com/go/datastore"
 
+	"github.com/hiconvo/api/handlers"
 	"github.com/hiconvo/api/models"
-	"github.com/hiconvo/api/router"
 	og "github.com/hiconvo/api/utils/opengraph"
 	"github.com/hiconvo/api/utils/random"
 	"github.com/hiconvo/api/utils/thelpers"
@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 
 	// Set globals to be used by tests below
 	tc = ctx
-	th = router.New()
+	th = handlers.New()
 	tclient = client
 
 	result := m.Run()

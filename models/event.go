@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	"github.com/arran4/golang-ical"
+	ics "github.com/arran4/golang-ical"
 	"github.com/gosimple/slug"
 
 	"github.com/hiconvo/api/db"
@@ -161,7 +161,7 @@ func (e *Event) Commit(ctx context.Context) error {
 		e.CreatedAt = time.Now()
 	}
 
-	key, err := db.Client.Put(ctx, e.Key, e)
+	key, err := db.DefaultClient.Put(ctx, e.Key, e)
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func (e *Event) CommitWithTransaction(tx db.Transaction) (*datastore.PendingKey,
 }
 
 func (e *Event) Delete(ctx context.Context) error {
-	if err := db.Client.Delete(ctx, e.Key); err != nil {
+	if err := db.DefaultClient.Delete(ctx, e.Key); err != nil {
 		return err
 	}
 	return nil
@@ -458,7 +458,7 @@ func GetUnhydratedEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*
 		Offset(p.Offset()).
 		Limit(p.Limit())
 
-	_, err := db.Client.GetAll(ctx, q, &events)
+	_, err := db.DefaultClient.GetAll(ctx, q, &events)
 	if err != nil {
 		return events, err
 	}
@@ -485,7 +485,7 @@ func GetEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, err
 
 	// We get all of the users in one go.
 	userPtrs := make([]*User, len(uKeys))
-	if err := db.Client.GetMulti(ctx, uKeys, userPtrs); err != nil {
+	if err := db.DefaultClient.GetMulti(ctx, uKeys, userPtrs); err != nil {
 		return events, err
 	}
 
@@ -533,7 +533,7 @@ func GetEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, err
 }
 
 func handleGetEvent(ctx context.Context, key *datastore.Key, e Event) (Event, error) {
-	if err := db.Client.Get(ctx, key, &e); err != nil {
+	if err := db.DefaultClient.Get(ctx, key, &e); err != nil {
 		if err == datastore.ErrNoSuchEntity {
 			return e, errors.E(errors.Op("models.handleGetEvent"), http.StatusNotFound, err)
 		}
@@ -542,7 +542,7 @@ func handleGetEvent(ctx context.Context, key *datastore.Key, e Event) (Event, er
 	}
 
 	users := make([]User, len(e.UserKeys))
-	if err := db.Client.GetMulti(ctx, e.UserKeys, users); err != nil {
+	if err := db.DefaultClient.GetMulti(ctx, e.UserKeys, users); err != nil {
 		return e, err
 	}
 

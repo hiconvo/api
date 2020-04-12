@@ -84,7 +84,7 @@ func extractUsers(ctx context.Context, owner models.User, users []interface{}) (
 	// Now, get the user objects and save to a new slice of user structs.
 	// If this fails, then the input was not valid.
 	userStructs := make([]models.User, len(userKeys))
-	if err := db.Client.GetMulti(ctx, userKeys, userStructs); err != nil {
+	if err := db.DefaultClient.GetMulti(ctx, userKeys, userStructs); err != nil {
 		return []models.User{}, []*datastore.Key{}, []string{}, errors.E(op,
 			map[string]string{"users": "Invalid users"},
 			http.StatusBadRequest)
@@ -138,7 +138,7 @@ func createUsersByEmail(ctx context.Context, emails []string) ([]models.User, []
 		}
 	}
 
-	keys, err := db.Client.PutMulti(ctx, usersToCommitKeys, usersToCommit)
+	keys, err := db.DefaultClient.PutMulti(ctx, usersToCommitKeys, usersToCommit)
 	if err != nil {
 		return []models.User{}, []*datastore.Key{}, errors.E(op, err)
 	}

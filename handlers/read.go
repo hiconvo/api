@@ -88,7 +88,7 @@ func markMessagesAsRead(
 		messageKeys[i] = messages[i].Key
 	}
 
-	if _, err := db.Client.PutMulti(ctx, messageKeys, messages); err != nil {
+	if _, err := db.DefaultClient.PutMulti(ctx, messageKeys, messages); err != nil {
 		return err
 	}
 

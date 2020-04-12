@@ -135,7 +135,7 @@ func (t *Thread) Commit(ctx context.Context) error {
 		t.CreatedAt = time.Now()
 	}
 
-	key, err := db.Client.Put(ctx, t.Key, t)
+	key, err := db.DefaultClient.Put(ctx, t.Key, t)
 	if err != nil {
 		return errors.E(errors.Op("thread.Commit"), err)
 	}
@@ -151,7 +151,7 @@ func (t *Thread) CommitWithTransaction(tx db.Transaction) (*datastore.PendingKey
 }
 
 func (t *Thread) Delete(ctx context.Context) error {
-	if err := db.Client.Delete(ctx, t.Key); err != nil {
+	if err := db.DefaultClient.Delete(ctx, t.Key); err != nil {
 		return err
 	}
 	return nil
@@ -298,7 +298,7 @@ func GetUnhydratedThreadsByUser(ctx context.Context, u *User, p *Pagination) ([]
 		Offset(p.Offset()).
 		Limit(p.Limit())
 
-	_, err := db.Client.GetAll(ctx, q, &threads)
+	_, err := db.DefaultClient.GetAll(ctx, q, &threads)
 	if err != nil {
 		return threads, err
 	}
@@ -325,7 +325,7 @@ func GetThreadsByUser(ctx context.Context, u *User, p *Pagination) ([]*Thread, e
 
 	// We get all of the users in one go.
 	userPtrs := make([]*User, len(userKeys))
-	if err := db.Client.GetMulti(ctx, userKeys, userPtrs); err != nil {
+	if err := db.DefaultClient.GetMulti(ctx, userKeys, userPtrs); err != nil {
 		return threads, err
 	}
 
@@ -361,12 +361,12 @@ func GetThreadsByUser(ctx context.Context, u *User, p *Pagination) ([]*Thread, e
 }
 
 func handleGetThread(ctx context.Context, key *datastore.Key, t Thread) (Thread, error) {
-	if err := db.Client.Get(ctx, key, &t); err != nil {
+	if err := db.DefaultClient.Get(ctx, key, &t); err != nil {
 		return t, err
 	}
 
 	users := make([]User, len(t.UserKeys))
-	if err := db.Client.GetMulti(ctx, t.UserKeys, users); err != nil {
+	if err := db.DefaultClient.GetMulti(ctx, t.UserKeys, users); err != nil {
 		return t, err
 	}
 

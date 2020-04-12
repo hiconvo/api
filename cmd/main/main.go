@@ -8,7 +8,7 @@ import (
 
 	"github.com/getsentry/raven-go"
 
-	"github.com/hiconvo/api/router"
+	"github.com/hiconvo/api/handlers"
 	"github.com/hiconvo/api/utils/secrets"
 )
 
@@ -16,7 +16,7 @@ func main() {
 	raven.SetDSN(secrets.Get("SENTRY_DSN", ""))
 	raven.SetRelease(os.Getenv("GAE_VERSION"))
 
-	http.Handle("/", router.New())
+	http.Handle("/", handlers.New())
 
 	port := os.Getenv("PORT")
 	if port == "" {

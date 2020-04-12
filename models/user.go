@@ -169,7 +169,7 @@ func (u *User) Commit(ctx context.Context) error {
 	u.FirstName = strings.TrimSpace(u.FirstName)
 	u.LastName = strings.TrimSpace(u.LastName)
 
-	key, err := db.Client.Put(ctx, u.Key, u)
+	key, err := db.DefaultClient.Put(ctx, u.Key, u)
 	if err != nil {
 		return err
 	}
@@ -484,7 +484,7 @@ func (u *User) MergeWith(ctx context.Context, oldUser *User) error {
 		return errors.Str("models.MergeWith: oldUser's key is incomplete")
 	}
 
-	_, err := db.Client.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+	_, err := db.DefaultClient.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
 		// Contacts
 		err := reassignContacts(ctx, tx, oldUser, u)
 		if err != nil {
@@ -611,7 +611,7 @@ func GetUserByID(ctx context.Context, id string) (User, error) {
 		return u, err
 	}
 
-	if err := db.Client.Get(ctx, key, &u); err != nil {
+	if err := db.DefaultClient.Get(ctx, key, &u); err != nil {
 		if err == datastore.ErrNoSuchEntity {
 			return u, errors.E(errors.Op("models.GetUserByID"), http.StatusNotFound, err)
 		}
@@ -651,7 +651,7 @@ func GetUsersByThread(ctx context.Context, t *Thread) ([]*User, error) {
 	userKeys = append(userKeys, t.OwnerKey)
 
 	users := make([]*User, len(userKeys))
-	if err := db.Client.GetMulti(ctx, userKeys, users); err != nil {
+	if err := db.DefaultClient.GetMulti(ctx, userKeys, users); err != nil {
 		return users, err
 	}
 
@@ -679,7 +679,7 @@ func getUserByField(ctx context.Context, field, value string) (User, bool, error
 
 	q := datastore.NewQuery("User").Filter(fmt.Sprintf("%s =", field), value)
 
-	keys, getErr := db.Client.GetAll(ctx, q, &users)
+	keys, getErr := db.DefaultClient.GetAll(ctx, q, &users)
 
 	if getErr != nil {
 		return User{}, false, getErr

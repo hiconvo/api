@@ -210,7 +210,7 @@ func (m *Message) DeletePhoto(ctx context.Context, key string) error {
 }
 
 func (m *Message) Commit(ctx context.Context) error {
-	key, err := db.Client.Put(ctx, m.Key, m)
+	key, err := db.DefaultClient.Put(ctx, m.Key, m)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func (m *Message) Commit(ctx context.Context) error {
 }
 
 func (m *Message) Delete(ctx context.Context) error {
-	if err := db.Client.Delete(ctx, m.Key); err != nil {
+	if err := db.DefaultClient.Delete(ctx, m.Key); err != nil {
 		return err
 	}
 	return nil
@@ -241,7 +241,7 @@ func GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*Message, error)
 
 	q := datastore.NewQuery("Message").Filter("ParentKey =", k)
 
-	if _, err := db.Client.GetAll(ctx, q, &messages); err != nil {
+	if _, err := db.DefaultClient.GetAll(ctx, q, &messages); err != nil {
 		return messages, err
 	}
 
@@ -250,7 +250,7 @@ func GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*Message, error)
 		userKeys[i] = messages[i].UserKey
 	}
 	users := make([]*User, len(userKeys))
-	if err := db.Client.GetMulti(ctx, userKeys, users); err != nil {
+	if err := db.DefaultClient.GetMulti(ctx, userKeys, users); err != nil {
 		return messages, err
 	}
 
@@ -269,7 +269,7 @@ func GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*Message, error)
 func GetUnhydratedMessagesByUser(ctx context.Context, u *User) ([]*Message, error) {
 	var messages []*Message
 	q := datastore.NewQuery("Message").Filter("UserKey =", u.Key)
-	if _, err := db.Client.GetAll(ctx, q, &messages); err != nil {
+	if _, err := db.DefaultClient.GetAll(ctx, q, &messages); err != nil {
 		return messages, err
 	}
 
@@ -285,7 +285,7 @@ func GetMessageByID(ctx context.Context, id string) (Message, error) {
 		return message, errors.E(op, err)
 	}
 
-	err = db.Client.Get(ctx, key, &message)
+	err = db.DefaultClient.Get(ctx, key, &message)
 	if err != nil {
 		return message, errors.E(op, err)
 	}

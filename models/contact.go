@@ -10,7 +10,7 @@ func GetContactsByUser(ctx context.Context, u *User) ([]*UserPartial, error) {
 	// FIXME: Only get fields needed for UserPartial instead of getting everything
 	// and then mapping to UserPartial.
 	contacts := make([]*User, len(u.ContactKeys))
-	if err := db.Client.GetMulti(ctx, u.ContactKeys, contacts); err != nil {
+	if err := db.DefaultClient.GetMulti(ctx, u.ContactKeys, contacts); err != nil {
 		return []*UserPartial{}, err
 	}
 

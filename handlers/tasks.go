@@ -27,7 +27,7 @@ func CreateDigest(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	query := datastore.NewQuery("User")
-	iter := db.Client.Run(ctx, query)
+	iter := db.DefaultClient.Run(ctx, query)
 
 	for {
 		var user models.User
