@@ -73,14 +73,15 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var photoURL string
+	var photoKey string
 	var err error
 	if payload.Blob != "" {
-		photoURL, err = storage.DefaultClient.PutPhotoFromBlob(ctx, thread.ID, payload.Blob)
+		photoURL, err := storage.DefaultClient.PutPhotoFromBlob(ctx, thread.ID, payload.Blob)
 		if err != nil {
 			bjson.HandleError(w, errors.E(op, err))
 			return
 		}
+		photoKey = storage.DefaultClient.GetKeyFromPhotoURL(photoURL)
 	}
 
 	messageBody := html.UnescapeString(payload.Body)
@@ -90,7 +91,7 @@ func AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		&u,
 		&thread,
 		messageBody,
-		storage.DefaultClient.GetKeyFromPhotoURL(photoURL),
+		photoKey,
 		link,
 	)
 	if err != nil {
@@ -263,21 +264,22 @@ func AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var photoURL string
+	var photoKey string
 	var err error
 	if payload.Blob != "" {
-		photoURL, err = storage.DefaultClient.PutPhotoFromBlob(ctx, event.ID, payload.Blob)
+		photoURL, err := storage.DefaultClient.PutPhotoFromBlob(ctx, event.ID, payload.Blob)
 		if err != nil {
 			bjson.HandleError(w, errors.E(op, err))
 			return
 		}
+		photoKey = storage.DefaultClient.GetKeyFromPhotoURL(photoURL)
 	}
 
 	message, err := models.NewEventMessage(
 		&u,
 		&event,
 		html.UnescapeString(payload.Body),
-		storage.DefaultClient.GetKeyFromPhotoURL(photoURL))
+		photoKey)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
