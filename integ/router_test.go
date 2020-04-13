@@ -14,6 +14,7 @@ import (
 	"github.com/hiconvo/api/handlers"
 	"github.com/hiconvo/api/models"
 	og "github.com/hiconvo/api/utils/opengraph"
+	"github.com/hiconvo/api/utils/places"
 	"github.com/hiconvo/api/utils/random"
 	"github.com/hiconvo/api/utils/thelpers"
 )
@@ -29,6 +30,8 @@ func TestMain(m *testing.M) {
 	ctx := thelpers.CreateTestContext()
 	client := thelpers.CreateTestDatastoreClient(ctx)
 	thelpers.ClearDatastore(ctx, client)
+
+	places.DefaultClient = places.NewLogger()
 
 	// Set globals to be used by tests below
 	tc = ctx
