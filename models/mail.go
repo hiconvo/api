@@ -7,8 +7,8 @@ import (
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/mail"
+	"github.com/hiconvo/api/template"
 	"github.com/hiconvo/api/utils/magic"
-	"github.com/hiconvo/api/utils/template"
 )
 
 const (
@@ -16,10 +16,10 @@ const (
 	_fromName  = "Convo"
 )
 
-const (
-	_tplStrPasswordReset = "Please click the link below to set your password."
-	_tplStrVerifyEmail   = "Please click the link below to verify your email address."
-	_tplStrMergeAccounts = "Please click the link below to verify your email address. This will merge your account with %s into your account with %s. If you did not attempt to add a new email to your account, it might be a good idea to notifiy support@convo.events."
+var (
+	_tplStrPasswordReset = readStringFromFile("password-reset.txt")
+	_tplStrVerifyEmail   = readStringFromFile("verify-email.txt")
+	_tplStrMergeAccounts = readStringFromFile("merge-accounts.txt")
 )
 
 func sendPasswordResetEmail(u *User, magicLink string) error {

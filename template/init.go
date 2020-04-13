@@ -15,11 +15,18 @@ func init() {
 		templates = make(map[string]*htmltpl.Template)
 	}
 
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
 	var basePath string
-	if strings.HasSuffix(os.Args[0], ".test") {
-		basePath = "../templates"
+	if strings.HasSuffix(wd, "template") {
+		// This package is the cwd, so we need to go up one dir to resolve the
+		// layouts and includes dirs consistently.
+		basePath = "../template"
 	} else {
-		basePath = "./templates"
+		basePath = "./template"
 	}
 
 	layouts, err := filepath.Glob(basePath + "/layouts/*.html")

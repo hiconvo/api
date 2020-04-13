@@ -392,7 +392,7 @@ func (u *User) MakeEmailPrimary(email string) error {
 func (u *User) Welcome(ctx context.Context) {
 	var op errors.Op = "user.Welcome"
 
-	thread, err := NewThread("Welcome", supportUser, []*User{u})
+	thread, err := NewThread("Welcome", _supportUser, []*User{u})
 	if err != nil {
 		log.Alarm(errors.E(op, err))
 		return
@@ -408,7 +408,7 @@ func (u *User) Welcome(ctx context.Context) {
 		return
 	}
 
-	message, err := NewThreadMessage(supportUser, &thread, welcomeMessage, "", og.LinkData{})
+	message, err := NewThreadMessage(_supportUser, &thread, _welcomeMessage, "", og.LinkData{})
 	if err != nil {
 		log.Alarm(errors.E(op, err))
 		return

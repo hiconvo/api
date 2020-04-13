@@ -2,6 +2,10 @@ package models
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
 
 	"cloud.google.com/go/datastore"
 
@@ -168,4 +172,29 @@ func reassignEventUsers(ctx context.Context, tx *datastore.Transaction, old, new
 	}
 
 	return nil
+}
+
+func readStringFromFile(file string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		// This function should only be run at startup time, so we
+		// panic if it fails.
+		panic(err)
+	}
+
+	var basePath string
+	if strings.HasSuffix(wd, "models") {
+		// This package is the cwd, so we need to go up one dir to resolve the
+		// layouts and includes dirs consistently.
+		basePath = "../models/content"
+	} else {
+		basePath = "./models/content"
+	}
+
+	b, err := ioutil.ReadFile(path.Join(basePath, file))
+	if err != nil {
+		panic(err)
+	}
+
+	return string(b)
 }
