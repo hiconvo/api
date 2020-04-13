@@ -11,7 +11,7 @@ import (
 var DefaultClient Client
 
 func init() {
-	DefaultClient = NewClient(context.Background(), os.Getenv("PROJECT_ID"))
+	DefaultClient = NewClient(context.Background(), os.Getenv("GOOGLE_CLOUD_PROJECT"))
 }
 
 type Client interface {
