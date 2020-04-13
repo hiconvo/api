@@ -129,3 +129,8 @@ func Errorf(format string, args ...interface{}) error {
 func Str(s string) error {
 	return fmt.Errorf(s)
 }
+
+// Opf returns an Op from the given format string.
+func Opf(format string, args ...interface{}) Op {
+	return Op(fmt.Sprintf(format, args...))
+}

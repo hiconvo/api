@@ -13,7 +13,7 @@ var (
 )
 
 func init() {
-	supportPw := secrets.Get("SUPPORT_PASSWORD", "support")
+	supportPassword := secrets.Get("SUPPORT_PASSWORD", "support")
 	ctx := context.Background()
 
 	u, found, err := GetUserByEmail(ctx, "support@convo.events")
@@ -22,7 +22,7 @@ func init() {
 	}
 
 	if !found {
-		u, err = NewUserWithPassword("support@convo.events", "Convo Support", "", supportPw)
+		u, err = NewUserWithPassword("support@convo.events", "Convo Support", "", supportPassword)
 		if err != nil {
 			panic(err)
 		}

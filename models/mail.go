@@ -93,6 +93,10 @@ func sendMergeAccountsEmail(u *User, emailToMerge, magicLink string) error {
 }
 
 func sendThread(thread *Thread, messages []*Message) error {
+	if len(messages) == 0 {
+		return errors.E(errors.Op("models.sendThread"), errors.Str("no messages to send"))
+	}
+
 	// From is the most recent message sender: messages[0].User.
 	sender, err := MapUserPartialToUser(messages[0].User, thread.Users)
 	if err != nil {

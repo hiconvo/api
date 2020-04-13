@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 )
 
 func swapKeys(keyList []*datastore.Key, oldKey, newKey *datastore.Key) []*datastore.Key {
@@ -175,15 +176,17 @@ func reassignEventUsers(ctx context.Context, tx *datastore.Transaction, old, new
 }
 
 func readStringFromFile(file string) string {
+	op := errors.Opf("models.readStringFromFile(file=%s)", file)
+
 	wd, err := os.Getwd()
 	if err != nil {
 		// This function should only be run at startup time, so we
 		// panic if it fails.
-		panic(err)
+		panic(errors.E(op, err))
 	}
 
 	var basePath string
-	if strings.HasSuffix(wd, "models") {
+	if strings.HasSuffix(wd, "models") || strings.HasSuffix(wd, "integ") {
 		// This package is the cwd, so we need to go up one dir to resolve the
 		// layouts and includes dirs consistently.
 		basePath = "../models/content"

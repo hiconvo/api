@@ -21,7 +21,7 @@ func init() {
 	}
 
 	var basePath string
-	if strings.HasSuffix(wd, "template") {
+	if strings.HasSuffix(wd, "template") || strings.HasSuffix(wd, "integ") {
 		// This package is the cwd, so we need to go up one dir to resolve the
 		// layouts and includes dirs consistently.
 		basePath = "../template"
