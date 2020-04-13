@@ -6,8 +6,8 @@ import (
 
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
+	"github.com/hiconvo/api/mail"
 	"github.com/hiconvo/api/utils/magic"
-	"github.com/hiconvo/api/utils/mail"
 	"github.com/hiconvo/api/utils/template"
 )
 

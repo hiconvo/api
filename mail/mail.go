@@ -3,10 +3,7 @@ package mail
 import (
 	"encoding/base64"
 	"net/http"
-	"os"
-	"strings"
 
-	"github.com/sendgrid/rest"
 	"github.com/sendgrid/sendgrid-go"
 	smail "github.com/sendgrid/sendgrid-go/helpers/mail"
 
@@ -14,12 +11,6 @@ import (
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/utils/secrets"
 )
-
-var client sender
-
-type sender interface {
-	Send(email *smail.SGMailV3) (*rest.Response, error)
-}
 
 // EmailMessage is a sendable email message. All of its fields
 // are strings. No additional processing or rendering is done
@@ -35,16 +26,36 @@ type EmailMessage struct {
 	ICSAttachment string
 }
 
+var DefaultClient Client
+
 func init() {
-	if strings.HasSuffix(os.Args[0], ".test") {
-		client = &testClient{}
+	if apiKey := secrets.Get("SENDGRID_API_KEY", ""); apiKey == "" {
+		DefaultClient = NewLogger()
 	} else {
-		client = sendgrid.NewSendClient(secrets.Get("SENDGRID_API_KEY", ""))
+		DefaultClient = NewClient(apiKey)
+	}
+}
+
+func Send(e EmailMessage) error {
+	return DefaultClient.Send(e)
+}
+
+type Client interface {
+	Send(e EmailMessage) error
+}
+
+type senderImpl struct {
+	client *sendgrid.Client
+}
+
+func NewClient(apiKey string) Client {
+	return &senderImpl{
+		client: sendgrid.NewSendClient(apiKey),
 	}
 }
 
 // Send sends the given EmailMessage.
-func Send(e EmailMessage) error {
+func (s *senderImpl) Send(e EmailMessage) error {
 	from := smail.NewEmail(e.FromName, e.FromEmail)
 	to := smail.NewEmail(e.ToName, e.ToEmail)
 	email := smail.NewSingleEmail(
@@ -60,7 +71,7 @@ func Send(e EmailMessage) error {
 		email.AddAttachment(attachment)
 	}
 
-	resp, err := client.Send(email)
+	resp, err := s.client.Send(email)
 	if err != nil {
 		return errors.E(errors.Op("mail.Send"), err)
 	}
@@ -70,5 +81,17 @@ func Send(e EmailMessage) error {
 		return errors.E(errors.Op("mail.Send"), errors.Str("received non-200 status from SendGrid"))
 	}
 
+	return nil
+}
+
+type loggerImpl struct{}
+
+func NewLogger() Client {
+	log.Print("mail.NewLogger: USING MAIL LOGGER FOR LOCAL DEVELOPMENT")
+	return &loggerImpl{}
+}
+
+func (l *loggerImpl) Send(e EmailMessage) error {
+	log.Printf("mail.Send(from='%s', to='%s')", e.FromEmail, e.ToEmail)
 	return nil
 }

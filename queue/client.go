@@ -44,7 +44,7 @@ var DefaultClient Client
 
 func init() {
 	if projectID := os.Getenv("GOOGLE_CLOUD_PROJECT"); projectID == "local-convo-api" || projectID == "" {
-		DefaultClient = NewLocalClient()
+		DefaultClient = NewLogger()
 	} else {
 		DefaultClient = NewClient(context.Background(), projectID)
 	}
@@ -120,14 +120,14 @@ func (c *clientImpl) PutEmail(ctx context.Context, payload EmailPayload) error {
 	return nil
 }
 
-type localClientImpl struct{}
+type loggerImpl struct{}
 
-func NewLocalClient() Client {
-	log.Print("queue.NewLocalClient: USING QUEUE LOGGER FOR LOCAL DEVELOPMENT")
-	return &localClientImpl{}
+func NewLogger() Client {
+	log.Print("queue.NewLogger: USING QUEUE LOGGER FOR LOCAL DEVELOPMENT")
+	return &loggerImpl{}
 }
 
-func (c *localClientImpl) PutEmail(ctx context.Context, payload EmailPayload) error {
-	log.Printf("queue.PutEmail(EmailPayload{IDs=[], Type=%s, Action=%s})", payload.Type, payload.Action)
+func (c *loggerImpl) PutEmail(ctx context.Context, payload EmailPayload) error {
+	log.Printf("queue.PutEmail(IDs=[], Type=%s, Action=%s)", payload.Type, payload.Action)
 	return nil
 }

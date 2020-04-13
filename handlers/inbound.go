@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/hiconvo/api/log"
+	"github.com/hiconvo/api/mail"
 	"github.com/hiconvo/api/models"
-	"github.com/hiconvo/api/utils/mail"
 	og "github.com/hiconvo/api/utils/opengraph"
 	"github.com/hiconvo/api/utils/pluck"
 	"github.com/hiconvo/api/utils/validate"
