@@ -50,9 +50,9 @@ func init() {
 	}
 
 	if projectID := os.Getenv("GOOGLE_CLOUD_PROJECT"); projectID == "local-convo-api" || projectID == "" {
-		DefaultClient = NewClient(secrets.Get("GOOGLE_MAPS_API_KEY", ""))
-	} else {
 		DefaultClient = NewLogger()
+	} else {
+		DefaultClient = NewClient(secrets.Get("GOOGLE_MAPS_API_KEY", ""))
 	}
 }
 
