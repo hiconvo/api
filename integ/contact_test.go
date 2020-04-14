@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/steinfletcher/apitest"
+	jsonpath "github.com/steinfletcher/apitest-jsonpath"
+
 	"github.com/hiconvo/api/utils/thelpers"
 )
 
@@ -24,45 +27,50 @@ func TestGetContacts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	type test struct {
-		AuthHeader      map[string]string
-		OutCode         int
-		OutContactIDs   []string
-		OutContactNames []string
-	}
-
-	tests := []test{
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		ExpectStatus    int
+		ExpectIDs       []string
+		ExpectNames     []string
+	}{
 		{
-			AuthHeader:      getAuthHeader(user.Token),
-			OutCode:         http.StatusOK,
-			OutContactIDs:   []string{contact1.ID, contact2.ID},
-			OutContactNames: []string{contact1.FullName, contact2.FullName},
+			Name:            "many contacts",
+			GivenAuthHeader: getAuthHeader(user.Token),
+			ExpectStatus:    http.StatusOK,
+			ExpectIDs:       []string{contact1.ID, contact2.ID},
+			ExpectNames:     []string{contact1.FullName, contact2.FullName},
 		},
 		{
-			AuthHeader:      getAuthHeader(contact1.Token),
-			OutCode:         http.StatusOK,
-			OutContactIDs:   []string{},
-			OutContactNames: []string{},
+			Name:            "zero contacts",
+			GivenAuthHeader: getAuthHeader(contact1.Token),
+			ExpectStatus:    http.StatusOK,
+			ExpectIDs:       []string{},
+			ExpectNames:     []string{},
 		},
 		{
-			AuthHeader: nil,
-			OutCode:    http.StatusUnauthorized,
+			Name:            "bad auth",
+			GivenAuthHeader: nil,
+			ExpectStatus:    http.StatusUnauthorized,
 		},
 	}
 
 	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", "/contacts", nil, testCase.AuthHeader)
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		contacts := respData["contacts"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", testCase.OutContactIDs, contacts)
-		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutContactNames, contacts)
-		thelpers.AssetObjectsNOTContainKeys(t, "token", contacts)
-		thelpers.AssetObjectsNOTContainKeys(t, "email", contacts)
+		t.Run(testCase.Name, func(t *testing.T) {
+			tt := apitest.New(testCase.Name).
+				Handler(th).
+				Get("/contacts").
+				Headers(testCase.GivenAuthHeader).
+				Expect(t).
+				Status(testCase.ExpectStatus)
+			if testCase.ExpectStatus == http.StatusOK {
+				for i := range testCase.ExpectIDs {
+					tt.Assert(jsonpath.Contains("$.contacts[*].id", testCase.ExpectIDs[i]))
+					tt.Assert(jsonpath.Contains("$.contacts[*].fullName", testCase.ExpectNames[i]))
+				}
+			}
+			tt.End()
+		})
 	}
 }
 
