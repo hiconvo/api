@@ -1,6 +1,6 @@
 runtime: go113
 
-main: ./cmd/server/main
+main: ./cmd/server
 
 vpc_access_connector:
   name: "projects/convo-api/locations/us-central1/connectors/convo-internal"
