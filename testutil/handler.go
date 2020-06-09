@@ -40,7 +40,7 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 		S:     searchClient,
 		Queue: queue.NewLogger(),
 	}
-	threadStore := &db.ThreadStore{DB: dbClient}
+	threadStore := &db.ThreadStore{DB: dbClient, Storage: storageClient}
 	eventStore := &db.EventStore{DB: dbClient}
 	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
 	mailClient := mail.New(sender.NewLogger(), template.NewClient())

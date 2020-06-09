@@ -72,6 +72,10 @@ func (c *Client) GetAvatarURLFromKey(key string) string {
 
 // GetPhotoURLFromKey returns the public URL of the given photo key.
 func (c *Client) GetPhotoURLFromKey(key string) string {
+	if strings.HasPrefix(key, "https://") {
+		return key
+	}
+
 	return getURLPrefix(c.photoBucketName) + key
 }
 

@@ -7,6 +7,7 @@ import (
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/clients/db"
+	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/model"
 )
@@ -14,7 +15,8 @@ import (
 var _ model.ThreadStore = (*ThreadStore)(nil)
 
 type ThreadStore struct {
-	DB db.Client
+	DB      db.Client
+	Storage *storage.Client
 }
 
 func (s *ThreadStore) GetThreadByID(ctx context.Context, id string) (*model.Thread, error) {
@@ -68,8 +70,10 @@ func (s *ThreadStore) GetThreadsByUser(ctx context.Context, u *model.User, p *mo
 	// Now that we have the threads, we need to get the users. We keep track of
 	// where the users of one thread start and another begin by incrementing
 	// an index.
-	var userKeys []*datastore.Key
-	var idxs []int
+	var (
+		userKeys []*datastore.Key
+		idxs     []int
+	)
 	for _, t := range threads {
 		userKeys = append(userKeys, t.UserKeys...)
 		idxs = append(idxs, len(t.UserKeys))
@@ -104,6 +108,10 @@ func (s *ThreadStore) GetThreadsByUser(ctx context.Context, u *model.User, p *mo
 		threads[i].Owner = model.MapUserToUserPartial(owner)
 		threads[i].UserPartials = model.MapUsersToUserPartials(threadUsers)
 		threads[i].UserReads = model.MapReadsToUserPartials(threads[i], threadUsers)
+
+		if threads[i].Preview != nil {
+			threads[i].Preview.RestorePhotoURLs(s.Storage)
+		}
 
 		start += idxs[i]
 		threadPtrs[i] = threads[i]
@@ -171,6 +179,10 @@ func (s *ThreadStore) handleGetThread(ctx context.Context, key *datastore.Key, t
 	t.UserPartials = model.MapUsersToUserPartials(userPointers)
 	t.UserReads = model.MapReadsToUserPartials(t, userPointers)
 	t.Owner = model.MapUserToUserPartial(&owner)
+
+	if t.Preview != nil {
+		t.Preview.RestorePhotoURLs(s.Storage)
+	}
 
 	return t, nil
 }

@@ -70,7 +70,7 @@ func main() {
 	}
 
 	userStore := &db.UserStore{DB: dbClient, Notif: notifClient, S: searchClient, Queue: queueClient}
-	threadStore := &db.ThreadStore{DB: dbClient}
+	threadStore := &db.ThreadStore{DB: dbClient, Storage: storageClient}
 	eventStore := &db.EventStore{DB: dbClient}
 	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
 
