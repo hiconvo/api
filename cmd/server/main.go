@@ -72,7 +72,7 @@ func main() {
 	userStore := &db.UserStore{DB: dbClient, Notif: notifClient, S: searchClient, Queue: queueClient}
 	threadStore := &db.ThreadStore{DB: dbClient}
 	eventStore := &db.EventStore{DB: dbClient}
-	messageStore := &db.MessageStore{DB: dbClient}
+	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
 
 	welcomer, err := welcome.New(ctx, userStore, sc.Get("SUPPORT_PASSWORD", "support"))
 	if err != nil {

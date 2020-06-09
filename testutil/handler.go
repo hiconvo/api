@@ -32,6 +32,8 @@ import (
 )
 
 func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
+	storageClient := storage.NewClient("", "")
+
 	userStore := &db.UserStore{
 		DB:    dbClient,
 		Notif: notification.NewLogger(),
@@ -40,7 +42,7 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 	}
 	threadStore := &db.ThreadStore{DB: dbClient}
 	eventStore := &db.EventStore{DB: dbClient}
-	messageStore := &db.MessageStore{DB: dbClient}
+	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
 	mailClient := mail.New(sender.NewLogger(), template.NewClient())
 	magicClient := magic.NewClient("")
 
@@ -59,7 +61,7 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 		TxnMiddleware: dbc.WithTransaction(dbClient),
 		Mail:          mailClient,
 		Magic:         magicClient,
-		Storage:       storage.NewClient("", ""),
+		Storage:       storageClient,
 		OAuth:         oauth.NewClient(""),
 		Notif:         notification.NewLogger(),
 		OG:            opengraph.NewClient(),

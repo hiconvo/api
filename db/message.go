@@ -7,6 +7,7 @@ import (
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/clients/db"
+	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/model"
 )
@@ -14,7 +15,8 @@ import (
 var _ model.MessageStore = (*MessageStore)(nil)
 
 type MessageStore struct {
-	DB db.Client
+	DB      db.Client
+	Storage *storage.Client
 }
 
 func (s *MessageStore) GetMessageByID(ctx context.Context, id string) (*model.Message, error) {
@@ -32,6 +34,8 @@ func (s *MessageStore) GetMessageByID(ctx context.Context, id string) (*model.Me
 	if err != nil {
 		return message, errors.E(op, err)
 	}
+
+	message.RestorePhotoURLs(s.Storage)
 
 	return message, nil
 }
@@ -57,6 +61,7 @@ func (s *MessageStore) GetMessagesByKey(ctx context.Context, k *datastore.Key) (
 
 	for i := range messages {
 		messages[i].User = model.MapUserToUserPartial(users[i])
+		messages[i].RestorePhotoURLs(s.Storage)
 	}
 
 	// TODO: Get Query#Order to work above.

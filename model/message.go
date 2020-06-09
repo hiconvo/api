@@ -9,6 +9,7 @@ import (
 	"cloud.google.com/go/datastore"
 
 	og "github.com/hiconvo/api/clients/opengraph"
+	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 )
 
@@ -181,6 +182,19 @@ func (m *Message) HasPhotoKey(key string) bool {
 	}
 
 	return false
+}
+
+func (m *Message) RestorePhotoURLs(c *storage.Client) {
+	if len(m.PhotoKeys) == 0 {
+		return
+	}
+
+	photos := make([]string, len(m.PhotoKeys))
+	for i := range m.PhotoKeys {
+		photos[i] = c.GetPhotoURLFromKey(m.PhotoKeys[i])
+	}
+
+	m.Photos = photos
 }
 
 func MarkMessagesAsRead(
