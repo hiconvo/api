@@ -61,6 +61,16 @@ func New(c *Config) http.Handler {
 		Magic:        c.Magic,
 		OG:           c.OG,
 	}))
+	s.PathPrefix("/tasks").Handler(task.NewHandler(&task.Config{
+		UserStore:    c.UserStore,
+		ThreadStore:  c.ThreadStore,
+		EventStore:   c.EventStore,
+		MessageStore: c.MessageStore,
+		Welcome:      c.Welcome,
+		Mail:         c.Mail,
+		Magic:        c.Magic,
+		Digester:     c.Digest,
+	}))
 
 	t := router.NewRoute().Subrouter()
 	t.Use(middleware.WithJSONRequests)
@@ -103,16 +113,6 @@ func New(c *Config) http.Handler {
 		OG:            c.OG,
 		Places:        c.Places,
 		Queue:         c.Queue,
-	}))
-	t.PathPrefix("/tasks").Handler(task.NewHandler(&task.Config{
-		UserStore:    c.UserStore,
-		ThreadStore:  c.ThreadStore,
-		EventStore:   c.EventStore,
-		MessageStore: c.MessageStore,
-		Welcome:      c.Welcome,
-		Mail:         c.Mail,
-		Magic:        c.Magic,
-		Digester:     c.Digest,
 	}))
 
 	h := middleware.WithCORS(router)
