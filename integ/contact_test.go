@@ -1,4 +1,4 @@
-package router_test
+package handler_test
 
 import (
 	"fmt"
@@ -8,121 +8,129 @@ import (
 	"github.com/steinfletcher/apitest"
 	jsonpath "github.com/steinfletcher/apitest-jsonpath"
 
-	"github.com/hiconvo/api/utils/thelpers"
+	"github.com/hiconvo/api/testutil"
 )
 
-////////////////////////////////////
-// GET /contacts Tests
-////////////////////////////////////
-
 func TestGetContacts(t *testing.T) {
-	user, _ := createTestUser(t)
-	contact1, _ := createTestUser(t)
-	contact2, _ := createTestUser(t)
+	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	contact1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	contact2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 
-	user.AddContact(&contact1)
-	user.AddContact(&contact2)
-
-	if err := user.Commit(tc); err != nil {
+	if err := user.AddContact(contact1); err != nil {
+		t.Fatal(err)
+	}
+	if err := user.AddContact(contact2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := _dbClient.Put(_ctx, user.Key, user); err != nil {
 		t.Fatal(err)
 	}
 
+	t.Log(contact1.ID, contact2.ID)
+	t.Log(contact1.FullName, contact2.FullName)
+
 	tests := []struct {
-		Name            string
-		GivenAuthHeader map[string]string
-		ExpectStatus    int
-		ExpectIDs       []string
-		ExpectNames     []string
+		Name               string
+		AuthHeader         map[string]string
+		ExpectStatus       int
+		ExpectContactIDs   []string
+		ExpectContactNames []string
 	}{
 		{
-			Name:            "many contacts",
-			GivenAuthHeader: getAuthHeader(user.Token),
-			ExpectStatus:    http.StatusOK,
-			ExpectIDs:       []string{contact1.ID, contact2.ID},
-			ExpectNames:     []string{contact1.FullName, contact2.FullName},
+			AuthHeader:         testutil.GetAuthHeader(user.Token),
+			ExpectStatus:       http.StatusOK,
+			ExpectContactIDs:   []string{contact1.ID, contact2.ID},
+			ExpectContactNames: []string{contact1.FullName, contact2.FullName},
 		},
 		{
-			Name:            "zero contacts",
-			GivenAuthHeader: getAuthHeader(contact1.Token),
-			ExpectStatus:    http.StatusOK,
-			ExpectIDs:       []string{},
-			ExpectNames:     []string{},
+			AuthHeader:         testutil.GetAuthHeader(contact1.Token),
+			ExpectStatus:       http.StatusOK,
+			ExpectContactIDs:   []string{},
+			ExpectContactNames: []string{},
 		},
 		{
-			Name:            "bad auth",
-			GivenAuthHeader: nil,
-			ExpectStatus:    http.StatusUnauthorized,
+			AuthHeader:   nil,
+			ExpectStatus: http.StatusUnauthorized,
 		},
 	}
 
-	for _, testCase := range tests {
-		t.Run(testCase.Name, func(t *testing.T) {
-			tt := apitest.New(testCase.Name).
-				Handler(th).
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
 				Get("/contacts").
-				Headers(testCase.GivenAuthHeader).
+				Headers(tcase.AuthHeader).
 				Expect(t).
-				Status(testCase.ExpectStatus)
-			if testCase.ExpectStatus == http.StatusOK {
-				for i := range testCase.ExpectIDs {
-					tt.Assert(jsonpath.Contains("$.contacts[*].id", testCase.ExpectIDs[i]))
-					tt.Assert(jsonpath.Contains("$.contacts[*].fullName", testCase.ExpectNames[i]))
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus < 400 {
+				tt.Assert(jsonpath.Len("$.contacts[*].id", len(tcase.ExpectContactNames)))
+
+				for _, name := range tcase.ExpectContactNames {
+					tt.Assert(jsonpath.Contains("$.contacts[*].fullName", name))
+				}
+
+				for _, id := range tcase.ExpectContactIDs {
+					tt.Assert(jsonpath.Contains("$.contacts[*].id", id))
 				}
 			}
+
 			tt.End()
 		})
 	}
 }
 
-////////////////////////////////////
-// POST /contacts/{id} Tests
-////////////////////////////////////
-
 func TestCreateContact(t *testing.T) {
-	user, _ := createTestUser(t)
-	contact1, _ := createTestUser(t)
+	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	contact1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 
-	type test struct {
-		AuthHeader map[string]string
-		URL        string
-		OutCode    int
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		URL          string
+		ExpectStatus int
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(user.Token),
+			URL:          fmt.Sprintf("/contacts/%s", contact1.ID),
+			ExpectStatus: http.StatusCreated,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(user.Token),
+			URL:          fmt.Sprintf("/contacts/%s", contact1.ID),
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(user.Token),
+			URL:          fmt.Sprintf("/contacts/%s", user.ID),
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			AuthHeader:   nil,
+			URL:          fmt.Sprintf("/contacts/%s", contact1.ID),
+			ExpectStatus: http.StatusUnauthorized,
+		},
 	}
 
-	tests := []test{
-		{
-			AuthHeader: getAuthHeader(user.Token),
-			URL:        fmt.Sprintf("/contacts/%s", contact1.ID),
-			OutCode:    http.StatusCreated,
-		},
-		{
-			AuthHeader: getAuthHeader(user.Token),
-			URL:        fmt.Sprintf("/contacts/%s", contact1.ID),
-			OutCode:    http.StatusBadRequest,
-		},
-		{
-			AuthHeader: getAuthHeader(user.Token),
-			URL:        fmt.Sprintf("/contacts/%s", user.ID),
-			OutCode:    http.StatusBadRequest,
-		},
-		{
-			AuthHeader: nil,
-			URL:        fmt.Sprintf("/contacts/%s", contact1.ID),
-			OutCode:    http.StatusUnauthorized,
-		},
-	}
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post(tcase.URL).
+				JSON(`{}`).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", testCase.URL, nil, testCase.AuthHeader)
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+			if tcase.ExpectStatus < 400 {
+				tt.Assert(jsonpath.Equal("$.id", contact1.ID))
+				tt.Assert(jsonpath.Equal("$.fullName", contact1.FullName))
+				tt.Assert(jsonpath.NotPresent("$.email"))
+				tt.Assert(jsonpath.NotPresent("$.token"))
+			}
 
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], contact1.ID)
-		thelpers.AssertEqual(t, respData["fullName"], contact1.FullName)
-		thelpers.AssertEqual(t, respData["token"], nil)
-		thelpers.AssertEqual(t, respData["email"], nil)
+			tt.End()
+		})
 	}
 }
 
@@ -131,60 +139,66 @@ func TestCreateContact(t *testing.T) {
 ////////////////////////////////////
 
 func TestDeleteContact(t *testing.T) {
-	user, _ := createTestUser(t)
-	contact1, _ := createTestUser(t)
+	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	contact1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 
-	user.AddContact(&contact1)
+	user.AddContact(contact1)
 
-	if err := user.Commit(tc); err != nil {
+	if _, err := _dbClient.Put(_ctx, user.Key, user); err != nil {
 		t.Fatal(err)
 	}
 
-	type test struct {
-		AuthHeader map[string]string
-		URL        string
-		OutCode    int
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		URL          string
+		ExpectStatus int
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(user.Token),
+			URL:          fmt.Sprintf("/contacts/%s", contact1.ID),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(user.Token),
+			URL:          fmt.Sprintf("/contacts/%s", contact1.ID),
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(contact1.Token),
+			URL:          fmt.Sprintf("/contacts/%s", contact1.ID),
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(contact1.Token),
+			URL:          fmt.Sprintf("/contacts/%s", user.ID),
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			AuthHeader:   nil,
+			URL:          fmt.Sprintf("/contacts/%s", contact1.ID),
+			ExpectStatus: http.StatusUnauthorized,
+		},
 	}
 
-	tests := []test{
-		{
-			AuthHeader: getAuthHeader(user.Token),
-			URL:        fmt.Sprintf("/contacts/%s", contact1.ID),
-			OutCode:    http.StatusOK,
-		},
-		{
-			AuthHeader: getAuthHeader(user.Token),
-			URL:        fmt.Sprintf("/contacts/%s", contact1.ID),
-			OutCode:    http.StatusBadRequest,
-		},
-		{
-			AuthHeader: getAuthHeader(contact1.Token),
-			URL:        fmt.Sprintf("/contacts/%s", contact1.ID),
-			OutCode:    http.StatusBadRequest,
-		},
-		{
-			AuthHeader: getAuthHeader(contact1.Token),
-			URL:        fmt.Sprintf("/contacts/%s", user.ID),
-			OutCode:    http.StatusBadRequest,
-		},
-		{
-			AuthHeader: nil,
-			URL:        fmt.Sprintf("/contacts/%s", contact1.ID),
-			OutCode:    http.StatusUnauthorized,
-		},
-	}
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Delete(tcase.URL).
+				JSON(`{}`).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "DELETE", testCase.URL, nil, testCase.AuthHeader)
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+			if tcase.ExpectStatus < 400 {
+				tt.Assert(jsonpath.Equal("$.id", contact1.ID))
+				tt.Assert(jsonpath.Equal("$.fullName", contact1.FullName))
+				tt.Assert(jsonpath.NotPresent("$.email"))
+				tt.Assert(jsonpath.NotPresent("$.token"))
+			}
 
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], contact1.ID)
-		thelpers.AssertEqual(t, respData["fullName"], contact1.FullName)
-		thelpers.AssertEqual(t, respData["token"], nil)
-		thelpers.AssertEqual(t, respData["email"], nil)
+			tt.End()
+		})
 	}
 }

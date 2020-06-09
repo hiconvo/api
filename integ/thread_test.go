@@ -1,439 +1,803 @@
-package router_test
+package handler_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/datastore"
+	"github.com/icrowley/fake"
+	"github.com/steinfletcher/apitest"
+	jsonpath "github.com/steinfletcher/apitest-jsonpath"
+	"github.com/stretchr/testify/assert"
 
-	"github.com/hiconvo/api/models"
-	"github.com/hiconvo/api/utils/random"
-	"github.com/hiconvo/api/utils/thelpers"
+	"github.com/hiconvo/api/model"
+	"github.com/hiconvo/api/testutil"
 )
 
-//////////////////////
-// POST /threads Tests
-//////////////////////
-
 func TestCreateThread(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
+	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 
-	type test struct {
-		AuthHeader  map[string]string
-		InData      map[string]interface{}
-		OutCode     int
-		OutOwnerID  string
-		OutMemberID string
-	}
-
-	tests := []test{
-		// Good payload
+	tests := []struct {
+		Name             string
+		GivenAuthHeader  map[string]string
+		GivenBody        map[string]interface{}
+		ExpectStatus     int
+		ExpectOwnerID    string
+		ExpectMemberID   string
+		ExpectMembersLen int
+	}{
 		{
-			AuthHeader: getAuthHeader(u1.Token),
-			InData: map[string]interface{}{
-				"subject": random.String(10),
+			Name:            "success",
+			GivenAuthHeader: testutil.GetAuthHeader(u1.Token),
+			GivenBody: map[string]interface{}{
+				"subject": fake.Title(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": u2.ID,
 					},
 				},
 			},
-			OutCode:     http.StatusCreated,
-			OutOwnerID:  u1.ID,
-			OutMemberID: u2.ID,
+			ExpectStatus:     http.StatusCreated,
+			ExpectOwnerID:    u1.ID,
+			ExpectMemberID:   u2.ID,
+			ExpectMembersLen: 2,
 		},
 		{
-			AuthHeader: getAuthHeader(u1.Token),
-			InData: map[string]interface{}{
-				"subject": random.String(10),
+			Name:            "success with new users",
+			GivenAuthHeader: testutil.GetAuthHeader(u1.Token),
+			GivenBody: map[string]interface{}{
+				"subject": fake.Title(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": u2.ID,
 					},
-					map[string]string{
+					{
 						"email": "test@testing.com",
 					},
-					map[string]string{
+					{
 						"email": "test@testing.com",
 					},
-					map[string]string{
+					{
 						"email": "someone@somewhere.com",
 					},
 				},
 			},
-			OutCode:     http.StatusCreated,
-			OutOwnerID:  u1.ID,
-			OutMemberID: u2.ID,
+			ExpectStatus:     http.StatusCreated,
+			ExpectOwnerID:    u1.ID,
+			ExpectMemberID:   u2.ID,
+			ExpectMembersLen: 4,
 		},
-		// Bad payload
 		{
-			AuthHeader: getAuthHeader(u1.Token),
-			InData: map[string]interface{}{
-				"subject": random.String(10),
+			Name:            "bad payload",
+			GivenAuthHeader: testutil.GetAuthHeader(u1.Token),
+			GivenBody: map[string]interface{}{
+				"subject": fake.Title(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": "Rudolf Carnap",
 					},
 				},
 			},
-			OutCode: http.StatusBadRequest,
+			ExpectStatus: http.StatusBadRequest,
 		},
-		// Bad headers
 		{
-			AuthHeader: map[string]string{"boop": "beep"},
-			InData: map[string]interface{}{
-				"subject": random.String(10),
+			Name:            "bad headers",
+			GivenAuthHeader: map[string]string{"boop": "beep"},
+			GivenBody: map[string]interface{}{
+				"subject": fake.Title(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": u2.ID,
 					},
 				},
 			},
-			OutCode: http.StatusUnauthorized,
+			ExpectStatus: http.StatusUnauthorized,
 		},
 	}
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/threads", testCase.InData, testCase.AuthHeader)
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post("/threads").
+				JSON(tcase.GivenBody).
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-		if testCase.OutCode < 400 {
-			gotOwnerID, _ := respData["owner"].(map[string]interface{})["id"].(string)
-			thelpers.AssertEqual(t, gotOwnerID, testCase.OutOwnerID)
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.owner.id", tcase.ExpectOwnerID))
+				tt.Assert(jsonpath.Contains("$.users[0].id", tcase.ExpectMemberID))
+				tt.Assert(jsonpath.Len("$.users", tcase.ExpectMembersLen))
+			}
 
-			gotParticipantID, _ := respData["users"].([]interface{})[0].(map[string]interface{})["id"].(string)
-			thelpers.AssertEqual(t, gotParticipantID, testCase.OutMemberID)
-		}
+			tt.End()
+		})
 	}
 }
-
-//////////////////////
-// GET /threads Tests
-//////////////////////
 
 func TestGetThreads(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member1, _ := createTestUser(t)
-	member2, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	thread := createTestThread(t, &owner, []*models.User{&member1, &member2})
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
 
-	type test struct {
+	tests := []struct {
+		Name          string
 		AuthHeader    map[string]string
-		OutCode       int
+		ExpectStatus  int
 		IsThreadInRes bool
+	}{
+		{
+			AuthHeader:    testutil.GetAuthHeader(owner.Token),
+			ExpectStatus:  http.StatusOK,
+			IsThreadInRes: true,
+		},
+		{
+			AuthHeader:    testutil.GetAuthHeader(member1.Token),
+			ExpectStatus:  http.StatusOK,
+			IsThreadInRes: true,
+		},
+		{
+			AuthHeader:    testutil.GetAuthHeader(member2.Token),
+			ExpectStatus:  http.StatusOK,
+			IsThreadInRes: true,
+		},
+		{
+			AuthHeader:    testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus:  http.StatusOK,
+			IsThreadInRes: false,
+		},
+		{
+			AuthHeader:    map[string]string{"boop": "beep"},
+			ExpectStatus:  http.StatusUnauthorized,
+			IsThreadInRes: false,
+		},
 	}
 
-	tests := []test{
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, IsThreadInRes: true},
-		{AuthHeader: getAuthHeader(member1.Token), OutCode: http.StatusOK, IsThreadInRes: true},
-		{AuthHeader: getAuthHeader(member2.Token), OutCode: http.StatusOK, IsThreadInRes: true},
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusOK, IsThreadInRes: false},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, IsThreadInRes: false},
-	}
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Get("/threads").
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", "/threads", nil, testCase.AuthHeader)
+			if tcase.IsThreadInRes {
+				tt.Assert(jsonpath.Equal("$.threads[0].id", thread.ID))
+				tt.Assert(jsonpath.Equal("$.threads[0].subject", thread.Subject))
+				tt.Assert(jsonpath.Equal("$.threads[0].owner.id", owner.ID))
+				tt.Assert(jsonpath.Equal("$.threads[0].users[0].id", member1.ID))
+				tt.Assert(jsonpath.Equal("$.threads[0].users[1].id", member2.ID))
+				tt.Assert(jsonpath.NotPresent("$.threads[0].users[0].email"))
+				tt.Assert(jsonpath.NotPresent("$.threads[0].users[1].email"))
+			}
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		gotThreads := respData["threads"].([]interface{})
-
-		if testCase.IsThreadInRes {
-			thelpers.AssetObjectsContainKeys(t, "id", []string{thread.ID}, gotThreads)
-			thelpers.AssetObjectsContainKeys(t, "subject", []string{thread.Subject}, gotThreads)
-
-			gotThread := gotThreads[0].(map[string]interface{})
-
-			gotThreadUsers := gotThread["users"].([]interface{})
-			thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member1.ID, member2.ID}, gotThreadUsers)
-			thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member1.FullName, member2.FullName}, gotThreadUsers)
-
-			gotThreadOwner := gotThread["owner"].(map[string]interface{})
-			thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
-			thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
-		} else {
-			thelpers.AssetObjectsContainKeys(t, "id", []string{}, gotThreads)
-		}
+			tt.End()
+		})
 	}
 }
-
-/////////////////////////
-// GET /thread/{id} Tests
-/////////////////////////
 
 func TestGetThread(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	thread := createTestThread(t, &owner, []*models.User{&member})
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
 	url := fmt.Sprintf("/threads/%s", thread.ID)
 
-	type test struct {
-		AuthHeader map[string]string
-		OutCode    int
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+		},
 	}
 
-	tests := []test{
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK},
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusOK},
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized},
-	}
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Get(url).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, testCase.AuthHeader)
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", thread.ID))
+				tt.Assert(jsonpath.Equal("$.subject", thread.Subject))
+				tt.Assert(jsonpath.Equal("$.owner.id", owner.ID))
+				tt.Assert(jsonpath.Equal("$.users[0].id", member.ID))
+				tt.Assert(jsonpath.NotPresent("$.users[0].email"))
+			}
 
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], thread.ID)
-
-		gotThreadOwner := respData["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
-		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
-
-		gotThreadUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, member.ID}, gotThreadUsers)
-		thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, member.FullName}, gotThreadUsers)
-	}
-}
-
-///////////////////////////
-// PATCH /thread/{id} Tests
-///////////////////////////
-
-func TestUpdateThread(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	thread := createTestThread(t, &owner, []*models.User{&member})
-	url := fmt.Sprintf("/threads/%s", thread.ID)
-
-	type test struct {
-		AuthHeader map[string]string
-		OutCode    int
-		ShouldPass bool
-		InData     map[string]interface{}
-	}
-
-	tests := []test{
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, ShouldPass: true, InData: map[string]interface{}{"subject": "Ruth Marcus"}},
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, ShouldPass: false, InData: map[string]interface{}{"subject": "Ruth Marcus"}},
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, ShouldPass: false},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, ShouldPass: false},
-	}
-
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "PATCH", url, testCase.InData, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		if testCase.ShouldPass {
-			thelpers.AssertEqual(t, respData["subject"], testCase.InData["subject"])
-		} else {
-			thelpers.AssertEqual(t, respData["subject"], thread.Subject)
-		}
+			tt.End()
+		})
 	}
 }
-
-////////////////////////////
-// DELETE /thread/{id} Tests
-////////////////////////////
 
 func TestDeleteThread(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	thread := createTestThread(t, &owner, []*models.User{&member})
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
 	url := fmt.Sprintf("/threads/%s", thread.ID)
 
-	type test struct {
-		AuthHeader map[string]string
-		OutCode    int
-		ShouldPass bool
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+		ShouldPass   bool
+	}{
+		{
+			Name:         "member attempt",
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+		},
+		{
+			Name:         "nonmember attempt",
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+		},
+		{
+			Name:         "invalid header",
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+			ShouldPass:   false,
+		},
+		{
+			Name:         "success",
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			ShouldPass:   true,
+		},
+		{
+			Name:         "after success",
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   true,
+		},
 	}
 
-	tests := []test{
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, ShouldPass: false},
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, ShouldPass: false},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, ShouldPass: false},
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, ShouldPass: true},
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusNotFound, ShouldPass: true},
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New(tcase.Name).
+				Handler(_handler).
+				Delete(url).
+				Header("Content-Type", "application/json").
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus).
+				End()
+
+			if tcase.ShouldPass {
+				var gotThread model.Thread
+				err := _dbClient.Get(_ctx, thread.Key, &gotThread)
+				assert.Equal(t, datastore.ErrNoSuchEntity, err)
+			}
+		})
 	}
 
-	for _, testCase := range tests {
-		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, testCase.AuthHeader)
+}
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+func TestGetMessagesByThread(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
+	message1 := testutil.NewThreadMessage(_ctx, t, _dbClient, owner, thread)
+	message2 := testutil.NewThreadMessage(_ctx, t, _dbClient, member1, thread)
+	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
-		if testCase.ShouldPass {
-			var gotThread models.Thread
-			err := tclient.Get(tc, thread.Key, &gotThread)
-			thelpers.AssertEqual(t, err, datastore.ErrNoSuchEntity)
-		}
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+	}{
+		{
+			Name:         "Owner can get messages",
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			Name:         "Member can get messages",
+			AuthHeader:   testutil.GetAuthHeader(member1.Token),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			Name:         "NonMember cannot get messages",
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			Name:         "Unauthenticated user cannot get messages",
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Get(url).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.messages[0].id", message1.ID))
+				tt.Assert(jsonpath.Equal("$.messages[0].body", message1.Body))
+				tt.Assert(jsonpath.Equal("$.messages[1].id", message2.ID))
+				tt.Assert(jsonpath.Equal("$.messages[1].body", message2.Body))
+			}
+
+			tt.End()
+		})
 	}
 }
 
-/////////////////////////////////////
-// POST /thread/{id}/users/{id} Tests
-/////////////////////////////////////
+func TestMarkThreadAsRead(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
+	url := fmt.Sprintf("/threads/%s/reads", thread.ID)
 
-func TestAddToThread(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	memberToAdd, _ := createTestUser(t)
-	secondMemberToAdd, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	thread := createTestThread(t, &owner, []*models.User{&member})
-
-	type test struct {
-		AuthHeader map[string]string
-		OutCode    int
-		InID       string
-		ShouldPass bool
-		OutNames   []string
-	}
-
-	tests := []test{
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+	}{
 		{
-			AuthHeader: getAuthHeader(nonmember.Token),
-			OutCode:    http.StatusNotFound,
-			InID:       memberToAdd.ID,
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
 		},
 		{
-			AuthHeader: getAuthHeader(member.Token),
-			OutCode:    http.StatusNotFound,
-			InID:       memberToAdd.ID,
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusOK,
 		},
 		{
-			AuthHeader: map[string]string{"boop": "beep"},
-			OutCode:    http.StatusUnauthorized,
-			InID:       memberToAdd.ID,
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
 		},
 		{
-			AuthHeader: getAuthHeader(owner.Token),
-			OutCode:    http.StatusOK,
-			InID:       memberToAdd.ID,
-			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName},
-		},
-		{
-			AuthHeader: getAuthHeader(owner.Token),
-			OutCode:    http.StatusOK,
-			InID:       "addedOnThe@fly.com",
-			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthe"},
-		},
-		{
-			AuthHeader: getAuthHeader(owner.Token),
-			OutCode:    http.StatusOK,
-			InID:       secondMemberToAdd.Email,
-			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName, "addedonthe", secondMemberToAdd.FullName},
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
 		},
 	}
 
-	for _, testCase := range tests {
-		url := fmt.Sprintf("/threads/%s/users/%s", thread.ID, testCase.InID)
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, nil, testCase.AuthHeader)
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post(url).
+				Header("Content-Type", "application/json").
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", thread.ID))
+				tt.Assert(jsonpath.Equal("$.reads[0].id", owner.ID))
+			}
 
-		if rr.Code >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], thread.ID)
-
-		gotThreadOwner := respData["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
-		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
-
-		gotThreadUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutNames, gotThreadUsers)
+			tt.End()
+		})
 	}
 }
 
-///////////////////////////////////////
-// DELETE /thread/{id}/users/{id} Tests
-///////////////////////////////////////
+func TestUpdateThread(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
+	url := fmt.Sprintf("/threads/%s", thread.ID)
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ShouldPass   bool
+		ExpectStatus int
+		GivenBody    map[string]interface{}
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			ShouldPass:   true,
+			GivenBody:    map[string]interface{}{"subject": "Ruth Marcus"},
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+			GivenBody:    map[string]interface{}{"subject": "Ruth Marcus"},
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+			ShouldPass:   false,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Patch(url).
+				JSON(tcase.GivenBody).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus <= http.StatusBadRequest {
+				if tcase.ShouldPass {
+					tt.Assert(jsonpath.Equal("$.subject", tcase.GivenBody["subject"]))
+				} else {
+					tt.Assert(jsonpath.Equal("$.subject", thread.Subject))
+				}
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestAddUserToThread(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	memberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	secondMemberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+		GivenUserID  string
+		ShouldPass   bool
+		ExpectNames  []string
+	}{
+		{
+			Name:         "nonmember attempt to add",
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+			GivenUserID:  memberToAdd.ID,
+		},
+		{
+			Name:         "member without permission attempt to add",
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusNotFound,
+			GivenUserID:  memberToAdd.ID,
+		},
+		{
+			Name:         "bad auth header",
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+			GivenUserID:  memberToAdd.ID,
+		},
+		{
+			Name:         "success with existing user",
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			GivenUserID:  memberToAdd.ID,
+			ExpectNames: []string{
+				member.FullName,
+				owner.FullName,
+				memberToAdd.FullName,
+			},
+		},
+		{
+			Name:         "success with email",
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			GivenUserID:  "addedOnThe@fly.com",
+			ExpectNames: []string{
+				member.FullName,
+				owner.FullName,
+				memberToAdd.FullName,
+				"addedonthe",
+			},
+		},
+		{
+			Name:         "second success with email",
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			GivenUserID:  secondMemberToAdd.Email,
+			ExpectNames: []string{
+				member.FullName,
+				owner.FullName,
+				memberToAdd.FullName,
+				"addedonthe",
+				secondMemberToAdd.FullName,
+			},
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post(fmt.Sprintf("/threads/%s/users/%s", thread.ID, tcase.GivenUserID)).
+				JSON(`{}`).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus <= http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", thread.ID))
+				tt.Assert(jsonpath.Equal("$.owner.id", owner.ID))
+				tt.Assert(jsonpath.Equal("$.owner.fullName", owner.FullName))
+				for i := range tcase.ExpectNames {
+					tt.Assert(jsonpath.Equal(
+						fmt.Sprintf("$.users[%d].fullName", i),
+						tcase.ExpectNames[i]))
+				}
+			}
+
+			tt.End()
+		})
+	}
+}
 
 func TestRemoveFromThread(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	memberToRemove, _ := createTestUser(t)
-	memberToLeave, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	thread := createTestThread(t, &owner, []*models.User{&member, &memberToRemove, &memberToLeave})
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	memberToRemove, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	memberToLeave, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member, memberToRemove, memberToLeave})
 
-	type test struct {
-		AuthHeader     map[string]string
-		InID           string
-		OutCode        int
-		OutMemberIDs   []string
-		OutMemberNames []string
+	tests := []struct {
+		Name              string
+		AuthHeader        map[string]string
+		GivenUserID       string
+		ExpectStatus      int
+		ExpectMemberIDs   []string
+		ExpectMemberNames []string
+	}{
+		{
+			Name:         "nonmember attempt",
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			GivenUserID:  member.ID,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			Name:         "member attempt to remove other member",
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			GivenUserID:  memberToRemove.ID,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			Name:         "bad auth header",
+			AuthHeader:   map[string]string{"boop": "beep"},
+			GivenUserID:  member.ID,
+			ExpectStatus: http.StatusUnauthorized,
+		},
+		{
+			Name:              "owner remove member success",
+			AuthHeader:        testutil.GetAuthHeader(owner.Token),
+			GivenUserID:       memberToRemove.ID,
+			ExpectStatus:      http.StatusOK,
+			ExpectMemberIDs:   []string{owner.ID, member.ID, memberToLeave.ID},
+			ExpectMemberNames: []string{member.FullName, owner.FullName, memberToLeave.FullName},
+		},
+		{
+			Name:              "member remove self success",
+			AuthHeader:        testutil.GetAuthHeader(memberToLeave.Token),
+			GivenUserID:       memberToLeave.ID,
+			ExpectStatus:      http.StatusOK,
+			ExpectMemberIDs:   []string{owner.ID, member.ID},
+			ExpectMemberNames: []string{member.FullName, owner.FullName},
+		},
 	}
 
-	tests := []test{
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Delete(fmt.Sprintf("/threads/%s/users/%s", thread.ID, tcase.GivenUserID)).
+				JSON(`{}`).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus <= http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", thread.ID))
+				tt.Assert(jsonpath.Equal("$.owner.id", owner.ID))
+				tt.Assert(jsonpath.Equal("$.owner.fullName", owner.FullName))
+				for i := range tcase.ExpectMemberNames {
+					tt.Assert(jsonpath.Equal(
+						fmt.Sprintf("$.users[%d].fullName", i),
+						tcase.ExpectMemberNames[i]))
+				}
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestAddMessageToThread(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
+	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
+
+	tests := []struct {
+		GivenAuthHeader map[string]string
+		GivenBody       string
+		GivenAuthor     *model.User
+		ExpectCode      int
+		ExpectBody      string
+		ExpectPhoto     bool
+	}{
+		// Owner
 		{
-			AuthHeader: getAuthHeader(nonmember.Token),
-			InID:       member.ID,
-			OutCode:    http.StatusNotFound,
+			GivenAuthHeader: testutil.GetAuthHeader(owner.Token),
+			GivenAuthor:     owner,
+			GivenBody:       `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==", "body": "hello"}`,
+			ExpectCode:      http.StatusCreated,
+			ExpectBody:      "hello",
+			ExpectPhoto:     true,
+		},
+		// Member
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
+			GivenAuthor:     member1,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusCreated,
+			ExpectBody:      "hello",
+			ExpectPhoto:     false,
+		},
+		// NonMember
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(nonmember.Token),
+			GivenAuthor:     nonmember,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusNotFound,
+			ExpectPhoto:     false,
+		},
+		// EmptyPayload
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
+			GivenAuthor:     member1,
+			GivenBody:       `{}`,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectPhoto:     false,
 		},
 		{
-			AuthHeader: getAuthHeader(member.Token),
-			InID:       memberToRemove.ID,
-			OutCode:    http.StatusNotFound,
-		},
-		{
-			AuthHeader: map[string]string{"boop": "beep"},
-			InID:       member.ID,
-			OutCode:    http.StatusUnauthorized,
-		},
-		{
-			AuthHeader:     getAuthHeader(owner.Token),
-			InID:           memberToRemove.ID,
-			OutCode:        http.StatusOK,
-			OutMemberIDs:   []string{owner.ID, member.ID, memberToLeave.ID},
-			OutMemberNames: []string{owner.FullName, member.FullName, memberToLeave.FullName},
-		},
-		{
-			AuthHeader:     getAuthHeader(memberToLeave.Token),
-			InID:           memberToLeave.ID,
-			OutCode:        http.StatusOK,
-			OutMemberIDs:   []string{owner.ID, member.ID},
-			OutMemberNames: []string{owner.FullName, member.FullName},
+			GivenAuthHeader: testutil.GetAuthHeader(owner.Token),
+			GivenAuthor:     owner,
+			GivenBody:       `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q=="}`,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectPhoto:     false,
 		},
 	}
 
 	for _, testCase := range tests {
-		url := fmt.Sprintf("/threads/%s/users/%s", thread.ID, testCase.InID)
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, testCase.AuthHeader)
+		tt := apitest.New("CreateThreadMessage").
+			Handler(_handler).
+			Post(url).
+			JSON(testCase.GivenBody).
+			Headers(testCase.GivenAuthHeader).
+			Expect(t).
+			Status(testCase.ExpectCode)
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
+		if testCase.ExpectCode < 300 {
+			tt.
+				Assert(jsonpath.Equal("$.parentId", thread.ID)).
+				Assert(jsonpath.Equal("$.body", testCase.ExpectBody)).
+				Assert(jsonpath.Equal("$.user.fullName", testCase.GivenAuthor.FullName)).
+				Assert(jsonpath.Equal("$.user.id", testCase.GivenAuthor.ID))
+			if testCase.ExpectPhoto {
+				tt.Assert(jsonpath.Present("$.photos[0]"))
+			} else {
+				tt.Assert(jsonpath.NotPresent("$.photos[0]"))
+			}
 		}
 
-		thelpers.AssertEqual(t, respData["id"], thread.ID)
+		tt.End()
+	}
+}
 
-		gotThreadOwner := respData["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotThreadOwner["id"], thread.Owner.ID)
-		thelpers.AssertEqual(t, gotThreadOwner["fullName"], thread.Owner.FullName)
+func TestDeleteThreadMessage(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
+	message1 := testutil.NewThreadMessage(_ctx, t, _dbClient, owner, thread)
+	message2 := testutil.NewThreadMessage(_ctx, t, _dbClient, member1, thread)
 
-		gotThreadUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", testCase.OutMemberIDs, gotThreadUsers)
-		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutMemberNames, gotThreadUsers)
+	// We reduce the time resolution because the test database does not
+	// store it with native resolution. When the time is retrieved
+	// from the database, the result of json marshaling is a couple fewer
+	// digits than marshaling the native time without truncating, which
+	// causes the tests to fail.
+	message2.Timestamp = message2.Timestamp.Truncate(time.Microsecond)
+	message2encoded, err := json.Marshal(message2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		GivenMessageID  string
+		ExpectCode      int
+		ExpectBody      string
+	}{
+		{
+			Name:            "owner attempt to delete top message",
+			GivenAuthHeader: testutil.GetAuthHeader(owner.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectBody:      `{"message":"You cannot delete this message. Delete your Convo instead."}`,
+		},
+		{
+			Name:            "member attempt to delete message he does not own",
+			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		{
+			Name:            "nonmember attempt to delete message",
+			GivenAuthHeader: testutil.GetAuthHeader(nonmember.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		{
+			Name:            "empty payload",
+			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
+			GivenMessageID:  message2.ID,
+			ExpectCode:      http.StatusOK,
+			ExpectBody:      string(message2encoded),
+		},
+	}
+
+	for _, tcase := range tests {
+		apitest.New(tcase.Name).
+			Handler(_handler).
+			Delete(fmt.Sprintf("/threads/%s/messages/%s", thread.ID, tcase.GivenMessageID)).
+			JSON(`{}`).
+			Headers(tcase.GivenAuthHeader).
+			Expect(t).
+			Status(tcase.ExpectCode).
+			Body(tcase.ExpectBody).
+			End()
 	}
 }

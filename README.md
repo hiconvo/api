@@ -2,15 +2,7 @@
 
 [![CircleCI](https://img.shields.io/circleci/build/github/hiconvo/api?label=circleci)](https://circleci.com/gh/hiconvo/api) [![codecov](https://img.shields.io/codecov/c/gh/hiconvo/api)](https://codecov.io/gh/hiconvo/api) [![goreportcard](https://goreportcard.com/badge/github.com/hiconvo/api)](https://goreportcard.com/badge/github.com/hiconvo/api)
 
-The repo holds the source code for Convo's RESTful API ([Docs 📑](http://api.convo.events/docs)). Learn more about Convo at [convo.events](https://convo.events). The core technologies and APIs used in the project are:
-
-- [Golang](https://golang.org/)
-- [Gorilla](https://www.gorillatoolkit.org/)
-- [Google App Engine](https://cloud.google.com/appengine/docs/standard/go112/)
-- [Google Datastore](https://godoc.org/cloud.google.com/go/datastore)
-- [Sendgrid](https://sendgrid.com/docs/index.html)
-- [Elasticsearch](https://www.elastic.co/)
-- [Docker](https://docs.docker.com/)
+The repo holds the source code for Convo's RESTful API. Learn more about Convo at [convo.events](https://convo.events). The core technologies and APIs used in the project are:
 
 ## Development
 
@@ -40,13 +32,3 @@ Be mindful that this command will *wipe everything from the database*. There is 
 ## Architecture
 
 ![Architecture](architecture.jpg)
-
-## Code Overview
-
-The best place to start (after looking at `main/main.go`) is `handlers/router.go`. This is where all endpoints and corresponding functions and middlewares are mounted to a [Gorilla Mux Router](https://github.com/gorilla/mux). Some notable middlewares are `bjson.WithJSON` and `bjson.WithJSONReqBody`. These ensure that all endpoints that they wrap are JSON only and make the decoded request body available in the request context.
-
-The next place to look is `handlers/*.go`. All of the handlers are standard handler functions of the form `func(http.ResponseWriter, *http.Request)`. I decided not to alter this signature with something more app specific since the context at `http.Request.Context()` makes it easy enough to standardize common operations.
-
-The handlers are focused on request validation, getting data from the database, and mutating models - all through higher-level APIs. Some of these operations are complicated, especially the ones concerned with validating users to be included in events or threads, but the separation of concens between models and handlers, though admittedly smelly, is decent enough for now.
-
-The core business logic is in the models. Most of these files are pretty self explanatory.

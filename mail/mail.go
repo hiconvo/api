@@ -1,97 +1,436 @@
 package mail
 
 import (
-	"encoding/base64"
-	"net/http"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
 
-	"github.com/sendgrid/sendgrid-go"
-	smail "github.com/sendgrid/sendgrid-go/helpers/mail"
-
+	"github.com/hiconvo/api/clients/magic"
+	"github.com/hiconvo/api/clients/mail"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
-	"github.com/hiconvo/api/utils/secrets"
+	"github.com/hiconvo/api/model"
+	"github.com/hiconvo/api/template"
 )
 
-// EmailMessage is a sendable email message. All of its fields
-// are strings. No additional processing or rendering is done
-// in this package.
-type EmailMessage struct {
-	FromName      string
-	FromEmail     string
-	ToName        string
-	ToEmail       string
-	Subject       string
-	HTMLContent   string
-	TextContent   string
-	ICSAttachment string
+const (
+	_fromEmail = "robots@mail.convo.events"
+	_fromName  = "Convo"
+)
+
+type Client struct {
+	mail mail.Client
+	tpl  *template.Client
+
+	tplStrPasswordReset string
+	tplStrVerifyEmail   string
+	tplStrMergeAccounts string
 }
 
-var DefaultClient Client
+func New(sender mail.Client, tpl *template.Client) *Client {
+	return &Client{
+		mail: sender,
+		tpl:  tpl,
 
-func init() {
-	if apiKey := secrets.Get("SENDGRID_API_KEY", ""); apiKey == "" {
-		DefaultClient = NewLogger()
-	} else {
-		DefaultClient = NewClient(apiKey)
+		tplStrPasswordReset: readStringFromFile("password-reset.txt"),
+		tplStrVerifyEmail:   readStringFromFile("verify-email.txt"),
+		tplStrMergeAccounts: readStringFromFile("merge-accounts.txt"),
 	}
 }
 
-func Send(e EmailMessage) error {
-	return DefaultClient.Send(e)
-}
-
-type Client interface {
-	Send(e EmailMessage) error
-}
-
-type senderImpl struct {
-	client *sendgrid.Client
-}
-
-func NewClient(apiKey string) Client {
-	return &senderImpl{
-		client: sendgrid.NewSendClient(apiKey),
-	}
-}
-
-// Send sends the given EmailMessage.
-func (s *senderImpl) Send(e EmailMessage) error {
-	from := smail.NewEmail(e.FromName, e.FromEmail)
-	to := smail.NewEmail(e.ToName, e.ToEmail)
-	email := smail.NewSingleEmail(
-		from, e.Subject, to, e.TextContent, e.HTMLContent,
-	)
-
-	if e.ICSAttachment != "" {
-		attachment := smail.NewAttachment()
-		attachment.SetContent(base64.StdEncoding.EncodeToString([]byte(e.ICSAttachment)))
-		attachment.SetType("text/calendar")
-		attachment.SetFilename("event.ics")
-
-		email.AddAttachment(attachment)
-	}
-
-	resp, err := s.client.Send(email)
+func (c *Client) SendPasswordResetEmail(u *model.User, magicLink string) error {
+	plainText, html, err := c.tpl.RenderAdminEmail(&template.AdminEmail{
+		Body:       c.tplStrPasswordReset,
+		ButtonText: "Set password",
+		MagicLink:  magicLink,
+	})
 	if err != nil {
-		return errors.E(errors.Op("mail.Send"), err)
+		return err
 	}
 
-	if resp.StatusCode != http.StatusAccepted {
-		log.Print(resp.Body)
-		return errors.E(errors.Op("mail.Send"), errors.Str("received non-200 status from SendGrid"))
+	email := mail.EmailMessage{
+		FromName:    _fromName,
+		FromEmail:   _fromEmail,
+		ToName:      u.FullName,
+		ToEmail:     u.Email,
+		Subject:     "[convo] Set Password",
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	return c.mail.Send(email)
+}
+
+func (c *Client) SendVerifyEmail(u *model.User, emailAddress, magicLink string) error {
+	plainText, html, err := c.tpl.RenderAdminEmail(&template.AdminEmail{
+		Body:       c.tplStrVerifyEmail,
+		ButtonText: "Verify",
+		MagicLink:  magicLink,
+	})
+	if err != nil {
+		return err
+	}
+
+	email := mail.EmailMessage{
+		FromName:    _fromName,
+		FromEmail:   _fromEmail,
+		ToName:      u.FullName,
+		ToEmail:     emailAddress,
+		Subject:     "[convo] Verify Email",
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	return c.mail.Send(email)
+}
+
+func (c *Client) SendMergeAccountsEmail(u *model.User, emailToMerge, magicLink string) error {
+	plainText, html, err := c.tpl.RenderAdminEmail(&template.AdminEmail{
+		Body:       c.tplStrMergeAccounts,
+		ButtonText: "Verify",
+		MagicLink:  magicLink,
+		Fargs:      []interface{}{emailToMerge, u.Email},
+	})
+	if err != nil {
+		return err
+	}
+
+	email := mail.EmailMessage{
+		FromName:    _fromName,
+		FromEmail:   _fromEmail,
+		ToName:      u.FullName,
+		ToEmail:     u.Email,
+		Subject:     "[convo] Verify Email",
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	return c.mail.Send(email)
+}
+
+func (c *Client) SendThread(
+	magicClient magic.Client,
+	thread *model.Thread,
+	messages []*model.Message,
+) error {
+	if len(messages) == 0 {
+		return errors.E(errors.Op("mail.SendThread"), errors.Str("no messages to send"))
+	}
+
+	// From is the most recent message sender: messages[0].User.
+	sender, err := model.MapUserPartialToUser(messages[0].User, thread.Users)
+	if err != nil {
+		return err
+	}
+
+	// Loop through all participants and generate emails.
+	//
+	emailMessages := make([]mail.EmailMessage, len(thread.Users))
+	// Get the last five messages to be included in the email.
+	lastFive := getLastFive(messages)
+	for i, curUser := range thread.Users {
+		// Don't send an email to the sender.
+		if curUser.Key.Equal(sender.Key) {
+			continue
+		}
+
+		magicLink := curUser.GetMagicLoginMagicLink(magicClient)
+
+		// Generate messages
+		tplMessages := make([]template.Message, len(lastFive))
+		for j, m := range lastFive {
+			tplMessages[j] = template.Message{
+				Body:      m.Body,
+				Name:      m.User.FirstName,
+				HasPhoto:  m.HasPhoto(),
+				HasLink:   m.HasLink(),
+				Link:      m.Link,
+				FromID:    m.User.ID,
+				ToID:      curUser.ID,
+				MagicLink: magicLink,
+			}
+		}
+
+		plainText, html, err := c.tpl.RenderThread(&template.Thread{
+			Subject:   thread.Subject,
+			FromName:  sender.FullName,
+			Messages:  tplMessages,
+			MagicLink: magicLink,
+		})
+		if err != nil {
+			return err
+		}
+
+		emailMessages[i] = mail.EmailMessage{
+			FromName:    sender.FullName,
+			FromEmail:   thread.GetEmail(),
+			ToName:      curUser.FullName,
+			ToEmail:     curUser.Email,
+			Subject:     thread.Subject,
+			TextContent: plainText,
+			HTMLContent: html,
+		}
+	}
+
+	for i := range emailMessages {
+		if emailMessages[i].FromEmail == "" {
+			continue
+		}
+
+		if err := c.mail.Send(emailMessages[i]); err != nil {
+			log.Alarm(errors.Errorf("mail.SendThread: %v", err))
+		}
 	}
 
 	return nil
 }
 
-type loggerImpl struct{}
+func (c *Client) SendEventInvites(
+	magicClient magic.Client,
+	event *model.Event,
+	isUpdate bool,
+) error {
+	var fmtStr string
+	if isUpdate {
+		fmtStr = "Updated invitation to %s"
+	} else {
+		fmtStr = "Invitation to %s"
+	}
 
-func NewLogger() Client {
-	log.Print("mail.NewLogger: USING MAIL LOGGER FOR LOCAL DEVELOPMENT")
-	return &loggerImpl{}
+	// Loop through all participants and generate emails
+	emailMessages := make([]mail.EmailMessage, len(event.Users))
+	for i, curUser := range event.Users {
+		// Don't send invitations to the host
+		if event.OwnerIs(curUser) {
+			continue
+		}
+
+		plainText, html, err := c.tpl.RenderEvent(&template.Event{
+			Name:        event.Name,
+			Address:     event.Address,
+			Time:        event.GetFormatedTime(),
+			Description: event.Description,
+			FromName:    event.Owner.FullName,
+			MagicLink:   event.GetRSVPMagicLink(magicClient, curUser),
+			ButtonText:  "RSVP",
+		})
+		if err != nil {
+			return err
+		}
+
+		emailMessages[i] = mail.EmailMessage{
+			FromName:      event.Owner.FullName,
+			FromEmail:     event.GetEmail(),
+			ToName:        curUser.FullName,
+			ToEmail:       curUser.Email,
+			Subject:       fmt.Sprintf(fmtStr, event.Name),
+			TextContent:   plainText,
+			HTMLContent:   html,
+			ICSAttachment: event.GetICS(),
+		}
+	}
+
+	for i := range emailMessages {
+		if emailMessages[i].FromEmail == "" {
+			continue
+		}
+
+		if err := c.mail.Send(emailMessages[i]); err != nil {
+			log.Alarm(errors.Errorf("mail.SendEventInvites: %v", err))
+		}
+	}
+
+	return nil
 }
 
-func (l *loggerImpl) Send(e EmailMessage) error {
-	log.Printf("mail.Send(from='%s', to='%s')", e.FromEmail, e.ToEmail)
+func (c *Client) SendEventInvitation(m magic.Client, event *model.Event, user *model.User) error {
+	plainText, html, err := c.tpl.RenderEvent(&template.Event{
+		Name:        event.Name,
+		Address:     event.Address,
+		Time:        event.GetFormatedTime(),
+		Description: event.Description,
+		FromName:    event.Owner.FullName,
+		MagicLink:   event.GetRSVPMagicLink(m, user),
+		ButtonText:  "RSVP",
+	})
+	if err != nil {
+		return err
+	}
+
+	email := mail.EmailMessage{
+		FromName:      event.Owner.FullName,
+		FromEmail:     event.GetEmail(),
+		ToName:        user.FullName,
+		ToEmail:       user.Email,
+		Subject:       fmt.Sprintf("Invitation to %s", event.Name),
+		TextContent:   plainText,
+		HTMLContent:   html,
+		ICSAttachment: event.GetICS(),
+	}
+
+	return c.mail.Send(email)
+}
+
+func (c *Client) SendCancellation(event *model.Event, message string) error {
+	emailMessages := make([]mail.EmailMessage, len(event.Users))
+
+	// Loop through all participants and generate emails
+	for i, curUser := range event.Users {
+		plainText, html, err := c.tpl.RenderCancellation(&template.Event{
+			Name:     event.Name,
+			Address:  event.Address,
+			Time:     event.GetFormatedTime(),
+			FromName: event.Owner.FullName,
+			Message:  message,
+		})
+		if err != nil {
+			return err
+		}
+
+		emailMessages[i] = mail.EmailMessage{
+			FromName:    event.Owner.FullName,
+			FromEmail:   event.GetEmail(),
+			ToName:      curUser.FullName,
+			ToEmail:     curUser.Email,
+			Subject:     fmt.Sprintf("Cancelled: %s", event.Name),
+			TextContent: plainText,
+			HTMLContent: html,
+		}
+	}
+
+	for i := range emailMessages {
+		if emailMessages[i].FromEmail == "" {
+			continue
+		}
+
+		if err := c.mail.Send(emailMessages[i]); err != nil {
+			log.Alarm(errors.Errorf("mail.sendCancellation: %v", err))
+		}
+	}
+
 	return nil
+}
+
+func (c *Client) SendDigest(
+	magicClient magic.Client,
+	digestList []model.DigestItem,
+	upcomingEvents []*model.Event,
+	user *model.User,
+) error {
+	magicLink := user.GetMagicLoginMagicLink(magicClient)
+	// Convert all the DigestItems into template.Threads with their messages
+	items := make([]template.Thread, len(digestList))
+	for i := range digestList {
+		messages := make([]template.Message, len(digestList[i].Messages))
+		for j := range messages {
+			messages[j] = template.Message{
+				Body:      digestList[i].Messages[j].Body,
+				Name:      digestList[i].Messages[j].User.FullName,
+				HasPhoto:  digestList[i].Messages[j].HasPhoto(),
+				HasLink:   digestList[i].Messages[j].HasLink(),
+				Link:      digestList[i].Messages[j].Link,
+				FromID:    digestList[i].Messages[j].User.ID,
+				ToID:      user.ID,
+				MagicLink: magicLink,
+			}
+		}
+
+		items[i] = template.Thread{
+			Subject:  digestList[i].Name,
+			Messages: messages,
+		}
+	}
+
+	// Convert all of the upcomingEvents to template.Events
+	templateEvents := make([]template.Event, len(upcomingEvents))
+	for i := range upcomingEvents {
+		templateEvents[i] = template.Event{
+			Name:    upcomingEvents[i].Name,
+			Address: upcomingEvents[i].Address,
+			Time:    upcomingEvents[i].GetFormatedTime(),
+		}
+	}
+
+	// Render all the stuff
+	plainText, html, err := c.tpl.RenderDigest(&template.Digest{
+		Items:     items,
+		Events:    templateEvents,
+		MagicLink: magicLink,
+	})
+	if err != nil {
+		return err
+	}
+
+	email := mail.EmailMessage{
+		FromName:    _fromName,
+		FromEmail:   _fromEmail,
+		ToName:      user.FullName,
+		ToEmail:     user.Email,
+		Subject:     "[convo] Digest",
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	return c.mail.Send(email)
+}
+
+func (c *Client) SendInboundTryAgainEmail(email string) error {
+	return c.mail.Send(mail.EmailMessage{
+		FromName:    "Convo",
+		FromEmail:   "support@mail.convo.events",
+		ToName:      "",
+		ToEmail:     email,
+		Subject:     "[convo] Send Failure",
+		HTMLContent: "<p>Hello,</p><p>You responded to a Convo that does not accept email responses. If you're attempting to respond to an event invitation, click RSVP in the invitation email and post your message to the message board. You won't have to create an account.</p><p>Thanks,<br />Convo Support</p>",
+		TextContent: "Hello,\n\nYou responded to a Convo that does not accept email responses. If you're attempting to respond to an event invitation, click RSVP in the invitation email and post your message to the message board. You won't have to create an account.\n\nThanks,\nConvo Support",
+	})
+}
+
+func (c *Client) SendInboundErrorEmail(email string) error {
+	return c.mail.Send(mail.EmailMessage{
+		FromName:    "Convo",
+		FromEmail:   "support@mail.convo.events",
+		ToName:      "",
+		ToEmail:     email,
+		Subject:     "[convo] Send Failure",
+		HTMLContent: "<p>Hello,</p><p>You responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.</p><p>Thanks,<br />Convo Support</p>",
+		TextContent: "Hello,\n\nYou responded to a Convo from an unrecognized email address. Please try again and make sure that you use the exact email to which the Convo was addressed.\n\nThanks,\nConvo Support",
+	})
+}
+
+func getLastFive(messages []*model.Message) []*model.Message {
+	if len(messages) > 5 {
+		return messages[:5]
+	}
+
+	return messages
+}
+
+func readStringFromFile(file string) string {
+	op := errors.Opf("mail.readStringFromFile(file=%s)", file)
+
+	wd, err := os.Getwd()
+	if err != nil {
+		// This function should only be run at startup time, so we
+		// panic if it fails.
+		panic(errors.E(op, err))
+	}
+
+	var basePath string
+	if strings.HasSuffix(wd, "mail") || strings.HasSuffix(wd, "integ") {
+		// This package is the cwd, so we need to go up one dir to resolve the
+		// layouts and includes dirs consistently.
+		basePath = "../mail/content"
+	} else {
+		basePath = "./mail/content"
+	}
+
+	b, err := ioutil.ReadFile(path.Join(basePath, file))
+	if err != nil {
+		panic(err)
+	}
+
+	return string(b)
 }

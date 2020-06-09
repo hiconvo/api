@@ -17,4 +17,3 @@ cron:
     url: /bigquery_import?input_url_prefix=gs://convo-backups&dataset_id=app&kind=User&kind=Event&kind=Thread&kind=Message
     target: cloud-datastore-admin
     schedule: every day 10:30
-

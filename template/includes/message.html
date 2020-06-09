@@ -21,26 +21,30 @@
               {{if .HasPhoto}}
               <p>
                 <i
-                  >[This message contains a photo.
-                  <a href="https://app.convo.events">Login to Convo</a> to view
-                  it.]</i
-                >
-              </p>
-              {{- end}} {{if .HasLink}}
-              <p>
-                <i
-                  >[This message contains a link.
-                  <a href="https://app.convo.events">Login to Convo</a> to view
-                  it.]</i
+                  >This message contains a photo.
+                  <a href="{{ .MagicLink }}">Login to Convo</a> to view it.</i
                 >
               </p>
               {{- end}}
             </td>
           </tr>
+          {{if .HasLink}}
+          <table class="link-wrapper">
+            <tr>
+              <td align="left">
+                <a href="{{ .Link.URL }}">
+                  <p class="link-title">{{ .Link.Title }}</p>
+                  <p class="link-site">{{ .Link.Site }}</p>
+                </a>
+              </td>
+            </tr>
+          </table>
+
+          {{- end}}
         </table>
       </td>
+      <!-- END MESSAGE CONTENT AREA -->
     </tr>
-    <!-- END MESSAGE CONTENT AREA -->
   </table>
 
   {{ end }}

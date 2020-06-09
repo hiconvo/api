@@ -2,7 +2,12 @@ package template
 
 import (
 	"fmt"
+	htmltpl "html/template"
+	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/hiconvo/api/clients/opengraph"
 )
 
 const (
@@ -15,12 +20,14 @@ const (
 // Thread. The Body field accepts markdown. XML is not allowed.
 type Message struct {
 	renderable
-	Body     string
-	Name     string
-	FromID   string
-	ToID     string
-	HasPhoto bool
-	HasLink  bool
+	Body      string
+	Name      string
+	FromID    string
+	ToID      string
+	HasPhoto  bool
+	HasLink   bool
+	Link      *opengraph.LinkData
+	MagicLink string
 }
 
 // Thread is a representation of a renderable email thread.
@@ -67,8 +74,65 @@ type AdminEmail struct {
 	Preview    string
 }
 
+type Client struct {
+	templates map[string]*htmltpl.Template
+}
+
+func NewClient() *Client {
+	templates := make(map[string]*htmltpl.Template)
+
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	var basePath string
+	if strings.HasSuffix(wd, "template") || strings.HasSuffix(wd, "integ") {
+		// This package is the cwd, so we need to go up one dir to resolve the
+		// layouts and includes dirs consistently.
+		basePath = "../template"
+	} else {
+		basePath = "./template"
+	}
+
+	layouts, err := filepath.Glob(basePath + "/layouts/*.html")
+	if err != nil {
+		panic(err)
+	}
+
+	includes, err := filepath.Glob(basePath + "/includes/*.html")
+	if err != nil {
+		panic(err)
+	}
+
+	// Generate our templates map from our layouts/ and includes/ directories
+	for _, layout := range layouts {
+		files := append(includes, layout)
+		templates[filepath.Base(layout)] = htmltpl.Must(htmltpl.ParseFiles(files...))
+	}
+
+	// Make sure the expected templates are there
+	for _, tplName := range []string{
+		"thread.html",
+		"event.html",
+		"cancellation.html",
+		"digest.html",
+		"admin.html",
+	} {
+		_, ok := templates[tplName]
+
+		if !ok {
+			panic(fmt.Sprintf("Template '%v' not found", tplName))
+		}
+	}
+
+	return &Client{
+		templates: templates,
+	}
+}
+
 // RenderThread returns a rendered thread email.
-func RenderThread(t Thread) (string, string, error) {
+func (c *Client) RenderThread(t *Thread) (string, string, error) {
 	var builder strings.Builder
 
 	for i, m := range t.Messages {
@@ -81,13 +145,13 @@ func RenderThread(t Thread) (string, string, error) {
 
 	t.Preview = preview
 
-	html, err := t.RenderHTML("thread.html", t)
+	html, err := t.RenderHTML(c.templates["thread.html"], t)
 
 	return plainText, html, err
 }
 
 // RenderEvent returns a rendered event invitation email.
-func RenderEvent(e Event) (string, string, error) {
+func (c *Client) RenderEvent(e *Event) (string, string, error) {
 	e.RenderMarkdown(e.Description)
 
 	var builder strings.Builder
@@ -102,13 +166,13 @@ func RenderEvent(e Event) (string, string, error) {
 
 	e.Preview = preview
 
-	html, err := e.RenderHTML("event.html", e)
+	html, err := e.RenderHTML(c.templates["event.html"], e)
 
 	return plainText, html, err
 }
 
 // RenderCancellation returns a rendered event cancellation email.
-func RenderCancellation(e Event) (string, string, error) {
+func (c *Client) RenderCancellation(e *Event) (string, string, error) {
 	e.RenderMarkdown(e.Message)
 
 	var builder strings.Builder
@@ -123,13 +187,13 @@ func RenderCancellation(e Event) (string, string, error) {
 
 	e.Preview = preview
 
-	html, err := e.RenderHTML("cancellation.html", e)
+	html, err := e.RenderHTML(c.templates["cancellation.html"], e)
 
 	return plainText, html, err
 }
 
 // RenderDigest returns a rendered digest email.
-func RenderDigest(d Digest) (string, string, error) {
+func (c *Client) RenderDigest(d *Digest) (string, string, error) {
 	for i := range d.Items {
 		for j := range d.Items[i].Messages {
 			d.Items[i].Messages[j].RenderMarkdown(d.Items[i].Messages[j].Body)
@@ -139,13 +203,13 @@ func RenderDigest(d Digest) (string, string, error) {
 	plainText := "You have notifications on Convo."
 	d.Preview = plainText
 
-	html, err := d.RenderHTML("digest.html", d)
+	html, err := d.RenderHTML(c.templates["digest.html"], d)
 
 	return plainText, html, err
 }
 
 // RenderAdminEmail returns a rendered admin email.
-func RenderAdminEmail(a AdminEmail) (string, string, error) {
+func (c *Client) RenderAdminEmail(a *AdminEmail) (string, string, error) {
 	var builder strings.Builder
 	fmt.Fprintf(&builder, a.Body, a.Fargs...)
 	plainText := builder.String()
@@ -154,7 +218,7 @@ func RenderAdminEmail(a AdminEmail) (string, string, error) {
 	a.Preview = preview
 
 	a.RenderMarkdown(plainText)
-	html, err := a.RenderHTML("admin.html", a)
+	html, err := a.RenderHTML(c.templates["admin.html"], a)
 
 	return plainText, html, err
 }

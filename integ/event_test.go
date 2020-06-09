@@ -1,33 +1,29 @@
-package router_test
+package handler_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/datastore"
+	"github.com/icrowley/fake"
 	"github.com/steinfletcher/apitest"
 	jsonpath "github.com/steinfletcher/apitest-jsonpath"
+	"github.com/stretchr/testify/assert"
 
-	"github.com/hiconvo/api/models"
-	"github.com/hiconvo/api/utils/magic"
-	"github.com/hiconvo/api/utils/random"
-	"github.com/hiconvo/api/utils/thelpers"
+	"github.com/hiconvo/api/clients/magic"
+	"github.com/hiconvo/api/model"
+	"github.com/hiconvo/api/testutil"
 )
 
-//////////////////////
-// POST /events Tests
-//////////////////////
-
 func TestCreateEvent(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
+	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u3, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 
-	type test struct {
+	tests := []struct {
 		Name           string
 		AuthHeader     map[string]string
 		GivenPayload   map[string]interface{}
@@ -35,19 +31,17 @@ func TestCreateEvent(t *testing.T) {
 		ExpectOwnerID  string
 		ExpectMemberID string
 		ExpectHostID   string
-	}
-
-	tests := []test{
+	}{
 		{
-			Name:       "Good payload",
-			AuthHeader: getAuthHeader(u1.Token),
+			Name:       "good payload",
+			AuthHeader: testutil.GetAuthHeader(u1.Token),
 			GivenPayload: map[string]interface{}{
-				"name":        random.String(10),
-				"placeId":     random.String(10),
+				"name":        fake.Title(),
+				"placeId":     fake.CharactersN(32),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
-				"description": random.String(10),
+				"description": fake.Paragraph(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": u2.ID,
 					},
 				},
@@ -57,18 +51,18 @@ func TestCreateEvent(t *testing.T) {
 			ExpectMemberID: u2.ID,
 		},
 		{
-			Name:       "Good payload with new email",
-			AuthHeader: getAuthHeader(u1.Token),
+			Name:       "good payload with new email",
+			AuthHeader: testutil.GetAuthHeader(u1.Token),
 			GivenPayload: map[string]interface{}{
-				"name":        random.String(10),
-				"placeId":     random.String(10),
+				"name":        fake.Title(),
+				"placeId":     fake.CharactersN(32),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
-				"description": random.String(10),
+				"description": fake.Paragraph(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": u2.ID,
 					},
-					map[string]string{
+					{
 						"email": "test@test.com",
 					},
 				},
@@ -78,23 +72,23 @@ func TestCreateEvent(t *testing.T) {
 			ExpectMemberID: u2.ID,
 		},
 		{
-			Name:       "Good payload with host",
-			AuthHeader: getAuthHeader(u1.Token),
+			Name:       "good payload with host",
+			AuthHeader: testutil.GetAuthHeader(u1.Token),
 			GivenPayload: map[string]interface{}{
-				"name":        random.String(10),
-				"placeId":     random.String(10),
+				"name":        fake.Title(),
+				"placeId":     fake.CharactersN(32),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
-				"description": random.String(10),
+				"description": fake.Paragraph(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": u2.ID,
 					},
-					map[string]string{
+					{
 						"email": "test@test.com",
 					},
 				},
 				"hosts": []map[string]string{
-					map[string]string{
+					{
 						"id": u3.ID,
 					},
 				},
@@ -106,15 +100,15 @@ func TestCreateEvent(t *testing.T) {
 		},
 
 		{
-			Name:       "Bad payload",
-			AuthHeader: getAuthHeader(u1.Token),
+			Name:       "bad payload",
+			AuthHeader: testutil.GetAuthHeader(u1.Token),
 			GivenPayload: map[string]interface{}{
-				"name":        random.String(10),
-				"placeId":     random.String(10),
+				"name":        fake.Title(),
+				"placeId":     fake.CharactersN(32),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
-				"description": random.String(10),
+				"description": fake.Paragraph(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": "Rudolf Carnap",
 					},
 				},
@@ -122,15 +116,15 @@ func TestCreateEvent(t *testing.T) {
 			ExpectStatus: http.StatusBadRequest,
 		},
 		{
-			Name:       "Bad payload with time in past",
-			AuthHeader: getAuthHeader(u1.Token),
+			Name:       "bad payload with time in past",
+			AuthHeader: testutil.GetAuthHeader(u1.Token),
 			GivenPayload: map[string]interface{}{
-				"name":        random.String(10),
-				"placeId":     random.String(10),
+				"name":        fake.Title(),
+				"placeId":     fake.CharactersN(32),
 				"timestamp":   "2019-09-08T01:19:20.915Z",
-				"description": random.String(10),
+				"description": fake.Paragraph(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": u2.ID,
 					},
 				},
@@ -138,15 +132,15 @@ func TestCreateEvent(t *testing.T) {
 			ExpectStatus: http.StatusBadRequest,
 		},
 		{
-			Name:       "Bad headers",
+			Name:       "bad headers",
 			AuthHeader: map[string]string{"boop": "beep"},
 			GivenPayload: map[string]interface{}{
-				"name":        random.String(10),
-				"placeId":     random.String(10),
+				"name":        fake.Title(),
+				"placeId":     fake.CharactersN(32),
 				"timestamp":   "2119-09-08T01:19:20.915Z",
-				"description": random.String(10),
+				"description": fake.Paragraph(),
 				"users": []map[string]string{
-					map[string]string{
+					{
 						"id": u2.ID,
 					},
 				},
@@ -155,25 +149,345 @@ func TestCreateEvent(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		encoded, err := json.Marshal(testCase.GivenPayload)
-		if err != nil {
-			t.Error(err)
-		}
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post("/events").
+				Headers(tcase.AuthHeader).
+				JSON(tcase.GivenPayload).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-		tt := apitest.New(fmt.Sprintf("CreateEvent: %s", testCase.Name)).
-			Handler(th).
-			Post("/events").
-			Headers(testCase.AuthHeader).
-			JSON(string(encoded)).
+			if tcase.ExpectStatus < http.StatusOK {
+				tt.Assert(jsonpath.Equal("$.owner.id", tcase.ExpectOwnerID))
+				tt.Assert(jsonpath.Contains("$.users[*].id", tcase.ExpectMemberID))
+				if tcase.ExpectHostID != "" {
+					tt.Assert(jsonpath.Contains("$.hosts[*].id", tcase.ExpectHostID))
+				}
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestGetEvents(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	host1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host1}, []*model.User{member1, member2})
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+		IsEventInRes bool
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			IsEventInRes: true,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member1.Token),
+			ExpectStatus: http.StatusOK,
+			IsEventInRes: true,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member2.Token),
+			ExpectStatus: http.StatusOK,
+			IsEventInRes: true,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusOK,
+			IsEventInRes: false,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+			IsEventInRes: false,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Get("/events").
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.IsEventInRes {
+				tt.Assert(jsonpath.Equal("$.events[0].name", event.Name))
+				tt.Assert(jsonpath.Equal("$.events[0].owner.id", event.Owner.ID))
+				tt.Assert(jsonpath.Contains("$.events[0].users[*].id", member1.ID))
+				tt.Assert(jsonpath.Contains("$.events[0].users[*].id", member2.ID))
+				tt.Assert(jsonpath.Contains("$.events[0].hosts[*].id", host1.ID))
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestGetEvent(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	url := fmt.Sprintf("/events/%s", event.ID)
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Get(url).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.name", event.Name))
+				tt.Assert(jsonpath.Equal("$.owner.id", event.Owner.ID))
+				tt.Assert(jsonpath.Contains("$.users[*].id", member.ID))
+				tt.Assert(jsonpath.Contains("$.hosts[*].id", host.ID))
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestDeleteEvent(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	url := fmt.Sprintf("/events/%s", event.ID)
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		GivenBody    map[string]interface{}
+		ExpectStatus int
+		ShouldPass   bool
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+			ShouldPass:   false,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			GivenBody:    map[string]interface{}{"message": "had to cancel"},
+			ExpectStatus: http.StatusOK,
+			ShouldPass:   true,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			GivenBody:    map[string]interface{}{},
+			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   true,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Delete(url).
+				JSON(tcase.GivenBody).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+			tt.End()
+
+			if tcase.ShouldPass {
+				var gotEvent model.Event
+				err := _dbClient.Get(_ctx, event.Key, &gotEvent)
+				assert.Equal(t, datastore.ErrNoSuchEntity, err)
+			}
+		})
+	}
+}
+
+func TestGetEventMessages(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
+	message1 := testutil.NewEventMessage(_ctx, t, _dbClient, owner, event)
+	message2 := testutil.NewEventMessage(_ctx, t, _dbClient, owner, event)
+	url := fmt.Sprintf("/events/%s/messages", event.ID)
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+	}{
+		// Owner can get messages
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+		},
+		// Member can get messages
+		{
+			AuthHeader:   testutil.GetAuthHeader(member1.Token),
+			ExpectStatus: http.StatusOK,
+		},
+		// NonMember cannot get messages
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+		},
+		// Unauthenticated user cannot get messages
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Get(url).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.messages[0].id", message1.ID))
+				tt.Assert(jsonpath.Equal("$.messages[0].body", message1.Body))
+				tt.Assert(jsonpath.Equal("$.messages[1].id", message2.ID))
+				tt.Assert(jsonpath.Equal("$.messages[1].body", message2.Body))
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestAddMessageToEvent(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
+	url := fmt.Sprintf("/events/%s/messages", event.ID)
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		GivenBody       string
+		GivenAuthor     *model.User
+		ExpectCode      int
+		ExpectBody      string
+		ExpectPhoto     bool
+	}{
+		// Owner
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(owner.Token),
+			GivenAuthor:     owner,
+			GivenBody:       `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==", "body": "hello"}`,
+			ExpectCode:      http.StatusCreated,
+			ExpectBody:      "hello",
+			ExpectPhoto:     true,
+		},
+		// Member
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
+			GivenAuthor:     member1,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusCreated,
+			ExpectBody:      "hello",
+			ExpectPhoto:     false,
+		},
+		// NonMember
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(nonmember.Token),
+			GivenAuthor:     nonmember,
+			GivenBody:       `{"body": "hello"}`,
+			ExpectCode:      http.StatusNotFound,
+			ExpectPhoto:     false,
+		},
+		// EmptyPayload
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
+			GivenAuthor:     member1,
+			GivenBody:       `{}`,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectPhoto:     false,
+		},
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(owner.Token),
+			GivenAuthor:     owner,
+			GivenBody:       `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q=="}`,
+			ExpectCode:      http.StatusBadRequest,
+			ExpectPhoto:     false,
+		},
+	}
+
+	for _, tcase := range tests {
+		tt := apitest.New(tcase.Name).
+			Handler(_handler).
+			Post(url).
+			JSON(tcase.GivenBody).
+			Headers(tcase.GivenAuthHeader).
 			Expect(t).
-			Status(testCase.ExpectStatus)
+			Status(tcase.ExpectCode)
 
-		if testCase.ExpectStatus < 300 {
-			tt.Assert(jsonpath.Equal("$.owner.id", testCase.ExpectOwnerID))
-			tt.Assert(jsonpath.Contains("$.users[*].id", testCase.ExpectMemberID))
-			if testCase.ExpectHostID != "" {
-				tt.Assert(jsonpath.Contains("$.hosts[*].id", testCase.ExpectHostID))
+		if tcase.ExpectCode < 300 {
+			tt.
+				Assert(jsonpath.Equal("$.parentId", event.ID)).
+				Assert(jsonpath.Equal("$.body", tcase.ExpectBody)).
+				Assert(jsonpath.Equal("$.user.fullName", tcase.GivenAuthor.FullName)).
+				Assert(jsonpath.Equal("$.user.id", tcase.GivenAuthor.ID))
+			if tcase.ExpectPhoto {
+				tt.Assert(jsonpath.Present("$.photos[0]"))
+			} else {
+				tt.Assert(jsonpath.NotPresent("$.photos[0]"))
 			}
 		}
 
@@ -181,632 +495,134 @@ func TestCreateEvent(t *testing.T) {
 	}
 }
 
-//////////////////////
-// GET /events Tests
-//////////////////////
+func TestDeleteEventMessage(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
+	message1 := testutil.NewEventMessage(_ctx, t, _dbClient, owner, event)
+	message2 := testutil.NewEventMessage(_ctx, t, _dbClient, member1, event)
 
-func TestGetEvents(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member1, _ := createTestUser(t)
-	member2, _ := createTestUser(t)
-	host1, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member1, &member2}, []*models.User{&host1})
+	// We reduce the time resolution because the test database does not
+	// store it with native resolution. When the time is retrieved
+	// from the database, the result of json marshaling is a couple fewer
+	// digits than marshaling the native time without truncating, which
+	// causes the tests to fail.
+	message2.Timestamp = message2.Timestamp.Truncate(time.Microsecond)
+	message2encoded, err := json.Marshal(message2)
+	if err != nil {
+		t.Error(err)
+	}
 
-	type test struct {
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		GivenMessageID  string
+		ExpectCode      int
+		ExpectBody      string
+	}{
+		{
+			Name:            "member attempt to delete message he does not own",
+			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		{
+			Name:            "nonmember attempt to delete message",
+			GivenAuthHeader: testutil.GetAuthHeader(nonmember.Token),
+			GivenMessageID:  message1.ID,
+			ExpectCode:      http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+		{
+			Name:            "success",
+			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
+			GivenMessageID:  message2.ID,
+			ExpectCode:      http.StatusOK,
+			ExpectBody:      string(message2encoded),
+		},
+	}
+
+	for _, tcase := range tests {
+		apitest.New(tcase.Name).
+			Handler(_handler).
+			Delete(fmt.Sprintf("/events/%s/messages/%s", event.ID, tcase.GivenMessageID)).
+			JSON(`{}`).
+			Headers(tcase.GivenAuthHeader).
+			Expect(t).
+			Status(tcase.ExpectCode).
+			Body(tcase.ExpectBody).
+			End()
+
+		if tcase.ExpectCode == http.StatusOK {
+			var gotMessage model.Message
+			err := _dbClient.Get(_ctx, message2.Key, &gotMessage)
+			assert.Equal(t, datastore.ErrNoSuchEntity, err)
+		}
+	}
+}
+
+func TestMarkEventAsRead(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
+	testutil.NewEventMessage(_ctx, t, _dbClient, owner, event)
+	testutil.NewEventMessage(_ctx, t, _dbClient, member1, event)
+	url := fmt.Sprintf("/events/%s/reads", event.ID)
+
+	tests := []struct {
+		Name         string
 		AuthHeader   map[string]string
-		OutCode      int
-		IsEventInRes bool
-	}
-
-	tests := []test{
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, IsEventInRes: true},
-		{AuthHeader: getAuthHeader(member1.Token), OutCode: http.StatusOK, IsEventInRes: true},
-		{AuthHeader: getAuthHeader(member2.Token), OutCode: http.StatusOK, IsEventInRes: true},
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusOK, IsEventInRes: false},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, IsEventInRes: false},
-	}
-
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", "/events", nil, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		gotEvents := respData["events"].([]interface{})
-
-		if testCase.IsEventInRes {
-			thelpers.AssetObjectsContainKeys(t, "id", []string{event.ID}, gotEvents)
-			thelpers.AssetObjectsContainKeys(t, "name", []string{event.Name}, gotEvents)
-
-			gotEvent := gotEvents[0].(map[string]interface{})
-
-			gotEventUsers := gotEvent["users"].([]interface{})
-			thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, host1.ID, member1.ID, member2.ID}, gotEventUsers)
-			thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, host1.FullName, member1.FullName, member2.FullName}, gotEventUsers)
-
-			gotEventHosts := gotEvent["hosts"].([]interface{})
-			thelpers.AssetObjectsContainKeys(t, "id", []string{host1.ID}, gotEventHosts)
-			thelpers.AssetObjectsContainKeys(t, "fullName", []string{host1.FullName}, gotEventHosts)
-
-			gotEventOwner := gotEvent["owner"].(map[string]interface{})
-			thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
-			thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
-		} else {
-			thelpers.AssetObjectsContainKeys(t, "id", []string{}, gotEvents)
-		}
-	}
-}
-
-/////////////////////////
-// GET /event/{id} Tests
-/////////////////////////
-
-func TestGetEvent(t *testing.T) {
-	owner, _ := createTestUser(t)
-	host, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{&host})
-	url := fmt.Sprintf("/events/%s", event.ID)
-
-	type test struct {
-		AuthHeader map[string]string
-		OutCode    int
-	}
-
-	tests := []test{
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK},
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusOK},
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized},
-	}
-
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", url, nil, testCase.AuthHeader)
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], event.ID)
-
-		gotEventOwner := respData["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
-		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
-
-		gotEventHosts := respData["hosts"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", []string{host.ID}, gotEventHosts)
-		thelpers.AssetObjectsContainKeys(t, "fullName", []string{host.FullName}, gotEventHosts)
-
-		gotEventUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", []string{owner.ID, host.ID, member.ID}, gotEventUsers)
-		thelpers.AssetObjectsContainKeys(t, "fullName", []string{owner.FullName, host.FullName, member.FullName}, gotEventUsers)
-	}
-}
-
-///////////////////////////
-// PATCH /event/{id} Tests
-///////////////////////////
-
-func TestUpdateEvent(t *testing.T) {
-	owner, _ := createTestUser(t)
-	host, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{&host})
-	url := fmt.Sprintf("/events/%s", event.ID)
-
-	type test struct {
-		AuthHeader map[string]string
-		OutCode    int
-		ShouldPass bool
-		InData     map[string]interface{}
-	}
-
-	tests := []test{
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusOK, ShouldPass: true, InData: map[string]interface{}{"name": "Ruth Marcus"}},
-		{AuthHeader: getAuthHeader(host.Token), OutCode: http.StatusNotFound, ShouldPass: false, InData: map[string]interface{}{"name": "Ruth Marcus"}},
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusNotFound, ShouldPass: false, InData: map[string]interface{}{"name": "Ruth Marcus"}},
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound, ShouldPass: false},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized, ShouldPass: false},
-	}
-
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "PATCH", url, testCase.InData, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		if testCase.ShouldPass {
-			thelpers.AssertEqual(t, respData["name"], testCase.InData["name"])
-		} else {
-			thelpers.AssertEqual(t, respData["name"], event.Name)
-		}
-	}
-}
-
-////////////////////////////
-// DELETE /event/{id} Tests
-////////////////////////////
-
-func TestDeleteEvent(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
-	url := fmt.Sprintf("/events/%s", event.ID)
-
-	type test struct {
-		AuthHeader map[string]string
-		InBody     map[string]interface{}
-		OutCode    int
-		ShouldPass bool
-	}
-
-	tests := []test{
+		ExpectStatus int
+	}{
 		{
-			AuthHeader: getAuthHeader(member.Token),
-			OutCode:    http.StatusNotFound,
-			ShouldPass: false,
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
 		},
 		{
-			AuthHeader: getAuthHeader(nonmember.Token),
-			OutCode:    http.StatusNotFound,
-			ShouldPass: false,
+			AuthHeader:   testutil.GetAuthHeader(member1.Token),
+			ExpectStatus: http.StatusOK,
 		},
 		{
-			AuthHeader: map[string]string{"boop": "beep"},
-			OutCode:    http.StatusUnauthorized,
-			ShouldPass: false,
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
 		},
 		{
-			AuthHeader: getAuthHeader(owner.Token),
-			InBody:     map[string]interface{}{"message": "had to cancel"},
-			OutCode:    http.StatusOK,
-			ShouldPass: true,
-		},
-		{
-			AuthHeader: getAuthHeader(owner.Token),
-			OutCode:    http.StatusNotFound,
-			ShouldPass: true,
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
 		},
 	}
 
-	for _, testCase := range tests {
-		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "DELETE", url, testCase.InBody, testCase.AuthHeader)
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post(url).
+				Header("Content-Type", "application/json").
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", event.ID))
+				tt.Assert(jsonpath.Equal("$.reads[0].id", owner.ID))
+			}
 
-		if testCase.ShouldPass {
-			var gotEvent models.Event
-			err := tclient.Get(tc, event.Key, &gotEvent)
-			thelpers.AssertEqual(t, err, datastore.ErrNoSuchEntity)
-		}
-	}
-}
-
-/////////////////////////////////////
-// POST /event/{id}/users/{id} Tests
-/////////////////////////////////////
-
-func TestAddToEvent(t *testing.T) {
-	owner, _ := createTestUser(t)
-	host, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	memberToAdd, _ := createTestUser(t)
-	secondMemberToAdd, _ := createTestUser(t)
-	thridMemberToAdd, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{&host})
-
-	eventAllowGuests := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
-	eventAllowGuests.GuestsCanInvite = true
-	if err := eventAllowGuests.Commit(tc); err != nil {
-		t.Fatal(err)
-	}
-
-	type test struct {
-		AuthHeader map[string]string
-		OutCode    int
-		InID       string
-		InEventID  string
-		ShouldPass bool
-		OutNames   []string
-	}
-
-	tests := []test{
-		{
-			AuthHeader: getAuthHeader(nonmember.Token),
-			OutCode:    http.StatusNotFound,
-			InID:       memberToAdd.ID,
-			InEventID:  event.ID,
-		},
-		{
-			AuthHeader: getAuthHeader(member.Token),
-			OutCode:    http.StatusNotFound,
-			InID:       memberToAdd.ID,
-			InEventID:  event.ID,
-		},
-		{
-			AuthHeader: map[string]string{"boop": "beep"},
-			OutCode:    http.StatusUnauthorized,
-			InID:       memberToAdd.ID,
-			InEventID:  event.ID,
-		},
-		{
-			AuthHeader: getAuthHeader(owner.Token),
-			OutCode:    http.StatusOK,
-			InID:       memberToAdd.ID,
-			OutNames:   []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName},
-			InEventID:  event.ID,
-		},
-		{
-			AuthHeader: getAuthHeader(owner.Token),
-			OutCode:    http.StatusOK,
-			InID:       "addedOnTheFly@again.com",
-			OutNames:   []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly"},
-			InEventID:  event.ID,
-		},
-		{
-			AuthHeader: getAuthHeader(owner.Token),
-			OutCode:    http.StatusOK,
-			InID:       secondMemberToAdd.Email,
-			OutNames:   []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName},
-			InEventID:  event.ID,
-		},
-		{
-			AuthHeader: getAuthHeader(host.Token),
-			OutCode:    http.StatusOK,
-			InID:       thridMemberToAdd.ID,
-			OutNames:   []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName, thridMemberToAdd.FullName},
-			InEventID:  event.ID,
-		},
-		{
-			AuthHeader: getAuthHeader(nonmember.Token),
-			OutCode:    http.StatusNotFound,
-			InID:       memberToAdd.ID,
-			InEventID:  eventAllowGuests.ID,
-		},
-		{
-			AuthHeader: getAuthHeader(member.Token),
-			OutCode:    http.StatusOK,
-			InID:       memberToAdd.ID,
-			OutNames:   []string{owner.FullName, member.FullName, memberToAdd.FullName},
-			InEventID:  eventAllowGuests.ID,
-		},
-	}
-
-	for _, testCase := range tests {
-		url := fmt.Sprintf("/events/%s/users/%s", testCase.InEventID, testCase.InID)
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, nil, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if rr.Code >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], testCase.InEventID)
-
-		gotEventOwner := respData["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
-		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
-
-		// A host was not added for eventAllowGuests
-		gotEventHosts := respData["hosts"].([]interface{})
-		if testCase.InEventID == event.ID {
-			thelpers.AssetObjectsContainKeys(t, "id", []string{host.ID}, gotEventHosts)
-			thelpers.AssetObjectsContainKeys(t, "fullName", []string{host.FullName}, gotEventHosts)
-		} else {
-			thelpers.AssetObjectsContainKeys(t, "id", []string{}, gotEventHosts)
-			thelpers.AssetObjectsContainKeys(t, "fullName", []string{}, gotEventHosts)
-		}
-
-		gotEventUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutNames, gotEventUsers)
-	}
-}
-
-///////////////////////////////////////
-// DELETE /event/{id}/users/{id} Tests
-///////////////////////////////////////
-
-func TestRemoveFromEvent(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	memberToRemove, _ := createTestUser(t)
-	memberToLeave, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member, &memberToRemove, &memberToLeave}, []*models.User{})
-
-	type test struct {
-		AuthHeader     map[string]string
-		InID           string
-		OutCode        int
-		OutMemberIDs   []string
-		OutMemberNames []string
-	}
-
-	tests := []test{
-		{
-			AuthHeader: getAuthHeader(nonmember.Token),
-			InID:       member.ID,
-			OutCode:    http.StatusNotFound,
-		},
-		{
-			AuthHeader: getAuthHeader(member.Token),
-			InID:       memberToRemove.ID,
-			OutCode:    http.StatusNotFound,
-		},
-		{
-			AuthHeader: map[string]string{"boop": "beep"},
-			InID:       member.ID,
-			OutCode:    http.StatusUnauthorized,
-		},
-		{
-			AuthHeader:     getAuthHeader(owner.Token),
-			InID:           memberToRemove.ID,
-			OutCode:        http.StatusOK,
-			OutMemberIDs:   []string{owner.ID, member.ID, memberToLeave.ID},
-			OutMemberNames: []string{owner.FullName, member.FullName, memberToLeave.FullName},
-		},
-		{
-			AuthHeader:     getAuthHeader(memberToLeave.Token),
-			InID:           memberToLeave.ID,
-			OutCode:        http.StatusOK,
-			OutMemberIDs:   []string{owner.ID, member.ID},
-			OutMemberNames: []string{owner.FullName, member.FullName},
-		},
-	}
-
-	for _, testCase := range tests {
-		url := fmt.Sprintf("/events/%s/users/%s", event.ID, testCase.InID)
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], event.ID)
-
-		gotEventOwner := respData["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
-		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
-
-		gotEventUsers := respData["users"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", testCase.OutMemberIDs, gotEventUsers)
-		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutMemberNames, gotEventUsers)
-	}
-}
-
-/////////////////////////////////////
-// POST /event/{id}/rsvps Tests
-/////////////////////////////////////
-
-func TestAddRSVPToEvent(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member}, []*models.User{})
-
-	type test struct {
-		AuthHeader map[string]string
-		OutCode    int
-	}
-
-	tests := []test{
-		{AuthHeader: getAuthHeader(nonmember.Token), OutCode: http.StatusNotFound},
-		{AuthHeader: map[string]string{"boop": "beep"}, OutCode: http.StatusUnauthorized},
-		{AuthHeader: getAuthHeader(owner.Token), OutCode: http.StatusBadRequest},
-		{AuthHeader: getAuthHeader(member.Token), OutCode: http.StatusOK},
-	}
-
-	for _, testCase := range tests {
-		url := fmt.Sprintf("/events/%s/rsvps", event.ID)
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", url, nil, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], event.ID)
-
-		gotEventOwner := respData["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
-		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
-
-		gotEventRSVPs := respData["rsvps"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", []string{member.ID}, gotEventRSVPs)
-		thelpers.AssetObjectsContainKeys(t, "fullName", []string{member.FullName}, gotEventRSVPs)
-	}
-}
-
-///////////////////////////////////////
-// DELETE /event/{id}/rsvps Tests
-///////////////////////////////////////
-
-func TestRemoveRSVPFromEvent(t *testing.T) {
-	owner, _ := createTestUser(t)
-	member, _ := createTestUser(t)
-	memberToRemove, _ := createTestUser(t)
-	nonmember, _ := createTestUser(t)
-	event := createTestEvent(t, &owner, []*models.User{&member, &memberToRemove}, []*models.User{})
-
-	if err := event.AddRSVP(&memberToRemove); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := event.AddRSVP(&member); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := event.Commit(tc); err != nil {
-		t.Fatal(err)
-	}
-
-	type test struct {
-		AuthHeader     map[string]string
-		OutCode        int
-		OutMemberIDs   []string
-		OutMemberNames []string
-	}
-
-	tests := []test{
-		{
-			AuthHeader: getAuthHeader(nonmember.Token),
-			OutCode:    http.StatusNotFound,
-		},
-		{
-			AuthHeader: map[string]string{"boop": "beep"},
-			OutCode:    http.StatusUnauthorized,
-		},
-		{
-			AuthHeader: getAuthHeader(owner.Token),
-			OutCode:    http.StatusBadRequest,
-		},
-		{
-			AuthHeader:     getAuthHeader(memberToRemove.Token),
-			OutCode:        http.StatusOK,
-			OutMemberIDs:   []string{member.ID},
-			OutMemberNames: []string{member.FullName},
-		},
-	}
-
-	for _, testCase := range tests {
-		url := fmt.Sprintf("/events/%s/rsvps", event.ID)
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "DELETE", url, nil, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], event.ID)
-
-		gotEventOwner := respData["owner"].(map[string]interface{})
-		thelpers.AssertEqual(t, gotEventOwner["id"], event.Owner.ID)
-		thelpers.AssertEqual(t, gotEventOwner["fullName"], event.Owner.FullName)
-
-		gotEventUsers := respData["rsvps"].([]interface{})
-		thelpers.AssetObjectsContainKeys(t, "id", testCase.OutMemberIDs, gotEventUsers)
-		thelpers.AssetObjectsContainKeys(t, "fullName", testCase.OutMemberNames, gotEventUsers)
-	}
-}
-
-/////////////////////////////////////
-// POST /event/rsvps Tests
-/////////////////////////////////////
-
-func TestMagicRSVP(t *testing.T) {
-	existingUser, _ := createTestUser(t)
-	existingUser2, _ := createTestUser(t)
-	owner, _ := createTestUser(t)
-
-	event := createTestEvent(t, &owner, []*models.User{&existingUser, &existingUser2}, []*models.User{})
-
-	link := magic.NewLink(existingUser.Key, strconv.FormatBool(event.HasRSVP(&existingUser)), "rsvp")
-	split := strings.Split(link, "/")
-	kenc := split[len(split)-3]
-	b64ts := split[len(split)-2]
-	sig := split[len(split)-1]
-
-	link2 := magic.NewLink(existingUser2.Key, strconv.FormatBool(event.HasRSVP(&existingUser2)), "rsvp")
-	split2 := strings.Split(link2, "/")
-	kenc2 := split2[len(split2)-3]
-	b64ts2 := split2[len(split2)-2]
-
-	type test struct {
-		AuthHeader map[string]string
-		InData     map[string]interface{}
-		OutCode    int
-		OutData    map[string]interface{}
-		OutPaylod  string
-	}
-
-	tests := []test{
-		{
-			InData: map[string]interface{}{
-				"signature": sig,
-				"timestamp": b64ts,
-				"userID":    kenc,
-				"eventID":   event.ID,
-			},
-			OutCode: http.StatusOK,
-			OutData: map[string]interface{}{
-				"id":        existingUser.ID,
-				"firstName": existingUser.FirstName,
-				"lastName":  existingUser.LastName,
-				"token":     existingUser.Token,
-				"verified":  true,
-				"email":     existingUser.Email,
-			},
-		},
-		{
-			InData: map[string]interface{}{
-				"signature": sig,
-				"timestamp": b64ts,
-				"userID":    kenc,
-				"eventID":   event.ID,
-			},
-			OutCode: http.StatusOK,
-			OutData: map[string]interface{}{
-				"id":        existingUser.ID,
-				"firstName": existingUser.FirstName,
-				"lastName":  existingUser.LastName,
-				"token":     existingUser.Token,
-				"verified":  true,
-				"email":     existingUser.Email,
-			},
-		},
-		{
-			InData: map[string]interface{}{
-				"signature": "not a valid signature",
-				"timestamp": b64ts2,
-				"userID":    kenc2,
-				"eventID":   event.ID,
-			},
-			OutCode:   http.StatusUnauthorized,
-			OutPaylod: `{"message":"This link is not valid anymore"}`,
-		},
-	}
-
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/events/rsvps", testCase.InData, testCase.AuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.OutCode)
-
-		if testCase.OutCode >= 400 {
-			continue
-		}
-
-		thelpers.AssertEqual(t, respData["id"], testCase.OutData["id"])
-		thelpers.AssertEqual(t, respData["firstName"], testCase.OutData["firstName"])
-		thelpers.AssertEqual(t, respData["lastName"], testCase.OutData["lastName"])
-		thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
-		thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
-		thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
+			tt.End()
+		})
 	}
 }
 
 func TestGetMagicLink(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	u4, _ := createTestUser(t)
-	event := createTestEvent(t, &u1, []*models.User{&u3}, []*models.User{&u2})
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
 
 	tests := []struct {
 		Name         string
@@ -815,100 +631,437 @@ func TestGetMagicLink(t *testing.T) {
 	}{
 		{
 			Name:         "Owner",
-			AuthToken:    u1.Token,
+			AuthToken:    owner.Token,
 			ExpectStatus: http.StatusOK,
 		},
 		{
 			Name:         "Host",
-			AuthToken:    u2.Token,
+			AuthToken:    host.Token,
 			ExpectStatus: http.StatusOK,
 		},
 		{
 			Name:         "Guest",
-			AuthToken:    u3.Token,
+			AuthToken:    member.Token,
 			ExpectStatus: http.StatusNotFound,
 		},
 		{
 			Name:         "Random",
-			AuthToken:    u4.Token,
+			AuthToken:    nonmember.Token,
 			ExpectStatus: http.StatusNotFound,
 		},
 	}
 
-	for _, testCase := range tests {
-		t.Run(testCase.Name, func(t *testing.T) {
-			apitest.New("GetMagic").
-				Handler(th).
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New(tcase.Name).
+				Handler(_handler).
 				Get(fmt.Sprintf("/events/%s/magic", event.ID)).
-				Headers(getAuthHeader(testCase.AuthToken)).
+				Headers(testutil.GetAuthHeader(tcase.AuthToken)).
 				Expect(t).
-				Status(testCase.ExpectStatus).
+				Status(tcase.ExpectStatus).
 				End()
 		})
 	}
 }
 
-func TestRollMagicLink(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	u4, _ := createTestUser(t)
-	event := createTestEvent(t, &u1, []*models.User{&u3}, []*models.User{&u2})
+func TestUpdateEvent(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	url := fmt.Sprintf("/events/%s", event.ID)
 
 	tests := []struct {
 		Name         string
-		AuthToken    string
+		AuthHeader   map[string]string
 		ExpectStatus int
+		ShouldPass   bool
+		GivenBody    map[string]interface{}
 	}{
 		{
-			Name:         "Owner",
-			AuthToken:    u1.Token,
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
 			ExpectStatus: http.StatusOK,
+			ShouldPass:   true,
+			GivenBody:    map[string]interface{}{"name": "Ruth Marcus"},
 		},
 		{
-			Name:         "Host",
-			AuthToken:    u2.Token,
+			AuthHeader:   testutil.GetAuthHeader(host.Token),
 			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+			GivenBody:    map[string]interface{}{"name": "Ruth Marcus"},
 		},
 		{
-			Name:         "Guest",
-			AuthToken:    u3.Token,
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
 			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+			GivenBody:    map[string]interface{}{"name": "Ruth Marcus"},
 		},
 		{
-			Name:         "Random",
-			AuthToken:    u4.Token,
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
 			ExpectStatus: http.StatusNotFound,
+			ShouldPass:   false,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+			ShouldPass:   false,
 		},
 	}
 
-	for _, testCase := range tests {
-		t.Run(testCase.Name, func(t *testing.T) {
-			apitest.New(fmt.Sprintf("GetMagic: %s", testCase.Name)).
-				Handler(th).
-				Delete(fmt.Sprintf("/events/%s/magic", event.ID)).
-				JSON("{}").
-				Headers(getAuthHeader(testCase.AuthToken)).
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Patch(url).
+				JSON(tcase.GivenBody).
+				Headers(tcase.AuthHeader).
 				Expect(t).
-				Status(testCase.ExpectStatus).
-				End()
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus <= http.StatusBadRequest {
+				if tcase.ShouldPass {
+					tt.Assert(jsonpath.Equal("$.name", tcase.GivenBody["name"]))
+				} else {
+					tt.Assert(jsonpath.Equal("$.name", event.Name))
+				}
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestAddUserToEvent(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	memberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	secondMemberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thridMemberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+
+	eventAllowGuests := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member})
+	eventAllowGuests.GuestsCanInvite = true
+	if _, err := _dbClient.Put(_ctx, eventAllowGuests.Key, eventAllowGuests); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+		GivenUserID  string
+		GivenEventID string
+		ShouldPass   bool
+		ExpectNames  []string
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+			GivenUserID:  memberToAdd.ID,
+			GivenEventID: event.ID,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusNotFound,
+			GivenUserID:  memberToAdd.ID,
+			GivenEventID: event.ID,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+			GivenUserID:  memberToAdd.ID,
+			GivenEventID: event.ID,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			GivenUserID:  memberToAdd.ID,
+			ExpectNames:  []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName},
+			GivenEventID: event.ID,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			GivenUserID:  "addedOnTheFly@again.com",
+			ExpectNames:  []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly"},
+			GivenEventID: event.ID,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			GivenUserID:  secondMemberToAdd.Email,
+			ExpectNames:  []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName},
+			GivenEventID: event.ID,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(host.Token),
+			ExpectStatus: http.StatusOK,
+			GivenUserID:  thridMemberToAdd.ID,
+			ExpectNames:  []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly", secondMemberToAdd.FullName, thridMemberToAdd.FullName},
+			GivenEventID: event.ID,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+			GivenUserID:  memberToAdd.ID,
+			GivenEventID: eventAllowGuests.ID,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusOK,
+			GivenUserID:  memberToAdd.ID,
+			ExpectNames:  []string{owner.FullName, member.FullName, memberToAdd.FullName},
+			GivenEventID: eventAllowGuests.ID,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post(fmt.Sprintf("/events/%s/users/%s", tcase.GivenEventID, tcase.GivenUserID)).
+				JSON(`{}`).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus <= http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", tcase.GivenEventID))
+				tt.Assert(jsonpath.Equal("$.owner.id", owner.ID))
+				tt.Assert(jsonpath.Equal("$.owner.fullName", owner.FullName))
+
+				for _, name := range tcase.ExpectNames {
+					tt.Assert(jsonpath.Contains("$.users[*].fullName", name))
+				}
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestRemoveUserFromEvent(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	memberToRemove, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	memberToLeave, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member, memberToRemove, memberToLeave})
+
+	tests := []struct {
+		Name              string
+		AuthHeader        map[string]string
+		GivenUserID       string
+		ExpectStatus      int
+		ExpectMemberIDs   []string
+		ExpectMemberNames []string
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			GivenUserID:  member.ID,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			GivenUserID:  memberToRemove.ID,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			GivenUserID:  member.ID,
+			ExpectStatus: http.StatusUnauthorized,
+		},
+		{
+			AuthHeader:        testutil.GetAuthHeader(owner.Token),
+			GivenUserID:       memberToRemove.ID,
+			ExpectStatus:      http.StatusOK,
+			ExpectMemberIDs:   []string{owner.ID, member.ID, memberToLeave.ID},
+			ExpectMemberNames: []string{owner.FullName, member.FullName, memberToLeave.FullName},
+		},
+		{
+			AuthHeader:        testutil.GetAuthHeader(memberToLeave.Token),
+			GivenUserID:       memberToLeave.ID,
+			ExpectStatus:      http.StatusOK,
+			ExpectMemberIDs:   []string{owner.ID, member.ID},
+			ExpectMemberNames: []string{owner.FullName, member.FullName},
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Delete(fmt.Sprintf("/events/%s/users/%s", event.ID, tcase.GivenUserID)).
+				JSON(`{}`).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", event.ID))
+				tt.Assert(jsonpath.Equal("$.owner.id", owner.ID))
+				tt.Assert(jsonpath.Equal("$.owner.fullName", owner.FullName))
+
+				for _, name := range tcase.ExpectMemberNames {
+					tt.Assert(jsonpath.Contains("$.users[*].fullName", name))
+				}
+
+				for _, id := range tcase.ExpectMemberIDs {
+					tt.Assert(jsonpath.Contains("$.users[*].id", id))
+				}
+
+				tt.Assert(jsonpath.Len("$.users", len(tcase.ExpectMemberIDs)))
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestAddRSVPToEvent(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member})
+	url := fmt.Sprintf("/events/%s/rsvps", event.ID)
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		ExpectStatus int
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(member.Token),
+			ExpectStatus: http.StatusOK,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post(url).
+				JSON(`{}`).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", event.ID))
+				tt.Assert(jsonpath.Equal("$.owner.id", owner.ID))
+				tt.Assert(jsonpath.Equal("$.owner.fullName", owner.FullName))
+				tt.Assert(jsonpath.Contains("$.rsvps[*].id", member.ID))
+				tt.Assert(jsonpath.Contains("$.rsvps[*].fullName", member.FullName))
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestRemoveRSVPFromEvent(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	memberToRemove, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member, memberToRemove})
+
+	if err := event.AddRSVP(memberToRemove); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := event.AddRSVP(member); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := _dbClient.Put(_ctx, event.Key, event); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		Name              string
+		AuthHeader        map[string]string
+		ExpectStatus      int
+		ExpectMemberIDs   []string
+		ExpectMemberNames []string
+	}{
+		{
+			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			AuthHeader:   map[string]string{"boop": "beep"},
+			ExpectStatus: http.StatusUnauthorized,
+		},
+		{
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			AuthHeader:        testutil.GetAuthHeader(memberToRemove.Token),
+			ExpectStatus:      http.StatusOK,
+			ExpectMemberIDs:   []string{member.ID},
+			ExpectMemberNames: []string{member.FullName},
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Delete(fmt.Sprintf("/events/%s/rsvps", event.ID)).
+				JSON(`{}`).
+				Headers(tcase.AuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.id", event.ID))
+				tt.Assert(jsonpath.Equal("$.owner.id", owner.ID))
+				tt.Assert(jsonpath.Equal("$.owner.fullName", owner.FullName))
+
+				for _, name := range tcase.ExpectMemberNames {
+					tt.Assert(jsonpath.Contains("$.rsvps[*].fullName", name))
+				}
+
+				for _, id := range tcase.ExpectMemberIDs {
+					tt.Assert(jsonpath.Contains("$.rsvps[*].id", id))
+				}
+
+				tt.Assert(jsonpath.Len("$.rsvps", len(tcase.ExpectMemberIDs)))
+			}
+
+			tt.End()
 		})
 	}
 }
 
 func TestMagicInvite(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	event := createTestEvent(t, &u1, []*models.User{}, []*models.User{&u2})
-	event2 := createTestEvent(t, &u1, []*models.User{}, []*models.User{&u2})
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	event2 := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member})
 
-	magicLink := event.GetMagicLink()
-
-	split := strings.Split(magicLink, "/")
-	eventID := split[len(split)-3]
-	b64ts := split[len(split)-2]
-	sig := split[len(split)-1]
+	magicClient := magic.NewClient("")
+	magicLink := event.GetInviteMagicLink(magicClient)
+	eventID, b64ts, sig := testutil.GetMagicLinkParts(magicLink)
 
 	tests := []struct {
 		Name         string
@@ -919,43 +1072,194 @@ func TestMagicInvite(t *testing.T) {
 		{
 			Name:         "Owner",
 			EventID:      event.ID,
-			AuthToken:    u1.Token,
+			AuthToken:    owner.Token,
 			ExpectStatus: http.StatusBadRequest,
 		},
 		{
 			Name:         "Host",
 			EventID:      event.ID,
-			AuthToken:    u2.Token,
+			AuthToken:    host.Token,
 			ExpectStatus: http.StatusBadRequest,
 		},
 		{
 			Name:         "Random",
 			EventID:      event.ID,
-			AuthToken:    u3.Token,
+			AuthToken:    nonmember.Token,
 			ExpectStatus: http.StatusOK,
 		},
 		{
 			Name:         "Unrelated Event",
 			EventID:      event2.ID,
-			AuthToken:    u3.Token,
+			AuthToken:    nonmember.Token,
 			ExpectStatus: http.StatusUnauthorized,
 		},
 	}
 
 	for _, testCase := range tests {
 		t.Run(testCase.Name, func(t *testing.T) {
-			tt := apitest.New(fmt.Sprintf("GetMagic: %s", testCase.Name)).
-				Handler(th).
+			tt := apitest.New(testCase.Name).
+				Handler(_handler).
 				Post(fmt.Sprintf("/events/%s/magic", testCase.EventID)).
 				JSON(fmt.Sprintf(`{"eventId": "%s", "signature": "%s", "timestamp": "%s"}`, eventID, sig, b64ts)).
-				Headers(getAuthHeader(testCase.AuthToken)).
+				Headers(testutil.GetAuthHeader(testCase.AuthToken)).
 				Expect(t).
 				Status(testCase.ExpectStatus)
 			if testCase.ExpectStatus == http.StatusOK {
 				tt.Assert(jsonpath.Equal("$.id", event.ID))
-				tt.Assert(jsonpath.Equal("$.owner.id", u1.ID))
-				tt.Assert(jsonpath.Contains("$.users[*].id", u3.ID))
+				tt.Assert(jsonpath.Equal("$.owner.id", owner.ID))
+				tt.Assert(jsonpath.Contains("$.users[*].id", nonmember.ID))
 			}
+			tt.End()
+		})
+	}
+}
+
+func TestRollMagicLink(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+
+	tests := []struct {
+		Name         string
+		AuthToken    string
+		ExpectStatus int
+	}{
+		{
+			Name:         "Owner",
+			AuthToken:    owner.Token,
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			Name:         "Host",
+			AuthToken:    host.Token,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			Name:         "Guest",
+			AuthToken:    member.Token,
+			ExpectStatus: http.StatusNotFound,
+		},
+		{
+			Name:         "Random",
+			AuthToken:    nonmember.Token,
+			ExpectStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.Name, func(t *testing.T) {
+			apitest.New(testCase.Name).
+				Handler(_handler).
+				Delete(fmt.Sprintf("/events/%s/magic", event.ID)).
+				JSON("{}").
+				Headers(testutil.GetAuthHeader(testCase.AuthToken)).
+				Expect(t).
+				Status(testCase.ExpectStatus).
+				End()
+		})
+	}
+}
+
+func TestMagicRSVP(t *testing.T) {
+	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
+
+	link := event.GetRSVPMagicLink(magic.NewClient(""), member1)
+	kenc, b64ts, sig := testutil.GetMagicLinkParts(link)
+
+	link2 := event.GetRSVPMagicLink(magic.NewClient(""), member2)
+	kenc2, b64ts2, sig2 := testutil.GetMagicLinkParts(link2)
+
+	tests := []struct {
+		Name         string
+		AuthHeader   map[string]string
+		GivenBody    map[string]interface{}
+		ExpectStatus int
+		ExpectData   map[string]interface{}
+		ExpectError  string
+	}{
+		{
+			GivenBody: map[string]interface{}{
+				"signature": sig,
+				"timestamp": b64ts,
+				"userID":    kenc,
+				"eventID":   event.ID,
+			},
+			ExpectStatus: http.StatusOK,
+			ExpectData: map[string]interface{}{
+				"id":        member1.ID,
+				"firstName": member1.FirstName,
+				"lastName":  member1.LastName,
+				"token":     member1.Token,
+				"verified":  true,
+				"email":     member1.Email,
+			},
+		},
+		{
+			GivenBody: map[string]interface{}{
+				"signature": sig,
+				"timestamp": b64ts,
+				"userID":    kenc,
+				"eventID":   event.ID,
+			},
+			ExpectStatus: http.StatusOK,
+			ExpectData: map[string]interface{}{
+				"id":        member1.ID,
+				"firstName": member1.FirstName,
+				"lastName":  member1.LastName,
+				"token":     member1.Token,
+				"verified":  true,
+				"email":     member1.Email,
+			},
+		},
+		{
+			GivenBody: map[string]interface{}{
+				"signature": "not a valid signature",
+				"timestamp": b64ts2,
+				"userID":    kenc2,
+				"eventID":   event.ID,
+			},
+			ExpectStatus: http.StatusUnauthorized,
+			ExpectError:  `{"message":"Unauthorized"}`,
+		},
+		{
+			GivenBody: map[string]interface{}{
+				"signature": sig2,
+				"timestamp": b64ts2,
+				"userID":    nonmember.ID,
+				"eventID":   event.ID,
+			},
+			ExpectStatus: http.StatusUnauthorized,
+			ExpectError:  `{"message":"Unauthorized"}`,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post("/events/rsvps").
+				JSON(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus >= http.StatusBadRequest {
+				tt.Body(tcase.ExpectError)
+			} else {
+				tt.Assert(jsonpath.Equal("$.id", member1.ID))
+				tt.Assert(jsonpath.Equal("$.firstName", member1.FirstName))
+				tt.Assert(jsonpath.Equal("$.lastName", member1.LastName))
+				tt.Assert(jsonpath.Equal("$.fullName", member1.FullName))
+				tt.Assert(jsonpath.Equal("$.token", member1.Token))
+				tt.Assert(jsonpath.Equal("$.verified", member1.Verified))
+				tt.Assert(jsonpath.Equal("$.email", member1.Email))
+			}
+
 			tt.End()
 		})
 	}

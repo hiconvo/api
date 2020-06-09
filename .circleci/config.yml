@@ -4,9 +4,9 @@ jobs:
     docker:
       - image: hiconvo/docker:ci
         environment:
-          DATASTORE_PROJECT_ID: convo-api
+          DATASTORE_PROJECT_ID: local-convo-api
           DATASTORE_LISTEN_ADDRESS: localhost:8081
-          DATASTORE_DATASET: convo-api
+          DATASTORE_DATASET: local-convo-api
           DATASTORE_EMULATOR_HOST: localhost:8081
           DATASTORE_EMULATOR_HOST_PATH: localhost:8081/datastore
           DATASTORE_HOST: http://localhost:8081
@@ -15,7 +15,7 @@ jobs:
       - image: singularities/datastore-emulator
         command: --no-store-on-disk --consistency=1.0
         environment:
-          DATASTORE_PROJECT_ID: convo-api
+          DATASTORE_PROJECT_ID: local-convo-api
           DATASTORE_LISTEN_ADDRESS: localhost:8081
 
       - image: elasticsearch:7.1.1
@@ -58,18 +58,7 @@ jobs:
             echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
             gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
 
-      - run:
-          name: install redoc-cli
-          command: npm i -g redoc-cli
-
       - checkout
-
-      - run:
-          name: generate docs
-          command: |
-            mkdir -p static
-            redoc-cli bundle swagger.yaml
-            mv redoc-static.html static/index.html
 
       - deploy:
           command: gcloud beta -q app deploy app.yaml

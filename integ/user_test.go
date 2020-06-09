@@ -1,35 +1,30 @@
-package router_test
+package handler_test
 
 import (
 	"fmt"
 	"net/http"
-	"reflect"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/steinfletcher/apitest"
-	"github.com/steinfletcher/apitest-jsonpath"
-	"github.com/stretchr/testify/assert"
+	jsonpath "github.com/steinfletcher/apitest-jsonpath"
 
-	"github.com/hiconvo/api/models"
-	"github.com/hiconvo/api/utils/magic"
-	"github.com/hiconvo/api/utils/thelpers"
+	"github.com/hiconvo/api/clients/magic"
+	"github.com/hiconvo/api/model"
+	"github.com/hiconvo/api/testutil"
 )
 
-////////////////////
-// POST /users Tests
-////////////////////
-
 func TestCreateUser(t *testing.T) {
-	existingUser, _ := createTestUser(t)
+	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	incompleteUser := testutil.NewIncompleteUser(_ctx, t, _dbClient, _searchClient)
 
 	tests := []struct {
+		Name         string
 		GivenBody    map[string]interface{}
 		ExpectStatus int
 		ExpectBody   string
 	}{
 		{
+			Name: "success",
 			GivenBody: map[string]interface{}{
 				"email":     "ruth.marcus@yale.edu",
 				"firstName": "Ruth",
@@ -40,6 +35,18 @@ func TestCreateUser(t *testing.T) {
 			ExpectBody:   "",
 		},
 		{
+			Name: "need to verify",
+			GivenBody: map[string]interface{}{
+				"email":     incompleteUser.Email,
+				"firstName": "Thomas",
+				"lastName":  "Aquinas",
+				"password":  "angels are real!",
+			},
+			ExpectStatus: http.StatusOK,
+			ExpectBody:   `{"message": "Please verify your email to proceed"}`,
+		},
+		{
+			Name: "missing name and password",
 			GivenBody: map[string]interface{}{
 				"email":    "rudolf.carnap@charles.cz",
 				"lastName": "Carnap",
@@ -49,15 +56,17 @@ func TestCreateUser(t *testing.T) {
 			ExpectBody:   `{"firstName":"This field is required","password":"Must be at least 8 characters long"}`,
 		},
 		{
+			Name: "type mismatch",
 			GivenBody: map[string]interface{}{
 				"email":     "kit.fine@nyu.edu",
 				"firstName": true,
 				"password":  "Reality is constituted by tensed facts",
 			},
 			ExpectStatus: http.StatusBadRequest,
-			ExpectBody:   `{"message":"type mismatch on FirstName field: found bool, expected string"}`,
+			ExpectBody:   `{"message":"Could not decode JSON"}`,
 		},
 		{
+			Name: "already registered",
 			GivenBody: map[string]interface{}{
 				"email":     existingUser.Email,
 				"firstName": "Ruth",
@@ -68,6 +77,7 @@ func TestCreateUser(t *testing.T) {
 			ExpectBody:   `{"message":"This email has already been registered"}`,
 		},
 		{
+			Name: "invalid email",
 			GivenBody: map[string]interface{}{
 				"email":     "it's all in my mind",
 				"firstName": "George",
@@ -79,150 +89,41 @@ func TestCreateUser(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users", testCase.GivenBody, nil)
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post("/users").
+				JSON(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-		assert.Equal(t, testCase.ExpectStatus, rr.Result().StatusCode)
+			if tcase.ExpectStatus == http.StatusOK {
+				tt.Body(tcase.ExpectBody)
+			} else if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.email", tcase.GivenBody["email"].(string))).
+					Assert(jsonpath.Equal("$.firstName", tcase.GivenBody["firstName"].(string))).
+					Assert(jsonpath.Equal("$.lastName", tcase.GivenBody["lastName"].(string)))
+			} else {
+				tt.Body(tcase.ExpectBody)
+			}
 
-		if testCase.ExpectStatus >= 400 {
-			assert.Equal(t, testCase.ExpectBody, rr.Body.String())
-		} else {
-			assert.Equal(t, testCase.GivenBody["email"], respData["email"])
-			assert.Equal(t, testCase.GivenBody["firstName"], respData["firstName"])
-			assert.Equal(t, testCase.GivenBody["lastName"], respData["lastName"])
-		}
+			tt.End()
+		})
 	}
 }
-
-////////////////////
-// GET /users Tests
-////////////////////
-
-func TestGetCurrentUser(t *testing.T) {
-	existingUser, _ := createTestUser(t)
-	// Create a couple more users to create the possibility that a wrong user
-	// be retrieved
-	createTestUser(t)
-	createTestUser(t)
-
-	type test struct {
-		GivenAuthHeader map[string]string
-		ExpectStatus    int
-		ExpectBody      string
-	}
-
-	tests := []test{
-		{
-			GivenAuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
-			ExpectStatus:    http.StatusOK,
-		},
-		{
-			GivenAuthHeader: map[string]string{"Authorization": "Bearer abcdefghijklmnopqrstuvwxyz"},
-			ExpectStatus:    http.StatusUnauthorized,
-			ExpectBody:      `{"message":"Unauthorized"}`,
-		},
-		{
-			GivenAuthHeader: map[string]string{"everything": "is what it is"},
-			ExpectStatus:    http.StatusUnauthorized,
-			ExpectBody:      `{"message":"Unauthorized"}`,
-		},
-		{
-			GivenAuthHeader: nil,
-			ExpectStatus:    http.StatusUnauthorized,
-			ExpectBody:      `{"message":"Unauthorized"}`,
-		},
-	}
-
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", "/users", nil, testCase.GivenAuthHeader)
-
-		assert.Equal(t, testCase.ExpectStatus, rr.Result().StatusCode)
-
-		if testCase.ExpectStatus >= 400 {
-			assert.Equal(t, testCase.ExpectBody, rr.Body.String())
-		} else {
-			assert.Equal(t, existingUser.ID, respData["id"])
-			assert.Equal(t, existingUser.FirstName, respData["firstName"])
-			assert.Equal(t, existingUser.LastName, respData["lastName"])
-			assert.Equal(t, existingUser.Token, respData["token"])
-			assert.Equal(t, existingUser.Verified, respData["verified"])
-			assert.Equal(t, existingUser.Email, respData["email"])
-		}
-	}
-}
-
-////////////////////
-// GET /users/{id} Tests
-////////////////////
-
-func TestGetUser(t *testing.T) {
-	existingUser, _ := createTestUser(t)
-	user1, _ := createTestUser(t)
-	// Create a couple more users to create the possibility that a wrong user
-	// be retrieved
-	createTestUser(t)
-	createTestUser(t)
-
-	type test struct {
-		GivenAuthHeader map[string]string
-		URL             string
-		ExpectStatus    int
-		ExpectBody      string
-	}
-
-	tests := []test{
-		{
-			GivenAuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
-			URL:             fmt.Sprintf("/users/%s", user1.ID),
-			ExpectStatus:    http.StatusOK,
-		},
-		{
-			GivenAuthHeader: map[string]string{"Authorization": "Bearer abcdefghijklmnopqrstuvwxyz"},
-			URL:             fmt.Sprintf("/users/%s", user1.ID),
-			ExpectStatus:    http.StatusUnauthorized,
-			ExpectBody:      `{"message":"Unauthorized"}`,
-		},
-		{
-			GivenAuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
-			URL:             fmt.Sprintf("/users/%s", "somenonsense"),
-			ExpectStatus:    http.StatusNotFound,
-			ExpectBody:      `{"message":"The requested resource was not found"}`,
-		},
-	}
-
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "GET", testCase.URL, nil, testCase.GivenAuthHeader)
-
-		assert.Equal(t, testCase.ExpectStatus, rr.Result().StatusCode)
-
-		if testCase.ExpectStatus >= 400 {
-			thelpers.AssertEqual(t, rr.Body.String(), testCase.ExpectBody)
-		} else {
-			assert.Equal(t, user1.ID, respData["id"])
-			assert.Equal(t, user1.FirstName, respData["firstName"])
-			assert.Equal(t, user1.LastName, respData["lastName"])
-			assert.Equal(t, user1.FullName, respData["fullName"])
-			assert.Nil(t, respData["token"])
-			assert.Nil(t, respData["email"])
-		}
-	}
-}
-
-/////////////////////////
-// POST /users/auth Tests
-/////////////////////////
 
 func TestAuthenticateUser(t *testing.T) {
-	existingUser, password := createTestUser(t)
+	existingUser, password := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 
-	type test struct {
+	tests := []struct {
+		Name         string
 		GivenBody    map[string]interface{}
 		ExpectStatus int
 		ExpectBody   string
-	}
-
-	tests := []test{
+	}{
 		{
+			Name: "success",
 			GivenBody: map[string]interface{}{
 				"email":    existingUser.Email,
 				"password": password,
@@ -230,6 +131,7 @@ func TestAuthenticateUser(t *testing.T) {
 			ExpectStatus: http.StatusOK,
 		},
 		{
+			Name: "invalid password",
 			GivenBody: map[string]interface{}{
 				"email":    existingUser.Email,
 				"password": "123456789",
@@ -238,6 +140,7 @@ func TestAuthenticateUser(t *testing.T) {
 			ExpectBody:   `{"message":"Invalid credentials"}`,
 		},
 		{
+			Name: "missing password",
 			GivenBody: map[string]interface{}{
 				"email":    existingUser.Email,
 				"password": "",
@@ -246,6 +149,7 @@ func TestAuthenticateUser(t *testing.T) {
 			ExpectBody:   `{"password":"This field is required"}`,
 		},
 		{
+			Name: "invalid password again",
 			GivenBody: map[string]interface{}{
 				"email":    "santa@northpole.com",
 				"password": "have you been naughty or nice?",
@@ -255,39 +159,161 @@ func TestAuthenticateUser(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/auth", testCase.GivenBody, nil)
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post("/users/auth").
+				JSON(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-		assert.Equal(t, testCase.ExpectStatus, rr.Result().StatusCode)
+			if tcase.ExpectStatus >= http.StatusBadRequest {
+				tt.Body(tcase.ExpectBody)
+			} else {
+				tt.Assert(jsonpath.Equal("$.id", existingUser.ID))
+				tt.Assert(jsonpath.Equal("$.firstName", existingUser.FirstName))
+				tt.Assert(jsonpath.Equal("$.lastName", existingUser.LastName))
+				tt.Assert(jsonpath.Equal("$.fullName", existingUser.FullName))
+				tt.Assert(jsonpath.Equal("$.token", existingUser.Token))
+				tt.Assert(jsonpath.Equal("$.verified", existingUser.Verified))
+				tt.Assert(jsonpath.Equal("$.email", existingUser.Email))
+			}
 
-		if testCase.ExpectStatus >= 400 {
-			assert.Equal(t, testCase.ExpectBody, rr.Body.String())
-		} else {
-			assert.Equal(t, existingUser.ID, respData["id"])
-			assert.Equal(t, existingUser.FirstName, respData["firstName"])
-			assert.Equal(t, existingUser.LastName, respData["lastName"])
-			assert.Equal(t, existingUser.Token, respData["token"])
-			assert.Equal(t, existingUser.Verified, respData["verified"])
-			assert.Equal(t, existingUser.Email, respData["email"])
-		}
+			tt.End()
+		})
 	}
 }
 
-/////////////////////////
-// POST /users/oauth Tests
-/////////////////////////
+func TestGetCurrentUser(t *testing.T) {
+	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		ExpectStatus    int
+		ExpectBody      string
+	}{
+		{
+			Name:            "success",
+			GivenAuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			ExpectStatus:    http.StatusOK,
+		},
+		{
+			Name:            "bad token",
+			GivenAuthHeader: map[string]string{"Authorization": "Bearer abcdefghijklmnopqrstuvwxyz"},
+			ExpectStatus:    http.StatusUnauthorized,
+			ExpectBody:      `{"message":"Unauthorized"}`,
+		},
+		{
+			Name:            "invalid header",
+			GivenAuthHeader: map[string]string{"everything": "is what it is"},
+			ExpectStatus:    http.StatusUnauthorized,
+			ExpectBody:      `{"message":"Unauthorized"}`,
+		},
+		{
+			Name:            "missing header",
+			GivenAuthHeader: nil,
+			ExpectStatus:    http.StatusUnauthorized,
+			ExpectBody:      `{"message":"Unauthorized"}`,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Get("/users").
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus >= http.StatusBadRequest {
+				tt.Body(tcase.ExpectBody)
+			} else {
+				tt.Assert(jsonpath.Equal("$.id", existingUser.ID))
+				tt.Assert(jsonpath.Equal("$.firstName", existingUser.FirstName))
+				tt.Assert(jsonpath.Equal("$.lastName", existingUser.LastName))
+				tt.Assert(jsonpath.Equal("$.token", existingUser.Token))
+				tt.Assert(jsonpath.Equal("$.verified", existingUser.Verified))
+				tt.Assert(jsonpath.Equal("$.email", existingUser.Email))
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestGetUser(t *testing.T) {
+	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	user1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		URL             string
+		ExpectStatus    int
+		ExpectBody      string
+	}{
+		{
+			Name:            "success",
+			GivenAuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			URL:             fmt.Sprintf("/users/%s", user1.ID),
+			ExpectStatus:    http.StatusOK,
+		},
+		{
+			Name:            "bad token",
+			GivenAuthHeader: map[string]string{"Authorization": "Bearer abcdefghijklmnopqrstuvwxyz"},
+			URL:             fmt.Sprintf("/users/%s", user1.ID),
+			ExpectStatus:    http.StatusUnauthorized,
+			ExpectBody:      `{"message":"Unauthorized"}`,
+		},
+		{
+			Name:            "bad url",
+			GivenAuthHeader: map[string]string{"Authorization": fmt.Sprintf("Bearer %s", existingUser.Token)},
+			URL:             fmt.Sprintf("/users/%s", "somenonsense"),
+			ExpectStatus:    http.StatusNotFound,
+			ExpectBody:      `{"message":"The requested resource was not found"}`,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Get(tcase.URL).
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus >= http.StatusBadRequest {
+				tt.Body(tcase.ExpectBody)
+			} else {
+				tt.Assert(jsonpath.Equal("$.id", user1.ID))
+				tt.Assert(jsonpath.Equal("$.firstName", user1.FirstName))
+				tt.Assert(jsonpath.Equal("$.lastName", user1.LastName))
+				tt.Assert(jsonpath.Equal("$.fullName", user1.FullName))
+				tt.Assert(jsonpath.NotPresent("$.token"))
+				tt.Assert(jsonpath.NotPresent("$.verified"))
+				tt.Assert(jsonpath.NotPresent("$.email"))
+			}
+
+			tt.End()
+		})
+	}
+}
 
 func TestOAuth(t *testing.T) {
-	existingUser1, _ := createTestUser(t)
-
-	existingUser2, _ := createTestUser(t)
+	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 	existingUser2.PasswordDigest = ""
 	existingUser2.Verified = false
-	if err := existingUser2.Commit(tc); err != nil {
+	if _, err := _dbClient.Put(_ctx, existingUser2.Key, existingUser2); err != nil {
 		t.Fatal(err)
 	}
 
 	tests := []struct {
+		Name            string
 		GivenBody       string
 		GivenOAuthToken string
 		GivenEmail      string
@@ -297,6 +323,7 @@ func TestOAuth(t *testing.T) {
 		Token           string
 	}{
 		{
+			Name:            "success",
 			GivenOAuthToken: "123",
 			GivenEmail:      "bob.kennedy@whitehouse.gov",
 			GivenBody:       `{"provider": "google", "token": "123"}`,
@@ -305,6 +332,7 @@ func TestOAuth(t *testing.T) {
 			ExpectLastName:  "Kennedy",
 		},
 		{
+			Name:            "success",
 			GivenOAuthToken: "123",
 			GivenEmail:      "bob.kennedy@whitehouse.gov",
 			GivenBody:       `{"provider": "google", "token": "123"}`,
@@ -313,6 +341,7 @@ func TestOAuth(t *testing.T) {
 			ExpectLastName:  "Kennedy",
 		},
 		{
+			Name:            "success with existing user",
 			GivenOAuthToken: "456",
 			GivenEmail:      existingUser1.Email,
 			GivenBody:       `{"provider": "google", "token": "456"}`,
@@ -321,6 +350,7 @@ func TestOAuth(t *testing.T) {
 			ExpectLastName:  existingUser1.LastName,
 		},
 		{
+			Name:            "success and merge with existing user",
 			GivenOAuthToken: "789",
 			GivenEmail:      "merge@me.com",
 			GivenBody:       `{"provider": "google", "token": "789"}`,
@@ -330,6 +360,7 @@ func TestOAuth(t *testing.T) {
 			Token:           existingUser2.Token,
 		},
 		{
+			Name:            "invalid token",
 			GivenOAuthToken: "789",
 			GivenEmail:      "merge@me.com",
 			GivenBody:       `{"provider": "notvalid", "token": "notvalid"}`,
@@ -338,128 +369,65 @@ func TestOAuth(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		oauthMock := apitest.NewMock().
-			Get(fmt.Sprintf("https://oauth2.googleapis.com/tokeninfo?id_token=%s", testCase.GivenOAuthToken)).
-			RespondWith().
-			Body(fmt.Sprintf(`{
-				"aud": "",
-				"sub": "%s",
-				"email": "%s",
-				"given_name": "%s",
-				"family_name": "%s",
-				"picture": ""
-			}`, testCase.GivenEmail, testCase.GivenEmail, testCase.ExpectFirstName, testCase.ExpectLastName)).
-			Status(200).
-			End()
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			oauthMock := apitest.NewMock().
+				Get(fmt.Sprintf("https://oauth2.googleapis.com/tokeninfo?id_token=%s", tcase.GivenOAuthToken)).
+				RespondWith().
+				Body(fmt.Sprintf(`{
+					"aud": "",
+					"sub": "%s",
+					"email": "%s",
+					"given_name": "%s",
+					"family_name": "%s",
+					"picture": ""
+				}`, tcase.GivenEmail, tcase.GivenEmail, tcase.ExpectFirstName, tcase.ExpectLastName)).
+				Status(200).
+				End()
 
-		headers := map[string]string{"Content-Type": "application/json"}
+			headers := map[string]string{"Content-Type": "application/json"}
 
-		if testCase.Token != "" {
-			headers["Authorization"] = fmt.Sprintf("Bearer %s", testCase.Token)
-		}
+			if tcase.Token != "" {
+				headers["Authorization"] = fmt.Sprintf("Bearer %s", tcase.Token)
+			}
 
-		apit := apitest.New("OAuth").
-			Mocks(oauthMock).
-			Handler(th).
-			Post("/users/oauth").
-			Headers(headers).
-			Body(testCase.GivenBody).
-			Expect(t).
-			Status(testCase.ExpectStatus)
+			tt := apitest.New("OAuth").
+				Mocks(oauthMock).
+				Handler(_handler).
+				Post("/users/oauth").
+				Headers(headers).
+				Body(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+			if tcase.ExpectStatus < 300 {
+				tt.Assert(jsonpath.Equal("$.email", tcase.GivenEmail))
+				tt.Assert(jsonpath.Equal("$.firstName", tcase.ExpectFirstName))
+				tt.Assert(jsonpath.Equal("$.lastName", tcase.ExpectLastName))
+			}
 
-		if testCase.ExpectStatus < 300 {
-			apit.
-				Assert(jsonpath.Equal("$.email", testCase.GivenEmail)).
-				Assert(jsonpath.Equal("$.firstName", testCase.ExpectFirstName)).
-				Assert(jsonpath.Equal("$.lastName", testCase.ExpectLastName))
-		}
+			tt.End()
 
-		apit.End()
+		})
 	}
 }
-
-/////////////////////
-// PATCH /users Tests
-/////////////////////
-
-// TODO: Test update email and password fields.
-
-func TestUpdateUser(t *testing.T) {
-	existingUser, _ := createTestUser(t)
-
-	type test struct {
-		GivenAuthHeader map[string]string
-		GivenBody       map[string]interface{}
-		ExpectStatus    int
-		OutData         map[string]interface{}
-		ExpectBody      string
-	}
-
-	tests := []test{
-		{
-			GivenAuthHeader: getAuthHeader(existingUser.Token),
-			GivenBody: map[string]interface{}{
-				"firstName": "Sir",
-				"lastName":  "Malebranche",
-			},
-			ExpectStatus: http.StatusOK,
-			OutData: map[string]interface{}{
-				"id":        existingUser.ID,
-				"firstName": "Sir",
-				"lastName":  "Malebranche",
-				"token":     existingUser.Token,
-				"verified":  existingUser.Verified,
-				"email":     existingUser.Email,
-			},
-		},
-	}
-
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "PATCH", "/users", testCase.GivenBody, testCase.GivenAuthHeader)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.ExpectStatus)
-
-		if testCase.ExpectStatus >= 400 {
-			thelpers.AssertEqual(t, rr.Body.String(), testCase.ExpectBody)
-		} else {
-			thelpers.AssertEqual(t, respData["id"], testCase.OutData["id"])
-			thelpers.AssertEqual(t, respData["firstName"], testCase.OutData["firstName"])
-			thelpers.AssertEqual(t, respData["lastName"], testCase.OutData["lastName"])
-			thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
-			thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
-			thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
-		}
-	}
-}
-
-///////////////////////
-// POST /users/password
-///////////////////////
 
 func TestUpdatePassword(t *testing.T) {
-	existingUser, _ := createTestUser(t)
-	link := magic.NewLink(existingUser.Key, existingUser.PasswordDigest, "reset")
-	split := strings.Split(link, "/")
-	kenc := split[len(split)-3]
-	b64ts := split[len(split)-2]
-	sig := split[len(split)-1]
+	magicClient := magic.NewClient("")
 
-	existingUser2, _ := createTestUser(t)
-	link2 := magic.NewLink(existingUser2.Key, existingUser2.PasswordDigest, "reset")
-	split2 := strings.Split(link2, "/")
-	kenc2 := split2[len(split2)-3]
-	b64ts2 := split2[len(split2)-2]
+	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	kenc, b64ts, sig := testutil.GetMagicLinkParts(existingUser1.GetPasswordResetMagicLink(magicClient))
 
-	type test struct {
+	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	kenc2, b64ts2, _ := testutil.GetMagicLinkParts(existingUser2.GetPasswordResetMagicLink(magicClient))
+
+	tests := []struct {
+		Name            string
 		GivenAuthHeader map[string]string
 		GivenBody       map[string]interface{}
 		ExpectStatus    int
 		OutData         map[string]interface{}
 		ExpectBody      string
-	}
-
-	tests := []test{
+	}{
 		{
 			GivenBody: map[string]interface{}{
 				"signature": sig,
@@ -469,12 +437,12 @@ func TestUpdatePassword(t *testing.T) {
 			},
 			ExpectStatus: http.StatusOK,
 			OutData: map[string]interface{}{
-				"id":        existingUser.ID,
-				"firstName": existingUser.FirstName,
-				"lastName":  existingUser.LastName,
-				"token":     existingUser.Token,
-				"verified":  existingUser.Verified,
-				"email":     existingUser.Email,
+				"id":        existingUser1.ID,
+				"firstName": existingUser1.FirstName,
+				"lastName":  existingUser1.LastName,
+				"token":     existingUser1.Token,
+				"verified":  existingUser1.Verified,
+				"email":     existingUser1.Email,
 			},
 		},
 		{
@@ -499,84 +467,80 @@ func TestUpdatePassword(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/password", testCase.GivenBody, testCase.GivenAuthHeader)
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post("/users/password").
+				JSON(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.ExpectStatus)
+			if tcase.ExpectStatus >= http.StatusBadRequest {
+				tt.Body(tcase.ExpectBody)
+			} else {
+				tt.Assert(jsonpath.Equal("$.id", tcase.OutData["id"]))
+				tt.Assert(jsonpath.Equal("$.firstName", tcase.OutData["firstName"]))
+				tt.Assert(jsonpath.Equal("$.lastName", tcase.OutData["lastName"]))
+				tt.Assert(jsonpath.Equal("$.token", tcase.OutData["token"]))
+				tt.Assert(jsonpath.Equal("$.verified", tcase.OutData["verified"]))
+				tt.Assert(jsonpath.Equal("$.email", tcase.OutData["email"]))
+			}
 
-		if testCase.ExpectStatus >= 400 {
-			thelpers.AssertEqual(t, rr.Body.String(), testCase.ExpectBody)
-		} else {
-			thelpers.AssertEqual(t, respData["id"], testCase.OutData["id"])
-			thelpers.AssertEqual(t, respData["firstName"], testCase.OutData["firstName"])
-			thelpers.AssertEqual(t, respData["lastName"], testCase.OutData["lastName"])
-			thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
-			thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
-			thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
-		}
+			tt.End()
+		})
 	}
-}
-
-///////////////////////
-// POST /users/verify
-///////////////////////
-
-func createVerifyLink(u models.User, email string) (string, string, string) {
-	salt := email + strconv.FormatBool(u.HasEmail(email))
-
-	link := magic.NewLink(u.Key, salt, "verify")
-
-	split := strings.Split(link, "/")
-	kenc := split[len(split)-3]
-	b64ts := split[len(split)-2]
-	sig := split[len(split)-1]
-
-	return kenc, b64ts, sig
 }
 
 func TestVerifyEmail(t *testing.T) {
+	magicClient := magic.NewClient("")
+	us := testutil.NewUserStore(_ctx, t, _dbClient, _searchClient)
+	ms := testutil.NewMessageStore(_ctx, t, _dbClient)
+	es := testutil.NewEventStore(_ctx, t, _dbClient)
+	ts := testutil.NewThreadStore(_ctx, t, _dbClient)
+
 	// Standard case of verifying email after account creation
-	existingUser1, _ := createTestUser(t)
+	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 	existingUser1.Emails = []string{}
 	existingUser1.Verified = false
-	existingUser1.Commit(tc)
-	kenc1, b64ts1, sig1 := createVerifyLink(existingUser1, existingUser1.Email)
+	_dbClient.Put(_ctx, existingUser1.Key, existingUser1)
+	kenc1, b64ts1, sig1 := testutil.GetMagicLinkParts(existingUser1.GetVerifyEmailMagicLink(magicClient, existingUser1.Email))
 
 	// Bad signature case
-	existingUser2, _ := createTestUser(t)
-	kenc2, b64ts2, _ := createVerifyLink(existingUser2, existingUser2.Email)
+	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	kenc2, b64ts2, _ := testutil.GetMagicLinkParts(existingUser2.GetVerifyEmailMagicLink(magicClient, existingUser2.Email))
 
 	// Adding a new email
-	existingUser3, _ := createTestUser(t)
-	kenc3, b64ts3, sig3 := createVerifyLink(existingUser3, "new@email.com")
+	existingUser3, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	kenc3, b64ts3, sig3 := testutil.GetMagicLinkParts(existingUser3.GetVerifyEmailMagicLink(magicClient, "new@email.com"))
 
 	// Merging accounts
-	existingUser4, _ := createTestUser(t) // User to merge into
-	existingUser5, _ := createTestUser(t) // User to be merged
+	existingUser4, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient) // User to merge into
+	existingUser5, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient) // User to be merged
 	// Assign test event, thread, and messages to user to be merged
-	event := createTestEvent(t, &existingUser2, []*models.User{&existingUser5}, []*models.User{})
-	eventMessage := createTestEventMessage(t, &existingUser5, event)
-	thread := createTestThread(t, &existingUser5, []*models.User{&existingUser4, &existingUser3})
-	threadMessage := createTestThreadMessage(t, &existingUser5, &thread)
+	event := testutil.NewEvent(_ctx, t, _dbClient, existingUser2, []*model.User{}, []*model.User{existingUser5})
+	eventMessage := testutil.NewEventMessage(_ctx, t, _dbClient, existingUser5, event)
+	thread := testutil.NewThread(_ctx, t, _dbClient, existingUser5, []*model.User{existingUser4, existingUser3})
+	threadMessage := testutil.NewThreadMessage(_ctx, t, _dbClient, existingUser5, thread)
 	// Add reference to user to be merged in existingUser2's contacts
-	existingUser2.AddContact(&existingUser5)
-	if err := existingUser2.Commit(tc); err != nil {
-		t.Error(err.Error())
+	existingUser2.AddContact(existingUser5)
+	if err := us.Commit(_ctx, existingUser2); err != nil {
+		t.Error(err)
 	}
-	kenc4, b64ts4, sig4 := createVerifyLink(existingUser4, existingUser5.Email)
+	kenc4, b64ts4, sig4 := testutil.GetMagicLinkParts(existingUser4.GetVerifyEmailMagicLink(magicClient, existingUser5.Email))
 
-	type test struct {
+	tests := []struct {
+		Name            string
 		GivenAuthHeader map[string]string
 		GivenBody       map[string]interface{}
 		ExpectStatus    int
 		OutData         map[string]interface{}
 		ExpectBody      string
 		VerifyFunc      func() bool
-	}
-
-	tests := []test{
+	}{
 		// Standard case
 		{
+			Name: "success",
 			GivenBody: map[string]interface{}{
 				"signature": sig1,
 				"timestamp": b64ts1,
@@ -598,6 +562,7 @@ func TestVerifyEmail(t *testing.T) {
 
 		// Already used magic link (applying standard case second time)
 		{
+			Name: "already used magic link",
 			GivenBody: map[string]interface{}{
 				"signature": sig1,
 				"timestamp": b64ts1,
@@ -610,6 +575,7 @@ func TestVerifyEmail(t *testing.T) {
 
 		// Bad signature
 		{
+			Name: "bad signature",
 			GivenBody: map[string]interface{}{
 				"signature": "not a valid signature",
 				"timestamp": b64ts2,
@@ -623,6 +589,7 @@ func TestVerifyEmail(t *testing.T) {
 
 		// Adding an email
 		{
+			Name: "adding email",
 			GivenBody: map[string]interface{}{
 				"signature": sig3,
 				"timestamp": b64ts3,
@@ -644,6 +611,7 @@ func TestVerifyEmail(t *testing.T) {
 
 		// Merging accounts
 		{
+			Name: "merging accounts",
 			GivenBody: map[string]interface{}{
 				"signature": sig4,
 				"timestamp": b64ts4,
@@ -662,14 +630,14 @@ func TestVerifyEmail(t *testing.T) {
 			},
 			VerifyFunc: func() bool {
 				// Make sure that existingUser5 was deleted
-				_, err := models.GetUserByID(tc, existingUser5.ID)
+				_, err := us.GetUserByID(_ctx, existingUser5.ID)
 				if err == nil {
 					return false
 				}
 
 				// Make sure that existingUser5's events were transfered to
 				// existingUser4
-				events, err := models.GetEventsByUser(tc, &existingUser4, &models.Pagination{Size: -1})
+				events, err := es.GetEventsByUser(_ctx, existingUser4, &model.Pagination{Size: -1})
 				if err != nil {
 					return false
 				}
@@ -686,7 +654,7 @@ func TestVerifyEmail(t *testing.T) {
 
 				// Make sure that existingUser5's threads were transfered to
 				// existingUser4
-				threads, err := models.GetThreadsByUser(tc, &existingUser4, &models.Pagination{})
+				threads, err := ts.GetThreadsByUser(_ctx, existingUser4, &model.Pagination{Size: -1})
 				if err != nil {
 					return false
 				}
@@ -702,7 +670,7 @@ func TestVerifyEmail(t *testing.T) {
 				}
 
 				// Make sure that existingUser5's messages were transferred too
-				messages, err := models.GetUnhydratedMessagesByUser(tc, &existingUser4)
+				messages, err := ms.GetUnhydratedMessagesByUser(_ctx, existingUser4, &model.Pagination{Size: -1})
 				if err != nil {
 					return false
 				}
@@ -722,11 +690,11 @@ func TestVerifyEmail(t *testing.T) {
 				}
 
 				// Make sure that existingUser2's contacts were updated
-				refreshedExistingUser2, err := models.GetUserByID(tc, existingUser2.ID)
+				refreshedExistingUser2, err := us.GetUserByID(_ctx, existingUser2.ID)
 				if err != nil {
 					return false
 				}
-				contacts, err := models.GetContactsByUser(tc, &refreshedExistingUser2)
+				contacts, err := us.GetContactsByUser(_ctx, refreshedExistingUser2)
 				if err != nil {
 					return false
 				}
@@ -746,55 +714,47 @@ func TestVerifyEmail(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		_, rr, respData := thelpers.TestEndpoint(t, tc, th, "POST", "/users/verify", testCase.GivenBody, testCase.GivenAuthHeader)
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Post("/users/verify").
+				JSON(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus)
 
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.ExpectStatus)
-
-		if testCase.ExpectStatus >= 400 {
-			thelpers.AssertEqual(t, rr.Body.String(), testCase.ExpectBody)
-		} else {
-			thelpers.AssertEqual(t, respData["id"], testCase.OutData["id"])
-			thelpers.AssertEqual(t, respData["firstName"], testCase.OutData["firstName"])
-			thelpers.AssertEqual(t, respData["lastName"], testCase.OutData["lastName"])
-			thelpers.AssertEqual(t, respData["token"], testCase.OutData["token"])
-			thelpers.AssertEqual(t, respData["verified"], testCase.OutData["verified"])
-			thelpers.AssertEqual(t, respData["email"], testCase.OutData["email"])
-
-			emails := respData["emails"].([]interface{})
-			var gotEmails []string
-			for _, email := range emails {
-				strEmail := email.(string)
-				gotEmails = append(gotEmails, strEmail)
+			if tcase.ExpectStatus >= http.StatusBadRequest {
+				tt.Body(tcase.ExpectBody)
+			} else {
+				tt.Assert(jsonpath.Equal("$.id", tcase.OutData["id"]))
+				tt.Assert(jsonpath.Equal("$.firstName", tcase.OutData["firstName"]))
+				tt.Assert(jsonpath.Equal("$.lastName", tcase.OutData["lastName"]))
+				tt.Assert(jsonpath.Equal("$.token", tcase.OutData["token"]))
+				tt.Assert(jsonpath.Equal("$.verified", tcase.OutData["verified"]))
+				tt.Assert(jsonpath.Equal("$.email", tcase.OutData["email"]))
+				for _, email := range tcase.OutData["emails"].([]string) {
+					tt.Assert(jsonpath.Contains("$.emails", email))
+				}
 			}
 
-			wantedEmails := testCase.OutData["emails"].([]string)
+			tt.End()
 
-			if !reflect.DeepEqual(gotEmails, wantedEmails) {
-				t.Errorf("Expected emails did not match got emails")
-			}
-
-			if !testCase.VerifyFunc() {
+			if tcase.VerifyFunc != nil && !tcase.VerifyFunc() {
 				t.Errorf("Custom verifier failed")
 			}
-		}
+		})
 	}
 }
 
-///////////////////////
-// POST /users/forgot
-///////////////////////
-
 func TestForgotPassword(t *testing.T) {
-	existingUser, _ := createTestUser(t)
+	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 
-	type test struct {
+	tests := []struct {
+		Name         string
 		GivenBody    map[string]interface{}
 		ExpectStatus int
 		ExpectBody   string
-	}
-
-	tests := []test{
+	}{
 		{
 			GivenBody: map[string]interface{}{
 				"email": existingUser.Email,
@@ -818,47 +778,27 @@ func TestForgotPassword(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		_, rr, _ := thelpers.TestEndpoint(t, tc, th, "POST", "/users/forgot", testCase.GivenBody, nil)
-
-		thelpers.AssertStatusCodeEqual(t, rr, testCase.ExpectStatus)
-
-		thelpers.AssertEqual(t, rr.Body.String(), testCase.ExpectBody)
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New("forgot").
+				Handler(_handler).
+				Post("/users/forgot").
+				JSON(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus).
+				Body(tcase.ExpectBody).
+				End()
+		})
 	}
 }
 
-///////////////////////
-// POST /users/avatar
-///////////////////////
-
-func TestUploadAvatar(t *testing.T) {
-	payload := `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==","x":0,"y":0,"size":9.195831298828125}`
-
-	user, _ := createTestUser(t)
-
-	apitest.New("UploadAvatar").
-		Handler(th).
-		Post("/users/avatar").
-		JSON(payload).
-		Headers(getAuthHeader(user.Token)).
-		Expect(t).
-		Status(http.StatusOK).
-		End()
-}
-
-///////////////////////
-// POST /users/magic
-///////////////////////
-
 func TestMagicLogin(t *testing.T) {
-	user, _ := createTestUser(t)
-	link := magic.NewLink(user.Key, user.Token, "magic")
-	split := strings.Split(link, "/")
-	kenc := split[len(split)-3]
-	b64ts := split[len(split)-2]
-	sig := split[len(split)-1]
+	magicClient := magic.NewClient("")
+	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	kenc, b64ts, sig := testutil.GetMagicLinkParts(user.GetMagicLoginMagicLink(magicClient))
 
 	tests := []struct {
+		Name         string
 		GivenBody    string
 		ExpectStatus int
 	}{
@@ -880,13 +820,208 @@ func TestMagicLogin(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		apitest.New("MagicLogin").
-			Handler(th).
-			Post("/users/magic").
-			JSON(testCase.GivenBody).
-			Expect(t).
-			Status(testCase.ExpectStatus).
-			End()
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New("MagicLogin").
+				Handler(_handler).
+				Post("/users/magic").
+				JSON(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus).
+				End()
+		})
+	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		GivenBody       map[string]interface{}
+		ExpectStatus    int
+		OutData         map[string]interface{}
+	}{
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(existingUser.Token),
+			GivenBody: map[string]interface{}{
+				"firstName": "Sir",
+				"lastName":  "Malebranche",
+			},
+			ExpectStatus: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":        existingUser.ID,
+				"firstName": "Sir",
+				"lastName":  "Malebranche",
+				"token":     existingUser.Token,
+				"verified":  existingUser.Verified,
+				"email":     existingUser.Email,
+			},
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New("UpdateUser").
+				Handler(_handler).
+				Patch("/users").
+				JSON(tcase.GivenBody).
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+
+			if tcase.ExpectStatus >= http.StatusBadRequest {
+				// tt.Body(tcase.ExpectBody)
+			} else {
+				tt.Assert(jsonpath.Equal("$.id", tcase.OutData["id"]))
+				tt.Assert(jsonpath.Equal("$.firstName", tcase.OutData["firstName"]))
+				tt.Assert(jsonpath.Equal("$.lastName", tcase.OutData["lastName"]))
+				tt.Assert(jsonpath.Equal("$.token", tcase.OutData["token"]))
+				tt.Assert(jsonpath.Equal("$.verified", tcase.OutData["verified"]))
+				tt.Assert(jsonpath.Equal("$.email", tcase.OutData["email"]))
+			}
+
+			tt.End()
+		})
+	}
+}
+
+func TestUploadAvatar(t *testing.T) {
+	payload := `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==","x":0,"y":0,"size":9.195831298828125}`
+
+	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+
+	apitest.New("UploadAvatar").
+		Handler(_handler).
+		Post("/users/avatar").
+		JSON(payload).
+		Headers(testutil.GetAuthHeader(user.Token)).
+		Expect(t).
+		Status(http.StatusOK).
+		End()
+}
+
+func TestAddEmail(t *testing.T) {
+	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		GivenBody       map[string]interface{}
+		ExpectStatus    int
+	}{
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(existingUser.Token),
+			GivenBody: map[string]interface{}{
+				"email": "somenewemail@mail.com",
+			},
+			ExpectStatus: http.StatusOK,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New(tcase.Name).
+				Handler(_handler).
+				Post("/users/emails").
+				JSON(tcase.GivenBody).
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus).
+				End()
+		})
+	}
+}
+
+func TestRemoveEmail(t *testing.T) {
+	const emailToRemove = "testemailfun@mail.com"
+	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser2.AddEmail(emailToRemove)
+	_dbClient.Put(_ctx, existingUser2.Key, existingUser2)
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		GivenBody       map[string]interface{}
+		ExpectStatus    int
+	}{
+		{
+			Name:            "cannot remove primary email",
+			GivenAuthHeader: testutil.GetAuthHeader(existingUser1.Token),
+			GivenBody: map[string]interface{}{
+				"email": existingUser1.Email,
+			},
+			ExpectStatus: http.StatusBadRequest,
+		},
+
+		{
+			Name:            "success",
+			GivenAuthHeader: testutil.GetAuthHeader(existingUser2.Token),
+			GivenBody: map[string]interface{}{
+				"email": emailToRemove,
+			},
+			ExpectStatus: http.StatusOK,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New(tcase.Name).
+				Handler(_handler).
+				Delete("/users/emails").
+				JSON(tcase.GivenBody).
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus).
+				End()
+		})
+	}
+}
+
+func TestMakeEmailPrimary(t *testing.T) {
+	const emailToMakePrimary = "myprimary@mail.com"
+	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser2.AddEmail(emailToMakePrimary)
+	_dbClient.Put(_ctx, existingUser2.Key, existingUser2)
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		GivenBody       map[string]interface{}
+		ExpectStatus    int
+	}{
+		{
+			Name:            "cannot make unverified email primary",
+			GivenAuthHeader: testutil.GetAuthHeader(existingUser1.Token),
+			GivenBody: map[string]interface{}{
+				"email": "nonverifiedemail@mail.com",
+			},
+			ExpectStatus: http.StatusBadRequest,
+		},
+
+		{
+			Name:            "success",
+			GivenAuthHeader: testutil.GetAuthHeader(existingUser2.Token),
+			GivenBody: map[string]interface{}{
+				"email": emailToMakePrimary,
+			},
+			ExpectStatus: http.StatusOK,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New(tcase.Name).
+				Handler(_handler).
+				Patch("/users/emails").
+				JSON(tcase.GivenBody).
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus).
+				End()
+		})
 	}
 }

@@ -82,9 +82,11 @@ func E(op Op, extras ...interface{}) error {
 func (e *Error) Error() string {
 	b := new(strings.Builder)
 	b.WriteString(fmt.Sprintf("%s: ", string(e.op)))
+
 	if e.err != nil {
 		b.WriteString(e.err.Error())
 	}
+
 	return b.String()
 }
 
@@ -112,7 +114,7 @@ func (e *Error) ClientReport() map[string]string {
 
 // StatusCode returns the HTTP status code for the error.
 func (e *Error) StatusCode() int {
-	if e.code >= 400 {
+	if e.code >= http.StatusBadRequest {
 		return e.code
 	}
 

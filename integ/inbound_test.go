@@ -1,4 +1,4 @@
-package router_test
+package handler_test
 
 import (
 	"bytes"
@@ -8,17 +8,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hiconvo/api/models"
-	"github.com/hiconvo/api/utils/thelpers"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/hiconvo/api/model"
+	"github.com/hiconvo/api/testutil"
 )
 
-func TestInboundSucceedsWithValidPayload(t *testing.T) {
-	u1, _ := createTestUser(t)
-	u2, _ := createTestUser(t)
-	u3, _ := createTestUser(t)
-	thread := createTestThread(t, &u1, []*models.User{&u2, &u3})
+func TestInbound(t *testing.T) {
+	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u3, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	thread := testutil.NewThread(_ctx, t, _dbClient, u1, []*model.User{u2, u3})
 
-	messages, err := models.GetMessagesByThread(tc, &thread)
+	ms := testutil.NewMessageStore(_ctx, t, _dbClient)
+
+	messages, err := ms.GetMessagesByThread(_ctx, thread)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,50 +50,17 @@ func TestInboundSucceedsWithValidPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Header.Add("Content-Type", form.FormDataContentType())
-	req.WithContext(tc)
+	req.WithContext(_ctx)
 
 	rr := httptest.NewRecorder()
-	th.ServeHTTP(rr, req)
+	_handler.ServeHTTP(rr, req)
 
-	newMessages, err := models.GetMessagesByThread(tc, &thread)
+	newMessages, err := ms.GetMessagesByThread(_ctx, thread)
 	if err != nil {
 		t.Fatal(err)
 	}
 	finalMessageCount := len(newMessages)
 
-	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
-	thelpers.AssertEqual(t, finalMessageCount > initalMessageCount, true)
+	assert.Equal(t, rr.Code, http.StatusOK)
+	assert.Equal(t, finalMessageCount > initalMessageCount, true)
 }
-
-// func TestInboundFailsWithInvalidPayload(t *testing.T) {
-// 	invalidText := "SOMETHING_INVALID"
-
-// 	var b bytes.Buffer
-// 	form := multipart.NewWriter(&b)
-
-// 	form.WriteField("dkim", "{@sendgrid.com : pass}")
-// 	form.WriteField("to", invalidText)
-// 	form.WriteField("html", "<html><body><p>Hello, does this work?</p></body></html>")
-// 	form.WriteField("from", fmt.Sprintf("%s <%s>", invalidText, invalidText))
-// 	form.WriteField("text", "Hello, does this work?")
-// 	form.WriteField("sender_ip", "0.0.0.0")
-// 	form.WriteField("envelope", fmt.Sprintf(`{"to":["%s"],"from":"%s"}`, invalidText, invalidText))
-// 	form.WriteField("attachments", "0")
-// 	form.WriteField("subject", invalidText)
-// 	form.WriteField("charsets", `{"to":"UTF-8","html":"UTF-8","subject":"UTF-8","from":"UTF-8","text":"UTF-8"}`)
-// 	form.WriteField("SPF", "pass")
-
-// 	form.Close()
-
-// 	req, err := http.NewRequest("POST", "/inbound", &b)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	req.Header.Add("Content-Type", form.FormDataContentType())
-// 	req.WithContext(tc)
-
-// 	rr := httptest.NewRecorder()
-// 	th.ServeHTTP(rr, req)
-
-// 	thelpers.AssertStatusCodeEqual(t, rr, http.StatusOK)
-// }

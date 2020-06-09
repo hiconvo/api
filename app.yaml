@@ -1,15 +1,11 @@
 runtime: go113
 
-main: ./cmd/main
+main: ./cmd/server/main
 
 vpc_access_connector:
   name: "projects/convo-api/locations/us-central1/connectors/convo-internal"
 
 handlers:
-  - url: /docs
-    static_files: static/index.html
-    upload: static/index.html
-
   - url: .*
     script: auto
     secure: always
