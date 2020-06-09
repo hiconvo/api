@@ -89,7 +89,7 @@ func main() {
 		TxnMiddleware: dbc.WithTransaction(dbClient),
 		Mail:          mailClient,
 		Magic:         magicClient,
-		OAuth:         oauth.NewClient(sc.Get("GOOGLE_AUD", "")),
+		OAuth:         oauth.NewClient(sc.Get("GOOGLE_OAUTH_KEY", "")),
 		OG:            opengraph.NewClient(),
 		Storage:       storageClient,
 		Notif:         notifClient,
