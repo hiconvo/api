@@ -59,7 +59,7 @@ func TestSendEmailsAsync(t *testing.T) {
 		// Invalid payload
 		{
 			GivenBody:    fmt.Sprintf(`{ "ids": ["%v"], "type": "Thread", "action": "SendInvites" }`, event.ID),
-			ExpectStatus: 415,
+			ExpectStatus: 404,
 		},
 		// Missing header
 		{
