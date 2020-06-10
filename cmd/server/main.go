@@ -107,10 +107,8 @@ func main() {
 	})
 
 	srv := http.Server{
-		Handler:      h,
-		ReadTimeout:  readTimeout * time.Second,
-		WriteTimeout: writeTimeout * time.Second,
-		Addr:         fmt.Sprintf(":%s", port),
+		Handler: h,
+		Addr:    fmt.Sprintf(":%s", port),
 	}
 
 	log.Printf("Listening on port :%s", port)

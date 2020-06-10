@@ -83,7 +83,12 @@ func (c *clientImpl) Resolve(ctx context.Context, placeID string) (Place, error)
 			err)
 	}
 
-	address := strings.Join([]string{result.Name, result.FormattedAddress}, ", ")
+	var address string
+	if strings.HasPrefix(result.FormattedAddress, result.Name) {
+		address = result.FormattedAddress
+	} else {
+		address = strings.Join([]string{result.Name, result.FormattedAddress}, ", ")
+	}
 
 	return Place{
 		PlaceID:   result.PlaceID,
