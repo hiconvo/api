@@ -42,6 +42,10 @@ func (c *clientImpl) Extract(ctx context.Context, text string) *LinkData {
 
 	data = data.ToAbsURL()
 
+	if err := data.Fulfill(); err != nil {
+		log.Printf("opengraph.Extract(%s): %v", url, err)
+	}
+
 	var image string
 	if len(data.Image) > 0 {
 		image = data.Image[0].URL
