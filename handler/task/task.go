@@ -132,14 +132,14 @@ func (c *Config) SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 				}
 			} else if payload.Action == queue.SendThreadSingleUser {
 				if len(payload.IDs) != 2 {
-					log.Alarm(errors.E(op, errors.Str("did not received expected number of IDs for SendThreadSingleUser")))
-					continue
+					bjson.HandleError(w, errors.E(op, errors.Str("did not received expected number of IDs for SendThreadSingleUser")))
+					return
 				}
 
 				user, err := c.UserStore.GetUserByID(ctx, payload.IDs[1])
 				if err != nil {
-					log.Alarm(errors.E(op, err))
-					continue
+					bjson.HandleError(w, errors.E(op, err))
+					return
 				}
 
 				if err := c.Mail.SendThreadSingleUser(c.Magic, thread, messages, user); err != nil {
