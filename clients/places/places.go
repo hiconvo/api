@@ -20,12 +20,13 @@ type Place struct {
 }
 
 type Client interface {
-	Resolve(ctx context.Context, placeID string) (Place, error)
+	Resolve(ctx context.Context, placeID string, userUTCOffset int) (Place, error)
 }
 
 type clientImpl struct {
-	client *maps.Client
-	fields []maps.PlaceDetailsFieldMask
+	client             *maps.Client
+	fields             []maps.PlaceDetailsFieldMask
+	voiceCallLocations []Place
 }
 
 func NewClient(apiKey string) Client {
@@ -68,10 +69,44 @@ func NewClient(apiKey string) Client {
 			fieldGeometry,
 			fieldUTCOffset,
 		},
+		voiceCallLocations: []Place{
+			{
+				PlaceID: "whatsapp",
+				Address: "WhatsApp",
+			},
+			{
+				PlaceID: "facetime",
+				Address: "FaceTime",
+			},
+			{
+				PlaceID: "googlehangouts",
+				Address: "Google Hangouts",
+			},
+			{
+				PlaceID: "zoom",
+				Address: "Zoom",
+			},
+			{
+				PlaceID: "skype",
+				Address: "Skype",
+			},
+			{
+				PlaceID: "other",
+				Address: "Other",
+			},
+		},
 	}
 }
 
-func (c *clientImpl) Resolve(ctx context.Context, placeID string) (Place, error) {
+func (c *clientImpl) Resolve(ctx context.Context, placeID string, userUTCOffset int) (Place, error) {
+	for i := range c.voiceCallLocations {
+		if c.voiceCallLocations[i].PlaceID == placeID {
+			pl := c.voiceCallLocations[i]
+			pl.UTCOffset = userUTCOffset
+			return pl, nil
+		}
+	}
+
 	result, err := c.client.PlaceDetails(ctx, &maps.PlaceDetailsRequest{
 		PlaceID: placeID,
 		Fields:  c.fields,
@@ -106,7 +141,7 @@ func NewLogger() Client {
 	return &loggerImpl{}
 }
 
-func (l *loggerImpl) Resolve(ctx context.Context, placeID string) (Place, error) {
+func (l *loggerImpl) Resolve(ctx context.Context, placeID string, userUTCOffset int) (Place, error) {
 	log.Printf("places.Resolve(placeID=%s)", placeID)
 
 	return Place{

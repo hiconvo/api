@@ -80,6 +80,7 @@ type createEventPayload struct {
 	Hosts           []*model.UserInput
 	Users           []*model.UserInput
 	GuestsCanInvite bool
+	UTCOffset       int `json:"utcOffset"`
 }
 
 // CreateEvent creates a event.
@@ -124,7 +125,7 @@ func (c *Config) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	place, err := c.Places.Resolve(ctx, payload.PlaceID)
+	place, err := c.Places.Resolve(ctx, payload.PlaceID, payload.UTCOffset)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
@@ -329,12 +330,15 @@ func (c *Config) AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	messageBody := html.UnescapeString(payload.Body)
+	link := c.OG.Extract(ctx, messageBody)
+
 	message, err := model.NewEventMessage(
 		u,
 		event,
-		html.UnescapeString(payload.Body),
+		messageBody,
 		photoURL,
-		nil)
+		link)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
@@ -461,6 +465,7 @@ type updateEventPayload struct {
 	Hosts           []*model.UserInput
 	GuestsCanInvite bool
 	Resend          bool
+	UTCOffset       int `json:"utcOffset"`
 }
 
 // UpdateEvent allows the owner to change the event name and location.
@@ -536,7 +541,7 @@ func (c *Config) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if payload.PlaceID != "" && payload.PlaceID != event.PlaceID {
-		place, err := c.Places.Resolve(ctx, payload.PlaceID)
+		place, err := c.Places.Resolve(ctx, payload.PlaceID, payload.UTCOffset)
 		if err != nil {
 			bjson.HandleError(w, err)
 			return
