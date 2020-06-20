@@ -851,12 +851,29 @@ func TestUpdateUser(t *testing.T) {
 			},
 			ExpectStatus: http.StatusOK,
 			OutData: map[string]interface{}{
-				"id":        existingUser.ID,
-				"firstName": "Sir",
-				"lastName":  "Malebranche",
-				"token":     existingUser.Token,
-				"verified":  existingUser.Verified,
-				"email":     existingUser.Email,
+				"id":         existingUser.ID,
+				"firstName":  "Sir",
+				"lastName":   "Malebranche",
+				"token":      existingUser.Token,
+				"verified":   existingUser.Verified,
+				"email":      existingUser.Email,
+				"sendDigest": existingUser.SendDigest,
+			},
+		},
+		{
+			GivenAuthHeader: testutil.GetAuthHeader(existingUser.Token),
+			GivenBody: map[string]interface{}{
+				"sendDigest": false,
+			},
+			ExpectStatus: http.StatusOK,
+			OutData: map[string]interface{}{
+				"id":         existingUser.ID,
+				"firstName":  "Sir",
+				"lastName":   "Malebranche",
+				"token":      existingUser.Token,
+				"verified":   existingUser.Verified,
+				"email":      existingUser.Email,
+				"sendDigest": false,
 			},
 		},
 	}
@@ -880,6 +897,7 @@ func TestUpdateUser(t *testing.T) {
 				tt.Assert(jsonpath.Equal("$.token", tcase.OutData["token"]))
 				tt.Assert(jsonpath.Equal("$.verified", tcase.OutData["verified"]))
 				tt.Assert(jsonpath.Equal("$.email", tcase.OutData["email"]))
+				tt.Assert(jsonpath.Equal("$.sendDigest", tcase.OutData["sendDigest"]))
 			}
 
 			tt.End()

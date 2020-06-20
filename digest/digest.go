@@ -49,10 +49,15 @@ func (d *digesterImpl) Digest(ctx context.Context) error {
 			return errors.E(op, err)
 		}
 
+		if !user.SendDigest {
+			log.Printf("digest.sendDigest: skipping digest for user=%q", user.Email)
+			continue
+		}
+
 		if err := d.sendDigest(ctx, &user); err != nil {
 			log.Alarm(errors.E(
 				op,
-				errors.Errorf("could not send digest for user=%q: %v", user.Email, err)))
+				errors.Errorf("digest.sendDigest: could not send digest for user=%q: %v", user.Email, err)))
 		}
 	}
 

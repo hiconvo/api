@@ -628,9 +628,10 @@ func (c *Config) MagicLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateUserPayload struct {
-	FirstName string
-	LastName  string
-	Password  bool
+	FirstName  string
+	LastName   string
+	Password   bool
+	SendDigest *bool
 }
 
 // UpdateUser is an endpoint that can do three things. It can
@@ -665,6 +666,10 @@ func (c *Config) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if payload.LastName != "" && payload.LastName != u.LastName {
 		u.LastName = payload.LastName
+	}
+
+	if payload.SendDigest != nil {
+		u.SendDigest = *payload.SendDigest
 	}
 
 	if err := c.UserStore.Commit(ctx, u); err != nil {

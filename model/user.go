@@ -41,6 +41,7 @@ type User struct {
 	ContactKeys      []*datastore.Key `json:"-"`
 	Contacts         []*UserPartial   `json:"-"        datastore:"-"`
 	CreatedAt        time.Time        `json:"-"`
+	SendDigest       bool             `json:"sendDigest"`
 }
 
 type UserInput struct {
@@ -85,12 +86,13 @@ func NewIncompleteUser(emailAddress string) (*User, error) {
 	}
 
 	user := User{
-		Key:       datastore.IncompleteKey("User", nil),
-		Email:     email,
-		FirstName: strings.Split(email, "@")[0],
-		Token:     random.Token(),
-		Verified:  false,
-		CreatedAt: time.Now(),
+		Key:        datastore.IncompleteKey("User", nil),
+		Email:      email,
+		FirstName:  strings.Split(email, "@")[0],
+		Token:      random.Token(),
+		Verified:   false,
+		CreatedAt:  time.Now(),
+		SendDigest: true,
 	}
 
 	return &user, nil
@@ -119,6 +121,7 @@ func NewUserWithPassword(emailAddress, firstName, lastName, password string) (*U
 		OAuthFacebookID: "",
 		Verified:        false,
 		CreatedAt:       time.Now(),
+		SendDigest:      true,
 	}
 
 	return &user, nil
@@ -159,6 +162,7 @@ func NewUserWithOAuth(emailAddress, firstName, lastName, avatar, oAuthProvider, 
 		OAuthFacebookID: facebookID,
 		Verified:        true,
 		CreatedAt:       time.Now(),
+		SendDigest:      true,
 	}
 
 	return &user, nil
@@ -178,12 +182,15 @@ func (u *User) Save() ([]datastore.Property, error) {
 
 func (u *User) Load(ps []datastore.Property) error {
 	if err := datastore.LoadStruct(u, ps); err != nil {
-		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
-			if !(mismatch.FieldName == "Threads" || mismatch.FieldName == "Events") {
-				return err
-			}
-		} else {
-			return err
+		return err
+	}
+
+	u.SendDigest = true
+
+	for _, p := range ps {
+		if p.Name == "SendDigest" {
+			val := p.Value.(bool)
+			u.SendDigest = val
 		}
 	}
 
