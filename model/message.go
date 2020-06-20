@@ -132,23 +132,6 @@ func (m *Message) Load(ps []datastore.Property) error {
 			m.ParentKey = k
 			m.ParentID = k.Encode()
 		}
-
-		// Convert photoKeys into full URLs
-		if p.Name == "PhotoKeys" {
-			photoKeys, ok := p.Value.([]interface{})
-			if ok {
-				photos := make([]string, len(photoKeys))
-				for i := range photoKeys {
-					photoKey, ok := photoKeys[i].(string)
-					if ok {
-						// TODO: URL handling
-						photos[i] = photoKey
-					}
-				}
-
-				m.Photos = photos
-			}
-		}
 	}
 
 	return nil
