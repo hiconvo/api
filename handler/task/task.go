@@ -129,6 +129,7 @@ func (c *Config) SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 			if payload.Action == queue.SendThread {
 				if err := c.Mail.SendThread(c.Magic, thread, messages); err != nil {
 					log.Alarm(errors.E(op, err))
+					break
 				}
 
 				// SendThread only sends threads to non-registered users. In order not to spam
