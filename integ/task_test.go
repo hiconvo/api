@@ -50,14 +50,6 @@ func TestSendEmailsAsync(t *testing.T) {
 			ExpectStatus: 200,
 		},
 		{
-			GivenBody: fmt.Sprintf(`{ "ids": ["%v", "%v"], "type": "Thread", "action": "SendThreadSingleUser" }`, thread.ID, member1.ID),
-			GivenHeaders: map[string]string{
-				"Content-Type":          "application/json",
-				"X-Appengine-Queuename": "convo-emails",
-			},
-			ExpectStatus: 200,
-		},
-		{
 			GivenBody: fmt.Sprintf(`{ "ids": ["%v", "%v", "%v"], "type": "User", "action": "SendWelcome" }`, owner.ID, member1.ID, member2.ID),
 			GivenHeaders: map[string]string{
 				"Content-Type":          "application/json",

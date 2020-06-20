@@ -43,17 +43,17 @@ func NewHandler(c *Config) *mux.Router {
 	r.HandleFunc("/users/forgot", c.ForgotPassword).Methods("POST")
 	r.HandleFunc("/users/magic", c.MagicLogin).Methods("POST")
 
-	sub := r.NewRoute().Subrouter()
-	sub.Use(middleware.WithUser(c.UserStore))
-	sub.HandleFunc("/users", c.GetCurrentUser).Methods("GET")
-	sub.HandleFunc("/users", c.UpdateUser).Methods("PATCH")
-	sub.HandleFunc("/users/emails", c.AddEmail).Methods("POST")
-	sub.HandleFunc("/users/emails", c.RemoveEmail).Methods("DELETE")
-	sub.HandleFunc("/users/emails", c.MakeEmailPrimary).Methods("PATCH")
-	sub.HandleFunc("/users/resend", c.SendVerifyEmail).Methods("POST")
-	sub.HandleFunc("/users/search", c.UserSearch).Methods("GET")
-	sub.HandleFunc("/users/avatar", c.PutAvatar).Methods("POST")
-	sub.HandleFunc("/users/{userID}", c.GetUser).Methods("GET")
+	s := r.NewRoute().Subrouter()
+	s.Use(middleware.WithUser(c.UserStore))
+	s.HandleFunc("/users", c.GetCurrentUser).Methods("GET")
+	s.HandleFunc("/users", c.UpdateUser).Methods("PATCH")
+	s.HandleFunc("/users/emails", c.AddEmail).Methods("POST")
+	s.HandleFunc("/users/emails", c.RemoveEmail).Methods("DELETE")
+	s.HandleFunc("/users/emails", c.MakeEmailPrimary).Methods("PATCH")
+	s.HandleFunc("/users/resend", c.SendVerifyEmail).Methods("POST")
+	s.HandleFunc("/users/search", c.UserSearch).Methods("GET")
+	s.HandleFunc("/users/avatar", c.PutAvatar).Methods("POST")
+	s.HandleFunc("/users/{userID}", c.GetUser).Methods("GET")
 
 	return r
 }

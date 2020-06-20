@@ -65,6 +65,7 @@ func (d *digesterImpl) Digest(ctx context.Context) error {
 }
 
 func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
+	// TODO: Optimize these queries
 	events, err := d.EventStore.GetEventsByUser(ctx, u, &model.Pagination{})
 	if err != nil {
 		return err
@@ -111,6 +112,8 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 		if err := markDigestedMessagesAsRead(ctx, d.MessageStore, digestList, u); err != nil {
 			return err
 		}
+
+		// TODO: Mark parents as read
 	}
 
 	log.Printf("digest.sendDigest: processed digest of %d items for user %q",

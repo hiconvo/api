@@ -104,6 +104,14 @@ func (c *Config) CreateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := c.Queue.PutEmail(ctx, queue.EmailPayload{
+		IDs:    []string{thread.ID},
+		Type:   queue.Thread,
+		Action: queue.SendThread,
+	}); err != nil {
+		log.Alarm(err)
+	}
+
 	bjson.WriteJSON(w, thread, http.StatusCreated)
 }
 
@@ -320,9 +328,9 @@ func (c *Config) AddUserToThread(w http.ResponseWriter, r *http.Request) {
 
 	if created {
 		err := c.Queue.PutEmail(ctx, queue.EmailPayload{
-			IDs:    []string{thread.ID, userToBeAdded.ID},
+			IDs:    []string{thread.ID},
 			Type:   queue.Thread,
-			Action: queue.SendThreadSingleUser,
+			Action: queue.SendThread,
 		})
 		if err != nil {
 			log.Alarm(err)

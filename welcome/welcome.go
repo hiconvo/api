@@ -71,6 +71,10 @@ func (w *Welcomer) Welcome(
 		return errors.E(op, err)
 	}
 
+	// Don't spam users with this welcome message in their digests
+	model.MarkAsRead(message, u.Key)
+	model.MarkAsRead(thread, u.Key)
+
 	if err := ms.Commit(ctx, message); err != nil {
 		return errors.E(op, err)
 	}

@@ -130,25 +130,19 @@ func (c *Config) SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 				if err := c.Mail.SendThread(c.Magic, thread, messages); err != nil {
 					log.Alarm(errors.E(op, err))
 				}
-			} else if payload.Action == queue.SendThreadSingleUser {
-				if len(payload.IDs) != 2 {
-					bjson.HandleError(w, errors.E(op, errors.Str("did not received expected number of IDs for SendThreadSingleUser")))
-					return
+
+				// SendThread only sends threads to non-registered users. In order not to spam
+				// such users with a digest, we mark the thread as read for these users.
+				for i := range thread.Users {
+					if !thread.Users[i].IsRegistered() {
+						model.MarkAsRead(thread, thread.Users[i].Key)
+					}
 				}
 
-				user, err := c.UserStore.GetUserByID(ctx, payload.IDs[1])
-				if err != nil {
-					bjson.HandleError(w, errors.E(op, err))
-					return
-				}
-
-				if err := c.Mail.SendThreadSingleUser(c.Magic, thread, messages, user); err != nil {
+				if err := c.ThreadStore.Commit(ctx, thread); err != nil {
 					log.Alarm(errors.E(op, err))
+					break
 				}
-
-				// We return because the second ID is the userID which we've already handled
-				bjson.WriteJSON(w, map[string]string{"message": "pass"}, http.StatusOK)
-				return
 			}
 		}
 	}

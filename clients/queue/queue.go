@@ -23,11 +23,10 @@ const (
 	Event  emailType = "Event"
 	Thread emailType = "Thread"
 
-	SendInvites          emailAction = "SendInvites"
-	SendUpdatedInvites   emailAction = "SendUpdatedInvites"
-	SendThread           emailAction = "SendThread"
-	SendThreadSingleUser emailAction = "SendThreadSingleUser"
-	SendWelcome          emailAction = "SendWelcome"
+	SendInvites        emailAction = "SendInvites"
+	SendUpdatedInvites emailAction = "SendUpdatedInvites"
+	SendThread         emailAction = "SendThread"
+	SendWelcome        emailAction = "SendWelcome"
 )
 
 // EmailPayload is a representation of an async email task.
@@ -69,7 +68,7 @@ func (c *clientImpl) PutEmail(ctx context.Context, payload EmailPayload) error {
 
 	switch payload.Type {
 	case Thread:
-		if payload.Action != SendThread && payload.Action != SendThreadSingleUser {
+		if payload.Action != SendThread {
 			return errors.E(op, errors.Errorf("'%v' is not a valid action for emailType.Thread", payload.Action))
 		}
 	case Event:
