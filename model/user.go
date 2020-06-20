@@ -182,13 +182,7 @@ func (u *User) Save() ([]datastore.Property, error) {
 
 func (u *User) Load(ps []datastore.Property) error {
 	if err := datastore.LoadStruct(u, ps); err != nil {
-		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
-			if !(mismatch.FieldName == "Threads" || mismatch.FieldName == "Events") {
-				return err
-			}
-		} else {
-			return err
-		}
+		return err
 	}
 
 	u.SendDigest = true
