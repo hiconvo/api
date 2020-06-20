@@ -320,6 +320,11 @@ func (s *UserStore) Search(ctx context.Context, query string) ([]*model.UserPart
 	return contacts, nil
 }
 
+func (s *UserStore) IterAll(ctx context.Context) *datastore.Iterator {
+	query := datastore.NewQuery("User")
+	return s.DB.Run(ctx, query)
+}
+
 func (s *UserStore) getUserByField(ctx context.Context, field, value string) (*model.User, bool, error) {
 	var (
 		op    = errors.Opf("UserStore.getUserByField(field=%q, value=%q)", field, value)

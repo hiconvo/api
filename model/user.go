@@ -71,6 +71,7 @@ type UserStore interface {
 	CommitWithTransaction(tx db.Transaction, u *User) (*datastore.PendingKey, error)
 	DeleteWithTransaction(ctx context.Context, tx db.Transaction, u *User) error
 	CreateOrUpdateSearchIndex(ctx context.Context, u *User)
+	IterAll(ctx context.Context) *datastore.Iterator
 }
 
 type Welcomer interface {

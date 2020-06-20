@@ -4,6 +4,7 @@
 package errors
 
 import (
+	native "errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -135,4 +136,8 @@ func Str(s string) error {
 // Opf returns an Op from the given format string.
 func Opf(format string, args ...interface{}) Op {
 	return Op(fmt.Sprintf(format, args...))
+}
+
+func Is(err, target error) bool {
+	return native.Is(err, target)
 }

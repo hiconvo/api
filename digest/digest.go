@@ -3,10 +3,8 @@ package digest
 import (
 	"context"
 
-	"cloud.google.com/go/datastore"
 	"google.golang.org/api/iterator"
 
-	"github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/clients/magic"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
@@ -19,7 +17,6 @@ type Digester interface {
 }
 
 type Config struct {
-	DB           db.Client
 	UserStore    model.UserStore
 	EventStore   model.EventStore
 	ThreadStore  model.ThreadStore
@@ -38,14 +35,13 @@ func New(c *Config) Digester {
 
 func (d *digesterImpl) Digest(ctx context.Context) error {
 	op := errors.Op("digest.Digest")
-	query := datastore.NewQuery("User")
-	iter := d.DB.Run(ctx, query)
+	iter := d.UserStore.IterAll(ctx)
 
 	for {
 		var user model.User
 		_, err := iter.Next(&user)
 
-		if err == iterator.Done {
+		if errors.Is(err, iterator.Done) {
 			break
 		}
 

@@ -15,7 +15,6 @@ import (
 	"github.com/hiconvo/api/clients/pluck"
 	"github.com/hiconvo/api/clients/queue"
 	"github.com/hiconvo/api/clients/storage"
-	"github.com/hiconvo/api/digest"
 	"github.com/hiconvo/api/handler/contact"
 	"github.com/hiconvo/api/handler/event"
 	"github.com/hiconvo/api/handler/inbound"
@@ -43,7 +42,6 @@ type Config struct {
 	OG            opengraph.Client
 	Places        places.Client
 	Queue         queue.Client
-	Digest        digest.Digester
 }
 
 func New(c *Config) http.Handler {
@@ -69,7 +67,6 @@ func New(c *Config) http.Handler {
 		Welcome:      c.Welcome,
 		Mail:         c.Mail,
 		Magic:        c.Magic,
-		Digester:     c.Digest,
 	}))
 
 	t := router.NewRoute().Subrouter()

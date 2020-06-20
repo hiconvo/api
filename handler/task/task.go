@@ -23,7 +23,6 @@ type Config struct {
 	Welcome      model.Welcomer
 	Mail         *mail.Client
 	Magic        magic.Client
-	Digester     digest.Digester
 }
 
 func NewHandler(c *Config) *mux.Router {
@@ -44,7 +43,16 @@ func (c *Config) CreateDigest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.Digester.Digest(r.Context()); err != nil {
+	d := digest.New(&digest.Config{
+		UserStore:    c.UserStore,
+		EventStore:   c.EventStore,
+		ThreadStore:  c.ThreadStore,
+		MessageStore: c.MessageStore,
+		Magic:        c.Magic,
+		Mail:         c.Mail,
+	})
+
+	if err := d.Digest(r.Context()); err != nil {
 		bjson.HandleError(w, err)
 		return
 	}

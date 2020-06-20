@@ -19,24 +19,24 @@ type Welcomer struct {
 	welcomeMessage string
 }
 
-func New(ctx context.Context, us model.UserStore, supportPassword string) (*Welcomer, error) {
+func New(ctx context.Context, us model.UserStore, supportPassword string) *Welcomer {
 	op := errors.Op("welcome.New")
 
 	spuser, found, err := us.GetUserByEmail(ctx, "support@convo.events")
 	if err != nil {
-		return nil, errors.E(op, err)
+		panic(errors.E(op, err))
 	}
 
 	if !found {
 		spuser, err = model.NewUserWithPassword(
 			"support@convo.events", "Convo Support", "", supportPassword)
 		if err != nil {
-			return nil, errors.E(op, err)
+			panic(errors.E(op, err))
 		}
 
 		err = us.Commit(ctx, spuser)
 		if err != nil {
-			return nil, errors.E(op, err)
+			panic(errors.E(op, err))
 		}
 
 		log.Print("welcome.New: Created new support user")
@@ -45,7 +45,7 @@ func New(ctx context.Context, us model.UserStore, supportPassword string) (*Welc
 	return &Welcomer{
 		supportUser:    spuser,
 		welcomeMessage: readStringFromFile("welcome.md"),
-	}, nil
+	}
 }
 
 func (w *Welcomer) Welcome(

@@ -47,6 +47,10 @@ type clientImpl struct {
 }
 
 func NewClient(ctx context.Context, projectID string) Client {
+	if projectID == "local-convo-api" {
+		return NewLogger()
+	}
+
 	tc, err := cloudtasks.NewClient(ctx)
 	if err != nil {
 		panic(errors.E(errors.Op("queue.NewClient"), err))

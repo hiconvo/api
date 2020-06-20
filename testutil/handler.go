@@ -23,7 +23,6 @@ import (
 	"github.com/hiconvo/api/clients/search"
 	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/db"
-	"github.com/hiconvo/api/digest"
 	"github.com/hiconvo/api/handler"
 	"github.com/hiconvo/api/mail"
 	"github.com/hiconvo/api/model"
@@ -32,24 +31,14 @@ import (
 )
 
 func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
+	mailClient := mail.New(sender.NewLogger(), template.NewClient())
+	magicClient := magic.NewClient("")
 	storageClient := storage.NewClient("", "")
-
-	userStore := &db.UserStore{
-		DB:    dbClient,
-		Notif: notification.NewLogger(),
-		S:     searchClient,
-		Queue: queue.NewLogger(),
-	}
+	userStore := &db.UserStore{DB: dbClient, Notif: notification.NewLogger(), S: searchClient, Queue: queue.NewLogger()}
 	threadStore := &db.ThreadStore{DB: dbClient, Storage: storageClient}
 	eventStore := &db.EventStore{DB: dbClient}
 	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
-	mailClient := mail.New(sender.NewLogger(), template.NewClient())
-	magicClient := magic.NewClient("")
-
-	welcomer, err := welcome.New(context.Background(), userStore, "support")
-	if err != nil {
-		panic(err)
-	}
+	welcomer := welcome.New(context.Background(), userStore, "support")
 
 	return handler.New(&handler.Config{
 		Transacter:    dbClient,
@@ -67,15 +56,6 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 		OG:            opengraph.NewClient(),
 		Places:        places.NewLogger(),
 		Queue:         queue.NewLogger(),
-		Digest: digest.New(&digest.Config{
-			DB:           dbClient,
-			UserStore:    userStore,
-			EventStore:   eventStore,
-			ThreadStore:  threadStore,
-			MessageStore: messageStore,
-			Mail:         mailClient,
-			Magic:        magicClient,
-		}),
 	})
 }
 
