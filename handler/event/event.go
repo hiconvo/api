@@ -610,26 +610,17 @@ func (c *Config) AddUserToEvent(w http.ResponseWriter, r *http.Request) {
 	var (
 		userToBeAdded *model.User
 		err           error
-		created       bool
 	)
 
 	if _, ee := valid.Email(maybeUserID); ee != nil {
 		userToBeAdded, err = c.UserStore.GetUserByID(ctx, maybeUserID)
 	} else {
-		userToBeAdded, created, err = c.UserStore.GetOrCreateUserByEmail(ctx, maybeUserID)
+		userToBeAdded, _, err = c.UserStore.GetOrCreateUserByEmail(ctx, maybeUserID)
 	}
 
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
-	}
-
-	if created {
-		err = c.UserStore.Commit(ctx, userToBeAdded)
-		if err != nil {
-			bjson.HandleError(w, err)
-			return
-		}
 	}
 
 	if err := event.AddUser(userToBeAdded); err != nil {

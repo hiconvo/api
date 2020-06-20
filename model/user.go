@@ -15,6 +15,7 @@ import (
 	"github.com/hiconvo/api/clients/magic"
 	"github.com/hiconvo/api/clients/queue"
 	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/random"
 	"github.com/hiconvo/api/valid"
 )
@@ -517,9 +518,13 @@ func UserWelcomeMulti(ctx context.Context, q queue.Client, users []*User) {
 		ids[i] = users[i].ID
 	}
 
-	q.PutEmail(ctx, queue.EmailPayload{
+	err := q.PutEmail(ctx, queue.EmailPayload{
 		Type:   queue.User,
 		Action: queue.SendWelcome,
 		IDs:    ids,
 	})
+
+	if err != nil {
+		log.Alarm(errors.E(errors.Op("model.UserWelcomeMulti"), err))
+	}
 }

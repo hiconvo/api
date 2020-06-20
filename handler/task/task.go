@@ -114,22 +114,41 @@ func (c *Config) SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		case queue.Thread:
+			thread, err := c.ThreadStore.GetThreadByID(ctx, payload.IDs[i])
+			if err != nil {
+				log.Alarm(errors.E(op, err))
+				break
+			}
+
+			messages, err := c.MessageStore.GetMessagesByThread(ctx, thread)
+			if err != nil {
+				log.Alarm(errors.E(op, err))
+				break
+			}
+
 			if payload.Action == queue.SendThread {
-				thread, err := c.ThreadStore.GetThreadByID(ctx, payload.IDs[i])
-				if err != nil {
-					log.Alarm(errors.E(op, err))
-					break
-				}
-
-				messages, err := c.MessageStore.GetMessagesByThread(ctx, thread)
-				if err != nil {
-					log.Alarm(errors.E(op, err))
-					break
-				}
-
 				if err := c.Mail.SendThread(c.Magic, thread, messages); err != nil {
 					log.Alarm(errors.E(op, err))
 				}
+			} else if payload.Action == queue.SendThreadSingleUser {
+				if len(payload.IDs) != 2 {
+					log.Alarm(errors.E(op, errors.Str("did not received expected number of IDs for SendThreadSingleUser")))
+					continue
+				}
+
+				user, err := c.UserStore.GetUserByID(ctx, payload.IDs[1])
+				if err != nil {
+					log.Alarm(errors.E(op, err))
+					continue
+				}
+
+				if err := c.Mail.SendThreadSingleUser(c.Magic, thread, messages, user); err != nil {
+					log.Alarm(errors.E(op, err))
+				}
+
+				// We return because the second ID is the userID which we've already handled
+				bjson.WriteJSON(w, map[string]string{"message": "pass"}, http.StatusOK)
+				return
 			}
 		}
 	}

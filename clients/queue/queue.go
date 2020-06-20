@@ -23,10 +23,11 @@ const (
 	Event  emailType = "Event"
 	Thread emailType = "Thread"
 
-	SendInvites        emailAction = "SendInvites"
-	SendUpdatedInvites emailAction = "SendUpdatedInvites"
-	SendThread         emailAction = "SendThread"
-	SendWelcome        emailAction = "SendWelcome"
+	SendInvites          emailAction = "SendInvites"
+	SendUpdatedInvites   emailAction = "SendUpdatedInvites"
+	SendThread           emailAction = "SendThread"
+	SendThreadSingleUser emailAction = "SendThreadSingleUser"
+	SendWelcome          emailAction = "SendWelcome"
 )
 
 // EmailPayload is a representation of an async email task.
@@ -66,12 +67,19 @@ func NewClient(ctx context.Context, projectID string) Client {
 func (c *clientImpl) PutEmail(ctx context.Context, payload EmailPayload) error {
 	op := errors.Opf("queue.PutEmail(type=%s, action=%s)", payload.Type, payload.Action)
 
-	if payload.Type == Thread && payload.Action != SendThread {
-		return errors.E(op, errors.Errorf("'%v' is not a valid action for emailType.Thread", payload.Action))
-	} else if payload.Type == Event && !(payload.Action == SendInvites || payload.Action == SendUpdatedInvites) {
-		return errors.E(op, errors.Errorf("'%v' is not a valid action for emailType.Event", payload.Action))
-	} else if payload.Type == User && payload.Action != SendWelcome {
-		return errors.E(op, errors.Errorf("'%v' is not a valid action for emailType.User", payload.Action))
+	switch payload.Type {
+	case Thread:
+		if payload.Action != SendThread && payload.Action != SendThreadSingleUser {
+			return errors.E(op, errors.Errorf("'%v' is not a valid action for emailType.Thread", payload.Action))
+		}
+	case Event:
+		if !(payload.Action == SendInvites || payload.Action == SendUpdatedInvites) {
+			return errors.E(op, errors.Errorf("'%v' is not a valid action for emailType.Event", payload.Action))
+		}
+	case User:
+		if payload.Action != SendWelcome {
+			return errors.E(op, errors.Errorf("'%v' is not a valid action for emailType.User", payload.Action))
+		}
 	}
 
 	jsonBytes, err := json.Marshal(payload)

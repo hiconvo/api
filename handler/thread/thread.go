@@ -10,6 +10,7 @@ import (
 	"github.com/hiconvo/api/clients/magic"
 	notif "github.com/hiconvo/api/clients/notification"
 	"github.com/hiconvo/api/clients/opengraph"
+	"github.com/hiconvo/api/clients/queue"
 	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/handler/middleware"
@@ -29,6 +30,7 @@ type Config struct {
 	Storage       *storage.Client
 	OG            opengraph.Client
 	Notif         notif.Client
+	Queue         queue.Client
 }
 
 func NewHandler(c *Config) *mux.Router {
@@ -272,7 +274,7 @@ func (c *Config) AddUserToThread(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	maybeUserID := vars["userID"]
 
-	// If the requestor is not the owner, throw an error.
+	// If the requester is not the owner, throw an error.
 	if !thread.OwnerIs(u) {
 		bjson.HandleError(w, errors.E(
 			errors.Op("handlers.AddUserToThread"),
@@ -301,20 +303,11 @@ func (c *Config) AddUserToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if created {
-		err = c.UserStore.Commit(ctx, userToBeAdded)
-		if err != nil {
-			bjson.HandleError(w, err)
-			return
-		}
-	}
-
 	if err := thread.AddUser(userToBeAdded); err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
 
-	// Save the thread.
 	if _, err := c.ThreadStore.CommitWithTransaction(tx, thread); err != nil {
 		bjson.HandleError(w, err)
 		return
@@ -323,6 +316,17 @@ func (c *Config) AddUserToThread(w http.ResponseWriter, r *http.Request) {
 	if _, err := tx.Commit(); err != nil {
 		bjson.HandleError(w, err)
 		return
+	}
+
+	if created {
+		err := c.Queue.PutEmail(ctx, queue.EmailPayload{
+			IDs:    []string{thread.ID, userToBeAdded.ID},
+			Type:   queue.Thread,
+			Action: queue.SendThreadSingleUser,
+		})
+		if err != nil {
+			log.Alarm(err)
+		}
 	}
 
 	bjson.WriteJSON(w, thread, http.StatusOK)
@@ -461,7 +465,6 @@ func (c *Config) AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send a notification for all later responses
 	if err := c.Notif.Put(&notif.Notification{
 		UserKeys:   notif.FilterKey(thread.UserKeys, u.Key),
 		Actor:      u.FullName,

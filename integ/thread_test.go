@@ -520,7 +520,7 @@ func TestAddUserToThread(t *testing.T) {
 			Name:         "success with email",
 			AuthHeader:   testutil.GetAuthHeader(owner.Token),
 			ExpectStatus: http.StatusOK,
-			GivenUserID:  "addedOnThe@fly.com",
+			GivenUserID:  "addedOnThe@flysomethingspecailyay.com",
 			ExpectNames: []string{
 				member.FullName,
 				owner.FullName,

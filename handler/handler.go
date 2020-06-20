@@ -97,6 +97,7 @@ func New(c *Config) http.Handler {
 		Storage:       c.Storage,
 		Notif:         c.Notif,
 		OG:            c.OG,
+		Queue:         c.Queue,
 	}))
 	t.PathPrefix("/events").Handler(event.NewHandler(&event.Config{
 		UserStore:     c.UserStore,

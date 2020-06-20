@@ -785,7 +785,7 @@ func TestAddUserToEvent(t *testing.T) {
 		{
 			AuthHeader:   testutil.GetAuthHeader(owner.Token),
 			ExpectStatus: http.StatusOK,
-			GivenUserID:  "addedOnTheFly@again.com",
+			GivenUserID:  "addedOnTheFly@againanothertime.com",
 			ExpectNames:  []string{owner.FullName, host.FullName, member.FullName, memberToAdd.FullName, "addedonthefly"},
 			GivenEventID: event.ID,
 		},

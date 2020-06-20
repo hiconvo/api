@@ -95,7 +95,7 @@ func (s *UserStore) GetUserByID(ctx context.Context, id string) (*model.User, er
 
 	u := new(model.User)
 	if err := s.DB.Get(ctx, key, u); err != nil {
-		if err == datastore.ErrNoSuchEntity {
+		if errors.Is(err, datastore.ErrNoSuchEntity) {
 			return nil, errors.E(op, http.StatusNotFound, err)
 		}
 
@@ -181,19 +181,26 @@ func (s *UserStore) GetOrCreateUserByEmail(ctx context.Context, email string) (*
 		return nil, false, err
 	}
 
+	err = s.Commit(ctx, u)
+	if err != nil {
+		return nil, false, err
+	}
+
+	model.UserWelcomeMulti(ctx, s.Queue, []*model.User{u})
+
 	return u, true, nil
 }
 
-func (s *UserStore) CreateUsersByEmail(ctx context.Context, emails []string) ([]*model.User, error) {
+func (s *UserStore) GetOrCreateUsersByEmail(ctx context.Context, emails []string) ([]*model.User, error) {
 	var (
-		op                = errors.Op("UserStore.CreateUsersByEmail")
+		op                = errors.Op("UserStore.GetOrCreateUsersByEmail")
 		users             []*model.User
 		usersToCommit     []*model.User
 		usersToCommitKeys []*datastore.Key
 	)
 
 	for i := range emails {
-		u, created, err := s.GetOrCreateUserByEmail(ctx, emails[i])
+		u, created, err := s.getOrCreateUserByEmailNoCommit(ctx, emails[i])
 		if err != nil {
 			return nil, errors.E(op, err)
 		}
@@ -278,7 +285,7 @@ func (s *UserStore) GetOrCreateUsers(ctx context.Context, users []*model.UserInp
 			http.StatusBadRequest)
 	}
 
-	newUsers, err := s.CreateUsersByEmail(ctx, emails)
+	newUsers, err := s.GetOrCreateUsersByEmail(ctx, emails)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -325,6 +332,20 @@ func (s *UserStore) IterAll(ctx context.Context) *datastore.Iterator {
 	return s.DB.Run(ctx, query)
 }
 
+func (s *UserStore) CreateOrUpdateSearchIndex(ctx context.Context, u *model.User) {
+	if u.IsRegistered() {
+		_, upsertErr := s.S.Update().
+			Index("users").
+			Id(u.ID).
+			DocAsUpsert(true).
+			Doc(model.MapUserToUserPartial(u)).
+			Do(ctx)
+		if upsertErr != nil {
+			log.Printf("Failed to index user in elasticsearch: %v", upsertErr)
+		}
+	}
+}
+
 func (s *UserStore) getUserByField(ctx context.Context, field, value string) (*model.User, bool, error) {
 	var (
 		op    = errors.Opf("UserStore.getUserByField(field=%q, value=%q)", field, value)
@@ -356,16 +377,18 @@ func (s *UserStore) getUserByField(ctx context.Context, field, value string) (*m
 	return nil, false, nil
 }
 
-func (s *UserStore) CreateOrUpdateSearchIndex(ctx context.Context, u *model.User) {
-	if u.IsRegistered() {
-		_, upsertErr := s.S.Update().
-			Index("users").
-			Id(u.ID).
-			DocAsUpsert(true).
-			Doc(model.MapUserToUserPartial(u)).
-			Do(ctx)
-		if upsertErr != nil {
-			log.Printf("Failed to index user in elasticsearch: %v", upsertErr)
-		}
+func (s *UserStore) getOrCreateUserByEmailNoCommit(ctx context.Context, email string) (*model.User, bool, error) {
+	u, found, err := s.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, false, err
+	} else if found {
+		return u, false, nil
 	}
+
+	u, err = model.NewIncompleteUser(email)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return u, true, nil
 }

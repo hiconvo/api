@@ -187,6 +187,74 @@ func (c *Client) SendThread(
 	return nil
 }
 
+func (c *Client) SendThreadSingleUser(
+	magicClient magic.Client,
+	thread *model.Thread,
+	messages []*model.Message,
+	user *model.User,
+) error {
+	op := errors.Op("mail.SendThreadSingleUser")
+
+	if len(messages) == 0 {
+		return errors.E(op, errors.Str("no messages to send"))
+	}
+
+	if !thread.HasUser(user) {
+		return errors.E(op, errors.Str("user not in thread"))
+	}
+
+	// From is the most recent message sender: messages[0].User.
+	sender, err := model.MapUserPartialToUser(messages[0].User, thread.Users)
+	if err != nil {
+		return err
+	}
+
+	// Get the last five messages to be included in the email.
+	lastFive := getLastFive(messages)
+	magicLink := user.GetMagicLoginMagicLink(magicClient)
+
+	// Generate messages
+	tplMessages := make([]template.Message, len(lastFive))
+	for j, m := range lastFive {
+		tplMessages[j] = template.Message{
+			Body:      m.Body,
+			Name:      m.User.FirstName,
+			HasPhoto:  m.HasPhoto(),
+			HasLink:   m.HasLink(),
+			Link:      m.Link,
+			FromID:    m.User.ID,
+			ToID:      user.ID,
+			MagicLink: magicLink,
+		}
+	}
+
+	plainText, html, err := c.tpl.RenderThread(&template.Thread{
+		Subject:   thread.Subject,
+		FromName:  sender.FullName,
+		Messages:  tplMessages,
+		MagicLink: magicLink,
+	})
+	if err != nil {
+		return err
+	}
+
+	emailMessage := mail.EmailMessage{
+		FromName:    sender.FullName,
+		FromEmail:   thread.GetEmail(),
+		ToName:      user.FullName,
+		ToEmail:     user.Email,
+		Subject:     thread.Subject,
+		TextContent: plainText,
+		HTMLContent: html,
+	}
+
+	if err := c.mail.Send(emailMessage); err != nil {
+		log.Alarm(errors.E(op, err))
+	}
+
+	return nil
+}
+
 func (c *Client) SendEventInvites(
 	magicClient magic.Client,
 	event *model.Event,
