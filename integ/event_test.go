@@ -65,6 +65,9 @@ func TestCreateEvent(t *testing.T) {
 					{
 						"email": "test@test.com",
 					},
+					{
+						"email": "test@lksdjidjflskdjf.com  ",
+					},
 				},
 			},
 			ExpectStatus:   http.StatusCreated,

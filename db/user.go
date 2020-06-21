@@ -223,7 +223,9 @@ func (s *UserStore) GetOrCreateUsersByEmail(ctx context.Context, emails []string
 		usersToCommit[i].ID = keys[i].Encode()
 	}
 
-	model.UserWelcomeMulti(ctx, s.Queue, usersToCommit)
+	if len(usersToCommit) > 0 {
+		model.UserWelcomeMulti(ctx, s.Queue, usersToCommit)
+	}
 
 	users = append(users, usersToCommit...)
 
