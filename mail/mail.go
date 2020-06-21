@@ -135,14 +135,14 @@ func (c *Client) SendThread(
 	// Filter out registered users
 	var users []*model.User
 	for i := range thread.Users {
-		if !thread.Users[i].IsRegistered() && !model.IsRead(thread, thread.Users[i].Key) {
+		if thread.Users[i].SendThreads && !thread.Users[i].IsRegistered() && !model.IsRead(thread, thread.Users[i].Key) {
 			users = append(users, thread.Users[i])
 		}
 	}
 
 	for i, curUser := range users {
 		// Don't send an email to the sender.
-		if curUser.Key.Equal(sender.Key) {
+		if curUser.Key.Equal(sender.Key) || !curUser.SendThreads {
 			continue
 		}
 
@@ -212,7 +212,7 @@ func (c *Client) SendEventInvites(
 	emailMessages := make([]mail.EmailMessage, len(event.Users))
 	for i, curUser := range event.Users {
 		// Don't send invitations to the host
-		if event.OwnerIs(curUser) {
+		if event.OwnerIs(curUser) || !curUser.SendEvents {
 			continue
 		}
 
@@ -256,6 +256,10 @@ func (c *Client) SendEventInvites(
 }
 
 func (c *Client) SendEventInvitation(m magic.Client, event *model.Event, user *model.User) error {
+	if !user.SendEvents {
+		return nil
+	}
+
 	plainText, html, err := c.tpl.RenderEvent(&template.Event{
 		Name:                 event.Name,
 		Address:              event.Address,
@@ -289,6 +293,10 @@ func (c *Client) SendCancellation(m magic.Client, event *model.Event, message st
 
 	// Loop through all participants and generate emails
 	for i, curUser := range event.Users {
+		if !curUser.SendEvents {
+			continue
+		}
+
 		plainText, html, err := c.tpl.RenderCancellation(&template.Event{
 			Name:                 event.Name,
 			Address:              event.Address,
@@ -331,6 +339,10 @@ func (c *Client) SendDigest(
 	upcomingEvents []*model.Event,
 	user *model.User,
 ) error {
+	if !user.SendDigest {
+		return nil
+	}
+
 	magicLink := user.GetMagicLoginMagicLink(magicClient)
 	// Convert all the DigestItems into template.Threads with their messages
 	items := make([]template.Thread, len(digestList))
