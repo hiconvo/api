@@ -42,6 +42,7 @@ func NewHandler(c *Config) *mux.Router {
 	r.HandleFunc("/users/verify", c.VerifyEmail).Methods("POST")
 	r.HandleFunc("/users/forgot", c.ForgotPassword).Methods("POST")
 	r.HandleFunc("/users/magic", c.MagicLogin).Methods("POST")
+	r.HandleFunc("/users/unsubscribe", c.MagicUnsubscribe).Methods("POST")
 
 	s := r.NewRoute().Subrouter()
 	s.Use(middleware.WithUser(c.UserStore))
@@ -628,10 +629,12 @@ func (c *Config) MagicLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateUserPayload struct {
-	FirstName  string
-	LastName   string
-	Password   bool
-	SendDigest *bool
+	FirstName   string
+	LastName    string
+	Password    bool
+	SendDigest  *bool
+	SendThreads *bool
+	SendEvents  *bool
 }
 
 // UpdateUser is an endpoint that can do three things. It can
@@ -670,6 +673,14 @@ func (c *Config) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if payload.SendDigest != nil {
 		u.SendDigest = *payload.SendDigest
+	}
+
+	if payload.SendThreads != nil {
+		u.SendThreads = *payload.SendThreads
+	}
+
+	if payload.SendEvents != nil {
+		u.SendEvents = *payload.SendEvents
 	}
 
 	if err := c.UserStore.Commit(ctx, u); err != nil {
@@ -867,4 +878,48 @@ func (c *Config) PutAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bjson.WriteJSON(w, u, http.StatusOK)
+}
+
+type magicUnsubscribePayload struct {
+	Signature string `validate:"nonzero"`
+	Timestamp string `validate:"nonzero"`
+	UserID    string `validate:"nonzero"`
+}
+
+func (c *Config) MagicUnsubscribe(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.MagicUnsubscribe")
+	ctx := r.Context()
+
+	var payload magicUnsubscribePayload
+	if err := bjson.ReadJSON(&payload, r); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	if err := valid.Raw(&payload); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	u, err := c.UserStore.GetUserByID(ctx, payload.UserID)
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err, http.StatusUnauthorized))
+		return
+	}
+
+	if err := u.VerifyUnsubscribeMagicLink(
+		c.Magic,
+		payload.UserID,
+		payload.Timestamp,
+		payload.Signature,
+	); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	u.SendDigest = false
+	u.SendThreads = false
+	u.SendEvents = false
+
+	bjson.WriteJSON(w, map[string]string{"message": "unsubscribed"}, http.StatusOK)
 }

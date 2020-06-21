@@ -43,6 +43,8 @@ type User struct {
 	Contacts         []*UserPartial   `json:"-"        datastore:"-"`
 	CreatedAt        time.Time        `json:"-"`
 	SendDigest       bool             `json:"sendDigest"`
+	SendThreads      bool             `json:"sendThreads"`
+	SendEvents       bool             `json:"sendEvents"`
 }
 
 type UserInput struct {
@@ -87,13 +89,15 @@ func NewIncompleteUser(emailAddress string) (*User, error) {
 	}
 
 	user := User{
-		Key:        datastore.IncompleteKey("User", nil),
-		Email:      email,
-		FirstName:  strings.Split(email, "@")[0],
-		Token:      random.Token(),
-		Verified:   false,
-		CreatedAt:  time.Now(),
-		SendDigest: true,
+		Key:         datastore.IncompleteKey("User", nil),
+		Email:       email,
+		FirstName:   strings.Split(email, "@")[0],
+		Token:       random.Token(),
+		Verified:    false,
+		CreatedAt:   time.Now(),
+		SendDigest:  true,
+		SendThreads: true,
+		SendEvents:  true,
 	}
 
 	return &user, nil
@@ -123,6 +127,8 @@ func NewUserWithPassword(emailAddress, firstName, lastName, password string) (*U
 		Verified:        false,
 		CreatedAt:       time.Now(),
 		SendDigest:      true,
+		SendThreads:     true,
+		SendEvents:      true,
 	}
 
 	return &user, nil
@@ -164,6 +170,8 @@ func NewUserWithOAuth(emailAddress, firstName, lastName, avatar, oAuthProvider, 
 		Verified:        true,
 		CreatedAt:       time.Now(),
 		SendDigest:      true,
+		SendThreads:     true,
+		SendEvents:      true,
 	}
 
 	return &user, nil
@@ -192,6 +200,16 @@ func (u *User) Load(ps []datastore.Property) error {
 		if p.Name == "SendDigest" {
 			val := p.Value.(bool)
 			u.SendDigest = val
+		}
+
+		if p.Name == "SendThreads" {
+			val := p.Value.(bool)
+			u.SendThreads = val
+		}
+
+		if p.Name == "SendEvents" {
+			val := p.Value.(bool)
+			u.SendEvents = val
 		}
 	}
 
@@ -223,6 +241,14 @@ func (u *User) GetMagicLoginMagicLink(m magic.Client) string {
 }
 
 func (u *User) VerifyMagicLogin(m magic.Client, id, ts, sig string) error {
+	return m.Verify(id, ts, u.Token, sig)
+}
+
+func (u *User) GetUnsubscribeMagicLink(m magic.Client) string {
+	return m.NewLink(u.Key, u.Token, "unsubscribe")
+}
+
+func (u *User) VerifyUnsubscribeMagicLink(m magic.Client, id, ts, sig string) error {
 	return m.Verify(id, ts, u.Token, sig)
 }
 

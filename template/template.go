@@ -33,34 +33,36 @@ type Message struct {
 // Thread is a representation of a renderable email thread.
 type Thread struct {
 	renderable
-	Subject   string
-	FromName  string
-	Messages  []Message
-	Preview   string
-	MagicLink string
+	Subject              string
+	FromName             string
+	Messages             []Message
+	Preview              string
+	UnsubscribeMagicLink string
 }
 
 // Event is a representation of a renderable email event.
 type Event struct {
 	renderable
-	Name        string
-	Address     string
-	Time        string
-	Description string
-	Preview     string
-	FromName    string
-	MagicLink   string
-	ButtonText  string
-	Message     string
+	Name                 string
+	Address              string
+	Time                 string
+	Description          string
+	Preview              string
+	FromName             string
+	MagicLink            string
+	ButtonText           string
+	Message              string
+	UnsubscribeMagicLink string
 }
 
 // Digest is a representation of a renderable email digest.
 type Digest struct {
 	renderable
-	Items     []Thread
-	Preview   string
-	Events    []Event
-	MagicLink string
+	Items                []Thread
+	Preview              string
+	Events               []Event
+	MagicLink            string
+	UnsubscribeMagicLink string
 }
 
 // AdminEmail is a representation of a renderable administrative

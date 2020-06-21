@@ -11,7 +11,7 @@
   {{ .FromName }} shared something with you on Convo. Respond by replying to
   this email directly or by
   <a href="https://app.convo.events">creating an account</a> on Convo with the
-  email to which this messages was addressed.
+  email to which this messages is addressed.
 </p>
 
 {{ range .Messages }} {{ template "message" .}} {{ end }} {{ end }}
@@ -22,6 +22,7 @@
 <p>
   This email is a <a href="https://convo.events">Convo</a>. You can reply to
   this email as you would any other.
+  <a href="{{ .UnsubscribeMagicLink }}">Unsubscribe</a>.
 </p>
 {{ end }}
 <!-- END FOOTER DEF -->

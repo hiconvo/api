@@ -1043,3 +1043,44 @@ func TestMakeEmailPrimary(t *testing.T) {
 		})
 	}
 }
+
+func TestMagicUnsubscribe(t *testing.T) {
+	magicClient := magic.NewClient("")
+	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	kenc, b64ts, sig := testutil.GetMagicLinkParts(user.GetUnsubscribeMagicLink(magicClient))
+
+	tests := []struct {
+		Name         string
+		GivenBody    string
+		ExpectStatus int
+	}{
+		{
+			GivenBody:    fmt.Sprintf(`{"signature": "%s", "timestamp": "%s", "userId": "%s"}`, sig, b64ts, kenc),
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			GivenBody:    `{}`,
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			GivenBody:    fmt.Sprintf(`{"signature": "random", "timestamp": "%s", "userId": "%s"}`, b64ts, kenc),
+			ExpectStatus: http.StatusUnauthorized,
+		},
+		{
+			GivenBody:    fmt.Sprintf(`{"signature": "%s", "timestamp": "%s", "userId": "nonsense"}`, sig, b64ts),
+			ExpectStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New("MagicLogin").
+				Handler(_handler).
+				Post("/users/unsubscribe").
+				JSON(tcase.GivenBody).
+				Expect(t).
+				Status(tcase.ExpectStatus).
+				End()
+		})
+	}
+}

@@ -240,7 +240,7 @@ func (c *Config) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if event.IsInFuture() {
-		if err := c.Mail.SendCancellation(event, html.UnescapeString(payload.Message)); err != nil {
+		if err := c.Mail.SendCancellation(c.Magic, event, html.UnescapeString(payload.Message)); err != nil {
 			bjson.HandleError(w, err)
 			return
 		}

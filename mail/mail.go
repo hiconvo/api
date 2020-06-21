@@ -132,6 +132,7 @@ func (c *Client) SendThread(
 	// Get the last five messages to be included in the email.
 	lastFive := getLastFive(messages)
 
+	// Filter out registered users
 	var users []*model.User
 	for i := range thread.Users {
 		if !thread.Users[i].IsRegistered() && !model.IsRead(thread, thread.Users[i].Key) {
@@ -145,28 +146,27 @@ func (c *Client) SendThread(
 			continue
 		}
 
-		magicLink := curUser.GetMagicLoginMagicLink(magicClient)
-
 		// Generate messages
 		tplMessages := make([]template.Message, len(lastFive))
 		for j, m := range lastFive {
 			tplMessages[j] = template.Message{
-				Body:      m.Body,
-				Name:      m.User.FirstName,
-				HasPhoto:  m.HasPhoto(),
-				HasLink:   m.HasLink(),
-				Link:      m.Link,
-				FromID:    m.User.ID,
-				ToID:      curUser.ID,
-				MagicLink: magicLink,
+				Body:     m.Body,
+				Name:     m.User.FirstName,
+				HasPhoto: m.HasPhoto(),
+				HasLink:  m.HasLink(),
+				Link:     m.Link,
+				FromID:   m.User.ID,
+				ToID:     curUser.ID,
+				// Since these users are not registered, we do not show a magic login link
+				MagicLink: "https://app.convo.events",
 			}
 		}
 
 		plainText, html, err := c.tpl.RenderThread(&template.Thread{
-			Subject:   thread.Subject,
-			FromName:  sender.FullName,
-			Messages:  tplMessages,
-			MagicLink: magicLink,
+			Subject:              thread.Subject,
+			FromName:             sender.FullName,
+			Messages:             tplMessages,
+			UnsubscribeMagicLink: curUser.GetUnsubscribeMagicLink(magicClient),
 		})
 		if err != nil {
 			return err
@@ -217,13 +217,14 @@ func (c *Client) SendEventInvites(
 		}
 
 		plainText, html, err := c.tpl.RenderEvent(&template.Event{
-			Name:        event.Name,
-			Address:     event.Address,
-			Time:        event.GetFormatedTime(),
-			Description: event.Description,
-			FromName:    event.Owner.FullName,
-			MagicLink:   event.GetRSVPMagicLink(magicClient, curUser),
-			ButtonText:  "RSVP",
+			Name:                 event.Name,
+			Address:              event.Address,
+			Time:                 event.GetFormatedTime(),
+			Description:          event.Description,
+			FromName:             event.Owner.FullName,
+			MagicLink:            event.GetRSVPMagicLink(magicClient, curUser),
+			ButtonText:           "RSVP",
+			UnsubscribeMagicLink: curUser.GetUnsubscribeMagicLink(magicClient),
 		})
 		if err != nil {
 			return err
@@ -256,13 +257,14 @@ func (c *Client) SendEventInvites(
 
 func (c *Client) SendEventInvitation(m magic.Client, event *model.Event, user *model.User) error {
 	plainText, html, err := c.tpl.RenderEvent(&template.Event{
-		Name:        event.Name,
-		Address:     event.Address,
-		Time:        event.GetFormatedTime(),
-		Description: event.Description,
-		FromName:    event.Owner.FullName,
-		MagicLink:   event.GetRSVPMagicLink(m, user),
-		ButtonText:  "RSVP",
+		Name:                 event.Name,
+		Address:              event.Address,
+		Time:                 event.GetFormatedTime(),
+		Description:          event.Description,
+		FromName:             event.Owner.FullName,
+		MagicLink:            event.GetRSVPMagicLink(m, user),
+		ButtonText:           "RSVP",
+		UnsubscribeMagicLink: user.GetUnsubscribeMagicLink(m),
 	})
 	if err != nil {
 		return err
@@ -282,17 +284,18 @@ func (c *Client) SendEventInvitation(m magic.Client, event *model.Event, user *m
 	return c.mail.Send(email)
 }
 
-func (c *Client) SendCancellation(event *model.Event, message string) error {
+func (c *Client) SendCancellation(m magic.Client, event *model.Event, message string) error {
 	emailMessages := make([]mail.EmailMessage, len(event.Users))
 
 	// Loop through all participants and generate emails
 	for i, curUser := range event.Users {
 		plainText, html, err := c.tpl.RenderCancellation(&template.Event{
-			Name:     event.Name,
-			Address:  event.Address,
-			Time:     event.GetFormatedTime(),
-			FromName: event.Owner.FullName,
-			Message:  message,
+			Name:                 event.Name,
+			Address:              event.Address,
+			Time:                 event.GetFormatedTime(),
+			FromName:             event.Owner.FullName,
+			Message:              message,
+			UnsubscribeMagicLink: curUser.GetUnsubscribeMagicLink(m),
 		})
 		if err != nil {
 			return err
@@ -364,9 +367,10 @@ func (c *Client) SendDigest(
 
 	// Render all the stuff
 	plainText, html, err := c.tpl.RenderDigest(&template.Digest{
-		Items:     items,
-		Events:    templateEvents,
-		MagicLink: magicLink,
+		Items:                items,
+		Events:               templateEvents,
+		MagicLink:            magicLink,
+		UnsubscribeMagicLink: user.GetUnsubscribeMagicLink(magicClient),
 	})
 	if err != nil {
 		return err
