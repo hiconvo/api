@@ -195,6 +195,8 @@ func (u *User) Load(ps []datastore.Property) error {
 	}
 
 	u.SendDigest = true
+	u.SendThreads = true
+	u.SendEvents = true
 
 	for _, p := range ps {
 		if p.Name == "SendDigest" {
