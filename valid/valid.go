@@ -16,7 +16,7 @@ import (
 var _emailRe = regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,14}$`)
 
 func Email(email string) (string, error) {
-	email = strings.ToLower(email)
+	email = strings.TrimSpace(strings.ToLower(email))
 
 	if _emailRe.MatchString(email) {
 		return email, nil
