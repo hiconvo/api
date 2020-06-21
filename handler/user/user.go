@@ -921,5 +921,10 @@ func (c *Config) MagicUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	u.SendThreads = false
 	u.SendEvents = false
 
+	if err := c.UserStore.Commit(ctx, u); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
 	bjson.WriteJSON(w, map[string]string{"message": "unsubscribed"}, http.StatusOK)
 }
