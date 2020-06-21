@@ -1,27 +1,27 @@
 <!-- START TITLE DEF -->
 {{ define "title" }}
-  <title>{{ .Subject }}</title>
+<title>{{ .Subject }}</title>
 {{ end }}
 <!-- END TITLE DEF -->
 
 <!-- START CONTENT DEF -->
 {{ define "content" }}
-  <p>Hello,</p>
-  <p class="mb30">
-    {{ .FromName }} shared something with you on Convo. <a href="{{ .MagicLink }}">Login to Convo</a> to respond.
-  </p>
+<p>Hello,</p>
+<p class="mb30">
+  {{ .FromName }} shared something with you on Convo. Respond by replying to
+  this email directly or by
+  <a href="https://app.convo.events">creating an account</a> on Convo with the
+  email to which this messages was addressed.
+</p>
 
-  {{ range .Messages }}
-    {{ template "message" .}}
-  {{ end }}
-{{ end }}
+{{ range .Messages }} {{ template "message" .}} {{ end }} {{ end }}
 <!-- END CONTENT DEF -->
 
 <!-- START FOOTER DEF -->
 {{ define "footer" }}
-  <p>
-    This email is a <a href="https://app.convo.events">Convo</a>. You can reply to
-    this email as you would any other.
-  </p>
+<p>
+  This email is a <a href="https://convo.events">Convo</a>. You can reply to
+  this email as you would any other.
+</p>
 {{ end }}
 <!-- END FOOTER DEF -->
