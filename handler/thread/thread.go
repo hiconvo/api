@@ -477,12 +477,14 @@ func (c *Config) AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		log.Alarm(err)
 	}
 
-	if err := c.Queue.PutEmail(ctx, queue.EmailPayload{
-		IDs:    []string{thread.ID},
-		Type:   queue.Thread,
-		Action: queue.SendThread,
-	}); err != nil {
-		log.Alarm(err)
+	if thread.IsSendable() {
+		if err := c.Queue.PutEmail(ctx, queue.EmailPayload{
+			IDs:    []string{thread.ID},
+			Type:   queue.Thread,
+			Action: queue.SendThread,
+		}); err != nil {
+			log.Alarm(err)
+		}
 	}
 
 	bjson.WriteJSON(w, message, http.StatusCreated)

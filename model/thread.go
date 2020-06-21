@@ -171,6 +171,16 @@ func (t *Thread) HasUser(u *User) bool {
 	return false
 }
 
+func (t *Thread) IsSendable() bool {
+	for i := range t.Users {
+		if !t.Users[i].IsRegistered() && !IsRead(t, t.Users[i].Key) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (t *Thread) OwnerIs(u *User) bool {
 	return t.OwnerKey.Equal(u.Key)
 }
