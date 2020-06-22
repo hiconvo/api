@@ -4,6 +4,7 @@ import (
 	"html"
 	"net/http"
 
+	"cloud.google.com/go/datastore"
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/bjson"
@@ -327,6 +328,18 @@ func (c *Config) AddUserToThread(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Alarm(err)
 		}
+	}
+
+	if err := c.Notif.Put(&notif.Notification{
+		UserKeys:   []*datastore.Key{userToBeAdded.Key},
+		Actor:      u.FullName,
+		Verb:       notif.NewMessage,
+		Target:     notif.Thread,
+		TargetID:   thread.ID,
+		TargetName: thread.Subject,
+	}); err != nil {
+		// Log the error but don't fail the request
+		log.Alarm(err)
 	}
 
 	bjson.WriteJSON(w, thread, http.StatusOK)
