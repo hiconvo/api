@@ -82,7 +82,7 @@ func GetTimeFromB64(b64ts string) (time.Time, error) {
 	return timestamp, nil
 }
 
-func TooOld(b64ts string) error {
+func TooOld(b64ts string, days ...int) error {
 	op := errors.Op("magic.TooOld")
 
 	ts, err := GetTimeFromB64(b64ts)
@@ -90,8 +90,13 @@ func TooOld(b64ts string) error {
 		return errors.E(op, http.StatusUnauthorized, err)
 	}
 
+	expiration := 24
+	if len(days) > 0 {
+		expiration = days[0] * expiration
+	}
+
 	diff := time.Since(ts)
-	if diff.Hours() > float64(24) {
+	if diff.Hours() > float64(expiration) {
 		return errors.E(op, http.StatusUnauthorized, errors.Str("TooOld"))
 	}
 

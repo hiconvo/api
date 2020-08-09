@@ -620,7 +620,7 @@ func (c *Config) MagicLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := magic.TooOld(payload.Timestamp); err != nil {
+	if err := magic.TooOld(payload.Timestamp, 7); err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
