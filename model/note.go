@@ -24,9 +24,11 @@ type Note struct {
 	CreatedAt time.Time          `json:"createdAt"`
 }
 
+type GetNotesOption func(m map[string]interface{})
+
 type NoteStore interface {
 	GetNoteByID(ctx context.Context, id string) (*Note, error)
-	GetNotesByUser(ctx context.Context, u *User, p *Pagination) ([]*Note, error)
+	GetNotesByUser(ctx context.Context, u *User, p *Pagination, o ...GetNotesOption) ([]*Note, error)
 	Commit(ctx context.Context, n *Note) error
 	Delete(ctx context.Context, n *Note) error
 }
@@ -42,11 +44,19 @@ func NewNote(u *User, name, url, favicon, body string, tags []string) (*Note, er
 	}
 
 	if len(name) == 0 && len(body) > 0 {
-		split := strings.SplitAfterN(body, "\n", 1)
+		split := strings.SplitAfterN(body, "\n", 2)
 		if len(split) > 0 {
-			name = split[0][:255]
+			if len(split[0]) > 255 {
+				name = split[0][:255]
+			} else {
+				name = split[0]
+			}
 		} else {
-			name = body[:255]
+			if len(body) > 255 {
+				name = body[:255]
+			} else {
+				name = body
+			}
 		}
 	}
 
@@ -65,15 +75,17 @@ func NewNote(u *User, name, url, favicon, body string, tags []string) (*Note, er
 	}
 
 	if len(errMap) > 0 {
-		return nil, errors.E(op, errMap, http.StatusBadRequest)
+		return nil, errors.E(op, errMap,
+			errors.Str("failed validation"), http.StatusBadRequest)
 	}
 
 	return &Note{
-		OwnerID: u.ID,
-		Name:    name,
-		URL:     url,
-		Favicon: favicon,
-		Body:    body,
-		Tags:    tags,
+		OwnerID:   u.ID,
+		Name:      name,
+		URL:       url,
+		Favicon:   favicon,
+		Body:      body,
+		Tags:      tags,
+		CreatedAt: time.Now(),
 	}, nil
 }

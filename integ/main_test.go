@@ -25,8 +25,6 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// var closer func()
-
 	_ctx = context.Background()
 	_dbClient = testutil.NewDBClient(_ctx)
 	_mongoClient, _ = testutil.NewMongoClient(_ctx)

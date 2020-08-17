@@ -7,6 +7,7 @@ import (
 
 	"github.com/hiconvo/api/bjson"
 	"github.com/hiconvo/api/clients/opengraph"
+	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/handler/middleware"
 	"github.com/hiconvo/api/model"
@@ -99,5 +100,47 @@ func (c *Config) GetNote(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, n, http.StatusOK)
 }
 
-func (c *Config) GetNotes(w http.ResponseWriter, r *http.Request)   {}
-func (c *Config) DeleteNote(w http.ResponseWriter, r *http.Request) {}
+func (c *Config) GetNotes(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.GetNotes")
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	p := model.GetPagination(r)
+
+	notes, err := c.NoteStore.GetNotesByUser(ctx, u, p,
+		db.GetNotesFilter(r.URL.Query().Get("filter")),
+		db.GetNotesSearch(r.URL.Query().Get("search")),
+		db.GetNotesTags(r.URL.Query().Get("tag")))
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	bjson.WriteJSON(w, map[string]interface{}{"notes": notes}, http.StatusOK)
+}
+
+func (c *Config) DeleteNote(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.GetNote")
+	ctx := r.Context()
+	u := middleware.UserFromContext(ctx)
+	vars := mux.Vars(r)
+	id := vars["noteID"]
+
+	n, err := c.NoteStore.GetNoteByID(ctx, id)
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	if n.OwnerID != u.ID {
+		bjson.HandleError(w, errors.E(
+			op, errors.Str("no permission"), http.StatusNotFound))
+		return
+	}
+
+	if err := c.NoteStore.Delete(ctx, n); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	bjson.WriteJSON(w, n, http.StatusOK)
+}
