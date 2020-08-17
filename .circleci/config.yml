@@ -11,6 +11,7 @@ jobs:
           DATASTORE_EMULATOR_HOST_PATH: localhost:8081/datastore
           DATASTORE_HOST: http://localhost:8081
           ELASTICSEARCH_HOST: localhost
+          MONGO_CONNECTION: localhost:27017
           CGO_ENABLED: "0"
       - image: singularities/datastore-emulator
         command: --no-store-on-disk --consistency=1.0
