@@ -34,6 +34,7 @@ require (
 	github.com/steinfletcher/apitest v1.4.6
 	github.com/steinfletcher/apitest-jsonpath v1.5.0
 	github.com/stretchr/testify v1.5.1
+	go.mongodb.org/mongo-driver v1.4.0
 	gocloud.dev v0.19.0
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
 	google.golang.org/api v0.17.0

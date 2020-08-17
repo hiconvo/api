@@ -11,10 +11,12 @@ import (
 
 	"cloud.google.com/go/datastore"
 	"github.com/icrowley/fake"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	dbc "github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/clients/magic"
 	sender "github.com/hiconvo/api/clients/mail"
+	mgc "github.com/hiconvo/api/clients/mongo"
 	"github.com/hiconvo/api/clients/notification"
 	"github.com/hiconvo/api/clients/oauth"
 	"github.com/hiconvo/api/clients/opengraph"
@@ -30,7 +32,7 @@ import (
 	"github.com/hiconvo/api/welcome"
 )
 
-func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
+func Handler(dbClient dbc.Client, mongoClient *mongo.Client, searchClient search.Client) http.Handler {
 	mailClient := mail.New(sender.NewLogger(), template.NewClient())
 	magicClient := magic.NewClient("")
 	storageClient := storage.NewClient("", "")
@@ -38,6 +40,7 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 	threadStore := &db.ThreadStore{DB: dbClient, Storage: storageClient}
 	eventStore := &db.EventStore{DB: dbClient}
 	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
+	noteStore := db.NewNoteStore(mongoClient)
 	welcomer := welcome.New(context.Background(), userStore, "support")
 
 	return handler.New(&handler.Config{
@@ -46,6 +49,7 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 		ThreadStore:   threadStore,
 		EventStore:    eventStore,
 		MessageStore:  messageStore,
+		NoteStore:     noteStore,
 		Welcome:       welcomer,
 		TxnMiddleware: dbc.WithTransaction(dbClient),
 		Mail:          mailClient,
@@ -212,6 +216,24 @@ func NewEventMessage(
 	return m
 }
 
+func NewNote(ctx context.Context, t *testing.T, mongoClient *mongo.Client, u *model.User) *model.Note {
+	t.Helper()
+
+	n, err := model.NewNote(u, fake.Title(), "", "", fake.Paragraph(), []string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewNoteStore(ctx, t, mongoClient)
+
+	err = s.Commit(ctx, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return n
+}
+
 func NewNotifClient(t *testing.T) notification.Client {
 	t.Helper()
 	return notification.NewLogger()
@@ -237,6 +259,11 @@ func NewEventStore(ctx context.Context, t *testing.T, dbClient dbc.Client) model
 	return &db.EventStore{DB: dbClient}
 }
 
+func NewNoteStore(ctx context.Context, t *testing.T, mongoClient *mongo.Client) model.NoteStore {
+	t.Helper()
+	return db.NewNoteStore(mongoClient)
+}
+
 func NewSearchClient() search.Client {
 	esh := os.Getenv("ELASTICSEARCH_HOST")
 	if esh == "" {
@@ -248,6 +275,11 @@ func NewSearchClient() search.Client {
 
 func NewDBClient(ctx context.Context) dbc.Client {
 	return dbc.NewClient(ctx, "local-convo-api")
+}
+
+func NewMongoClient(ctx context.Context) (*mongo.Client, func()) {
+	c, closer := mgc.NewClient(ctx, "mongo")
+	return c, closer
 }
 
 func ClearDB(ctx context.Context, client dbc.Client) {

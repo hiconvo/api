@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/steinfletcher/apitest"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/clients/search"
@@ -19,20 +20,27 @@ var (
 	_ctx          context.Context
 	_handler      http.Handler
 	_dbClient     db.Client
+	_mongoClient  *mongo.Client
 	_searchClient search.Client
 )
 
 func TestMain(m *testing.M) {
+	// var closer func()
+
 	_ctx = context.Background()
 	_dbClient = testutil.NewDBClient(_ctx)
+	_mongoClient, _ = testutil.NewMongoClient(_ctx)
 	_searchClient = testutil.NewSearchClient()
-	_handler = testutil.Handler(_dbClient, _searchClient)
+	_handler = testutil.Handler(_dbClient, _mongoClient, _searchClient)
 
 	testutil.ClearDB(_ctx, _dbClient)
 
 	result := m.Run()
 
 	testutil.ClearDB(_ctx, _dbClient)
+
+	// _dbClient.Close()
+	// closer()
 
 	os.Exit(result)
 }

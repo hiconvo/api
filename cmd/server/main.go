@@ -12,6 +12,7 @@ import (
 	dbc "github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/clients/magic"
 	sender "github.com/hiconvo/api/clients/mail"
+	"github.com/hiconvo/api/clients/mongo"
 	"github.com/hiconvo/api/clients/notification"
 	"github.com/hiconvo/api/clients/oauth"
 	"github.com/hiconvo/api/clients/opengraph"
@@ -39,6 +40,9 @@ func main() {
 	raven.SetDSN(sc.Get("SENTRY_DSN", ""))
 	raven.SetRelease(getenv("GAE_VERSION", "dev"))
 
+	mongoClient, closer := mongo.NewClient(ctx, sc.Get("MONGO_CONNECTION", "mongo"))
+	defer closer()
+
 	var (
 		// clients
 		notifClient   = notification.NewClient(sc.Get("STREAM_API_KEY", "streamKey"), sc.Get("STREAM_API_SECRET", "streamSecret"), "us-east")
@@ -56,6 +60,7 @@ func main() {
 		threadStore  = &db.ThreadStore{DB: dbClient, Storage: storageClient}
 		eventStore   = &db.EventStore{DB: dbClient}
 		messageStore = &db.MessageStore{DB: dbClient, Storage: storageClient}
+		noteStore    = db.NewNoteStore(mongoClient)
 
 		// welcomer
 		welcomer = welcome.New(ctx, userStore, sc.Get("SUPPORT_PASSWORD", "support"))
@@ -67,6 +72,7 @@ func main() {
 		ThreadStore:   threadStore,
 		EventStore:    eventStore,
 		MessageStore:  messageStore,
+		NoteStore:     noteStore,
 		Welcome:       welcomer,
 		TxnMiddleware: dbc.WithTransaction(dbClient),
 		Mail:          mailClient,

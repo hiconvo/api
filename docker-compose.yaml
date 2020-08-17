@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 services:
   api:
@@ -12,6 +12,7 @@ services:
       - DATASTORE_EMULATOR_HOST=datastore:8081
       - DATASTORE_EMULATOR_HOST_PATH=datastore:8081/datastore
       - DATASTORE_HOST=http://datastore:8081
+      - MONGO_CONNECTION=mongo
     env_file:
       - ./.env
     volumes:
@@ -27,6 +28,13 @@ services:
     command: --consistency=1.0
     ports:
       - "8081"
+  mongo:
+    image: "mongo"
+    restart: "always"
+    volumes:
+      - "mongo-data:/data/mongo"
+    ports:
+      - "27017"
   elasticsearch:
     image: elasticsearch:7.1.1
     ports:
@@ -40,3 +48,6 @@ services:
       memlock:
         soft: -1
         hard: -1
+
+volumes:
+  mongo-data:

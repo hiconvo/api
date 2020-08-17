@@ -19,6 +19,7 @@ import (
 	"github.com/hiconvo/api/handler/event"
 	"github.com/hiconvo/api/handler/inbound"
 	"github.com/hiconvo/api/handler/middleware"
+	"github.com/hiconvo/api/handler/note"
 	"github.com/hiconvo/api/handler/task"
 	"github.com/hiconvo/api/handler/thread"
 	"github.com/hiconvo/api/handler/user"
@@ -32,6 +33,7 @@ type Config struct {
 	ThreadStore   model.ThreadStore
 	EventStore    model.EventStore
 	MessageStore  model.MessageStore
+	NoteStore     model.NoteStore
 	Welcome       model.Welcomer
 	TxnMiddleware mux.MiddlewareFunc
 	Mail          *mail.Client
@@ -111,6 +113,11 @@ func New(c *Config) http.Handler {
 		OG:            c.OG,
 		Places:        c.Places,
 		Queue:         c.Queue,
+	}))
+	t.PathPrefix("/notes").Handler(note.NewHandler(&note.Config{
+		UserStore: c.UserStore,
+		NoteStore: c.NoteStore,
+		OG:        c.OG,
 	}))
 
 	h := middleware.WithCORS(router)

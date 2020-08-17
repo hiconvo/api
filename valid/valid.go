@@ -2,6 +2,7 @@ package valid
 
 import (
 	"net/http"
+	"net/url"
 	"reflect"
 	"regexp"
 	"strings"
@@ -26,6 +27,15 @@ func Email(email string) (string, error) {
 		errors.Opf("valid.Email(%q)", email),
 		errors.Str("invalid email"),
 		http.StatusBadRequest)
+}
+
+func URL(in string) (string, error) {
+	parsed, err := url.ParseRequestURI(in)
+	if err != nil {
+		return "", errors.Str("invalid url")
+	}
+
+	return parsed.String(), nil
 }
 
 func Raw(in interface{}) error {
