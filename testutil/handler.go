@@ -278,7 +278,11 @@ func NewDBClient(ctx context.Context) dbc.Client {
 }
 
 func NewMongoClient(ctx context.Context) (*mongo.Client, func()) {
-	c, closer := mgc.NewClient(ctx, "mongo")
+	conn := os.Getenv("MONGO_CONNECTION")
+	if conn == "" {
+		conn = "mongo"
+	}
+	c, closer := mgc.NewClient(ctx, conn)
 	return c, closer
 }
 
