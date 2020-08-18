@@ -22,6 +22,7 @@ const (
 	userKey contextKey = iota
 	threadKey
 	eventKey
+	noteKey
 )
 
 // WithLogging logs requests to stdout.
@@ -148,6 +149,40 @@ func WithEvent(s model.EventStore) func(http.Handler) http.Handler {
 			}
 
 			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, eventKey, event)))
+		})
+	}
+}
+
+// NoteFromContext returns the Note object that was added to the context via
+// WithNote middleware.
+func NoteFromContext(ctx context.Context) *model.Note {
+	return ctx.Value(noteKey).(*model.Note)
+}
+
+// WithEvent adds the thread indicated in the url to the context. If the thread
+// cannot be found, then a 404 response is returned.
+func WithNote(s model.NoteStore) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			op := errors.Op("middleware.WithNote")
+			ctx := r.Context()
+			u := UserFromContext(ctx)
+			vars := mux.Vars(r)
+			id := vars["noteID"]
+
+			n, err := s.GetNoteByID(ctx, id)
+			if err != nil {
+				bjson.HandleError(w, errors.E(op, http.StatusNotFound, err))
+				return
+			}
+
+			if n.OwnerID != u.ID {
+				bjson.HandleError(w, errors.E(
+					op, errors.Str("no permission"), http.StatusNotFound))
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, noteKey, n)))
 		})
 	}
 }

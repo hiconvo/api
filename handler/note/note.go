@@ -24,17 +24,20 @@ func NewHandler(c *Config) *mux.Router {
 	r := mux.NewRouter()
 
 	r.Use(middleware.WithUser(c.UserStore))
-
 	r.HandleFunc("/notes", c.CreateNote).Methods("POST")
 	r.HandleFunc("/notes", c.GetNotes).Methods("GET")
-	r.HandleFunc("/notes/{noteID}", c.GetNote).Methods("GET")
-	r.HandleFunc("/notes/{noteID}", c.DeleteNote).Methods("DELETE")
+
+	s := r.NewRoute().Subrouter()
+	s.Use(middleware.WithNote(c.NoteStore))
+	s.HandleFunc("/notes/{noteID}", c.GetNote).Methods("GET")
+	s.HandleFunc("/notes/{noteID}", c.UpdateNote).Methods("PATCH")
+	s.HandleFunc("/notes/{noteID}", c.DeleteNote).Methods("DELETE")
 
 	return r
 }
 
 type createNotePayload struct {
-	Name    string
+	Name    string `validate:"max=255"`
 	Favicon string
 	URL     string
 	Tags    []string
@@ -78,28 +81,6 @@ func (c *Config) CreateNote(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, n, http.StatusCreated)
 }
 
-func (c *Config) GetNote(w http.ResponseWriter, r *http.Request) {
-	op := errors.Op("handlers.GetNote")
-	ctx := r.Context()
-	u := middleware.UserFromContext(ctx)
-	vars := mux.Vars(r)
-	id := vars["noteID"]
-
-	n, err := c.NoteStore.GetNoteByID(ctx, id)
-	if err != nil {
-		bjson.HandleError(w, errors.E(op, err))
-		return
-	}
-
-	if n.OwnerID != u.ID {
-		bjson.HandleError(w, errors.E(
-			op, errors.Str("no permission"), http.StatusNotFound))
-		return
-	}
-
-	bjson.WriteJSON(w, n, http.StatusOK)
-}
-
 func (c *Config) GetNotes(w http.ResponseWriter, r *http.Request) {
 	op := errors.Op("handlers.GetNotes")
 	ctx := r.Context()
@@ -118,24 +99,73 @@ func (c *Config) GetNotes(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, map[string]interface{}{"notes": notes}, http.StatusOK)
 }
 
-func (c *Config) DeleteNote(w http.ResponseWriter, r *http.Request) {
-	op := errors.Op("handlers.GetNote")
-	ctx := r.Context()
-	u := middleware.UserFromContext(ctx)
-	vars := mux.Vars(r)
-	id := vars["noteID"]
+func (c *Config) GetNote(w http.ResponseWriter, r *http.Request) {
+	n := middleware.NoteFromContext(r.Context())
+	bjson.WriteJSON(w, n, http.StatusOK)
+}
 
-	n, err := c.NoteStore.GetNoteByID(ctx, id)
-	if err != nil {
+type updateNotePayload struct {
+	Name    string `validate:"max=255"`
+	Favicon string
+	URL     string
+	Tags    []string
+	Body    string
+}
+
+func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.UpdateNote")
+	ctx := r.Context()
+	n := middleware.NoteFromContext(ctx)
+
+	var payload updateNotePayload
+	if err := bjson.ReadJSON(&payload, r); err != nil {
 		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
-	if n.OwnerID != u.ID {
-		bjson.HandleError(w, errors.E(
-			op, errors.Str("no permission"), http.StatusNotFound))
+	if err := valid.Raw(&payload); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
+
+	if len(payload.Name) > 0 {
+		n.Name = payload.Name
+	}
+
+	if len(payload.Favicon) > 0 {
+		if url, err := valid.URL(payload.Favicon); err == nil {
+			n.Favicon = url
+		} else {
+			bjson.HandleError(w, errors.E(op, err, http.StatusBadRequest))
+			return
+		}
+	}
+
+	if len(payload.URL) > 0 {
+		if url, err := valid.URL(payload.URL); err == nil {
+			n.URL = url
+		} else {
+			bjson.HandleError(w, errors.E(op, err, http.StatusBadRequest))
+			return
+		}
+	}
+
+	if len(payload.Body) > 0 && payload.Body != n.Body {
+		n.Body = payload.Body
+	}
+
+	if err := c.NoteStore.Commit(ctx, n); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	bjson.WriteJSON(w, n, http.StatusOK)
+}
+
+func (c *Config) DeleteNote(w http.ResponseWriter, r *http.Request) {
+	op := errors.Op("handlers.GetNote")
+	ctx := r.Context()
+	n := middleware.NoteFromContext(ctx)
 
 	if err := c.NoteStore.Delete(ctx, n); err != nil {
 		bjson.HandleError(w, errors.E(op, err))

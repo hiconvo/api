@@ -210,6 +210,73 @@ func TestGetNotes(t *testing.T) {
 	}
 }
 
+func TestUpdateNote(t *testing.T) {
+	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	n1 := testutil.NewNote(_ctx, t, _mongoClient, u1)
+
+	tests := []struct {
+		Name            string
+		GivenAuthHeader map[string]string
+		GivenBody       map[string]string
+		ExpectStatus    int
+	}{
+		{
+			Name:            "success",
+			GivenAuthHeader: testutil.GetAuthHeader(u1.Token),
+			GivenBody: map[string]string{
+				"name":    "test update",
+				"url":     "https://convo.events",
+				"favicon": "https://convo.events/favicon.ico",
+			},
+			ExpectStatus: http.StatusOK,
+		},
+		{
+			Name:            "bad url",
+			GivenAuthHeader: testutil.GetAuthHeader(u1.Token),
+			GivenBody: map[string]string{
+				"name": fake.Title(),
+				"url":  "convoevents",
+			},
+			ExpectStatus: http.StatusBadRequest,
+		},
+		{
+			Name:            "bad headers",
+			GivenAuthHeader: map[string]string{"boop": "beep"},
+			GivenBody: map[string]string{
+				"name":    fake.Title(),
+				"url":     "https://convo.events",
+				"favicon": "https://convo.events/favicon.ico",
+			},
+			ExpectStatus: http.StatusUnauthorized,
+		},
+		{
+			Name:            "wrong person",
+			GivenAuthHeader: testutil.GetAuthHeader(u2.Token),
+			ExpectStatus:    http.StatusNotFound,
+		},
+	}
+
+	for _, tcase := range tests {
+		t.Run(tcase.Name, func(t *testing.T) {
+			tt := apitest.New(tcase.Name).
+				Handler(_handler).
+				Patch(fmt.Sprintf("/notes/%s", n1.ID)).
+				JSON(tcase.GivenBody).
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectStatus)
+			if tcase.ExpectStatus < http.StatusBadRequest {
+				tt.Assert(jsonpath.Equal("$.name", tcase.GivenBody["name"]))
+				tt.Assert(jsonpath.Equal("$.url", tcase.GivenBody["url"]))
+				tt.Assert(jsonpath.Equal("$.favicon", tcase.GivenBody["favicon"]))
+				tt.Assert(jsonpath.Equal("$.id", n1.ID))
+			}
+			tt.End()
+		})
+	}
+}
+
 func TestDeleteNote(t *testing.T) {
 	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)

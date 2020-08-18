@@ -85,13 +85,20 @@ func (s *NoteStore) GetNotesByUser(
 func (s *NoteStore) Commit(ctx context.Context, n *model.Note) error {
 	op := errors.Op("NoteStore.Commit")
 
-	res, err := s.Col.InsertOne(ctx, n)
-	if err != nil {
-		return errors.E(op, err)
-	}
+	if n.Key.IsZero() {
+		res, err := s.Col.InsertOne(ctx, n)
+		if err != nil {
+			return errors.E(op, err)
+		}
 
-	n.Key = res.InsertedID.(primitive.ObjectID)
-	n.ID = n.Key.Hex()
+		n.Key = res.InsertedID.(primitive.ObjectID)
+		n.ID = n.Key.Hex()
+	} else {
+		_, err := s.Col.ReplaceOne(ctx, bson.M{"_id": n.Key}, n)
+		if err != nil {
+			return errors.E(op, err)
+		}
+	}
 
 	return nil
 }
