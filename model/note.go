@@ -21,6 +21,7 @@ type Note struct {
 	URL       string             `json:"url"`
 	Favicon   string             `json:"favicon"`
 	Name      string             `json:"name"`
+	Pin       bool               `json:"pin"`
 	CreatedAt time.Time          `json:"createdAt"`
 }
 

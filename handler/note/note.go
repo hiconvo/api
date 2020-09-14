@@ -1,6 +1,7 @@
 package note
 
 import (
+	"html"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -38,10 +39,10 @@ func NewHandler(c *Config) *mux.Router {
 
 type createNotePayload struct {
 	Name    string `validate:"max=255"`
-	Favicon string
-	URL     string
+	Favicon string `validate:"max=1023"`
+	URL     string `validate:"max=1023"`
 	Tags    []string
-	Body    string
+	Body    string `validate:"max=3071"`
 }
 
 func (c *Config) CreateNote(w http.ResponseWriter, r *http.Request) {
@@ -62,10 +63,10 @@ func (c *Config) CreateNote(w http.ResponseWriter, r *http.Request) {
 
 	n, err := model.NewNote(
 		u,
-		payload.Name,
+		html.UnescapeString(payload.Name),
 		payload.URL,
 		payload.Favicon,
-		payload.Body,
+		html.UnescapeString(payload.Body),
 		payload.Tags,
 	)
 	if err != nil {
@@ -106,10 +107,11 @@ func (c *Config) GetNote(w http.ResponseWriter, r *http.Request) {
 
 type updateNotePayload struct {
 	Name    string `validate:"max=255"`
-	Favicon string
-	URL     string
+	Favicon string `validate:"max=1023"`
+	URL     string `validate:"max=1023"`
 	Tags    []string
-	Body    string
+	Body    *string `validate:"max=3071"`
+	Pin     *bool
 }
 
 func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
@@ -128,8 +130,8 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(payload.Name) > 0 {
-		n.Name = payload.Name
+	if name := html.UnescapeString(payload.Name); len(name) > 0 {
+		n.Name = name
 	}
 
 	if len(payload.Favicon) > 0 {
@@ -150,8 +152,14 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(payload.Body) > 0 && payload.Body != n.Body {
-		n.Body = payload.Body
+	if payload.Body != nil {
+		if body := html.UnescapeString(*payload.Body); body != n.Body {
+			n.Body = body
+		}
+	}
+
+	if payload.Pin != nil && *payload.Pin != n.Pin {
+		n.Pin = *payload.Pin
 	}
 
 	if err := c.NoteStore.Commit(ctx, n); err != nil {
@@ -163,7 +171,7 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Config) DeleteNote(w http.ResponseWriter, r *http.Request) {
-	op := errors.Op("handlers.GetNote")
+	op := errors.Op("handlers.DeleteNote")
 	ctx := r.Context()
 	n := middleware.NoteFromContext(ctx)
 

@@ -61,8 +61,8 @@ func NewHandler(c *Config) *mux.Router {
 
 type createUserPayload struct {
 	Email     string `validate:"nonzero,regexp=^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]+$"`
-	FirstName string `validate:"nonzero"`
-	LastName  string
+	FirstName string `validate:"nonzero,max=127"`
+	LastName  string `validate:"max=127"`
 	Password  string `validate:"min=8"`
 }
 
@@ -629,8 +629,8 @@ func (c *Config) MagicLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateUserPayload struct {
-	FirstName   string
-	LastName    string
+	FirstName   string `validate:"max=127"`
+	LastName    string `validate:"max=127"`
 	Password    bool
 	SendDigest  *bool
 	SendThreads *bool
