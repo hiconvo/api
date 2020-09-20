@@ -2,14 +2,12 @@ package db
 
 import (
 	"context"
-	"net/http"
 	"strings"
+	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"cloud.google.com/go/datastore"
 
+	"github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/model"
 )
@@ -17,33 +15,24 @@ import (
 var _ model.NoteStore = (*NoteStore)(nil)
 
 type NoteStore struct {
-	DB  *mongo.Client
-	Col *mongo.Collection
-}
-
-func NewNoteStore(client *mongo.Client) *NoteStore {
-	return &NoteStore{DB: client, Col: client.Database("test").Collection("notes")}
+	DB db.Client
 }
 
 func (s *NoteStore) GetNoteByID(ctx context.Context, id string) (*model.Note, error) {
 	op := errors.Opf("NoteStore.GetNoteByID(id=%s)", id)
+	note := new(model.Note)
 
-	docID, err := primitive.ObjectIDFromHex(id)
+	key, err := datastore.DecodeKey(id)
 	if err != nil {
-		return nil, errors.E(op, err, http.StatusNotFound)
+		return nil, errors.E(op, err)
 	}
 
-	n := new(model.Note)
-
-	err = s.Col.FindOne(ctx, bson.M{"_id": docID}).Decode(n)
+	err = s.DB.Get(ctx, key, note)
 	if err != nil {
-		return nil, errors.E(op, err, http.StatusNotFound)
+		return nil, errors.E(op, err)
 	}
 
-	n.ID = id
-	n.Key = docID
-
-	return n, nil
+	return note, nil
 }
 
 func (s *NoteStore) GetNotesByUser(
@@ -54,29 +43,39 @@ func (s *NoteStore) GetNotesByUser(
 ) ([]*model.Note, error) {
 	op := errors.Opf("NoteStore.GetNotesByUser(u=%s)", u.Email)
 
-	m := map[string]interface{}{"ownerid": u.ID}
+	notes := make([]*model.Note, 0)
+
+	q := datastore.NewQuery("Note").
+		Filter("OwnerKey =", u.Key).
+		Order("-CreatedAt").
+		Offset(p.Offset()).
+		Limit(p.Limit())
+
+	m := map[string]interface{}{}
 
 	for _, f := range opts {
 		f(m)
 	}
 
-	cur, err := s.Col.Find(ctx, bson.M(m), options.Find().
-		SetSort(bson.M{"createdat": -1}).
-		SetLimit(int64(p.Limit())).
-		SetSkip(int64(p.Offset())))
-	if err != nil {
-		return nil, errors.E(op, err)
+	if val, ok := m["tags"]; ok {
+		q = q.Filter("Tags =", val)
 	}
 
-	notes := make([]*model.Note, cur.RemainingBatchLength())
-
-	err = cur.All(ctx, &notes)
-	if err != nil {
-		return nil, errors.E(op, err)
+	if val, ok := m["filter"]; ok {
+		if val == "note" {
+			q = q.Filter("URL =", "")
+		} else if val == "link" {
+			q = q.Filter("URL !=", "")
+		}
 	}
 
-	for i := range notes {
-		notes[i].ID = notes[i].Key.Hex()
+	if _, ok := m["search"]; ok {
+		return nil, errors.E(op, errors.Str("Not implemented"))
+	}
+
+	_, err := s.DB.GetAll(ctx, q, &notes)
+	if err != nil {
+		return notes, errors.E(op, err)
 	}
 
 	return notes, nil
@@ -85,30 +84,24 @@ func (s *NoteStore) GetNotesByUser(
 func (s *NoteStore) Commit(ctx context.Context, n *model.Note) error {
 	op := errors.Op("NoteStore.Commit")
 
-	if n.Key.IsZero() {
-		res, err := s.Col.InsertOne(ctx, n)
-		if err != nil {
-			return errors.E(op, err)
-		}
-
-		n.Key = res.InsertedID.(primitive.ObjectID)
-		n.ID = n.Key.Hex()
-	} else {
-		_, err := s.Col.ReplaceOne(ctx, bson.M{"_id": n.Key}, n)
-		if err != nil {
-			return errors.E(op, err)
-		}
+	if n.CreatedAt.IsZero() {
+		n.CreatedAt = time.Now()
 	}
+
+	key, err := s.DB.Put(ctx, n.Key, n)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	n.ID = key.Encode()
+	n.Key = key
 
 	return nil
 }
 
 func (s *NoteStore) Delete(ctx context.Context, n *model.Note) error {
-	op := errors.Opf("NoteStore.Commit(id=%s)", n.ID)
-
-	_, err := s.Col.DeleteOne(ctx, bson.M{"_id": n.Key})
-	if err != nil {
-		return errors.E(op, err)
+	if err := s.DB.Delete(ctx, n.Key); err != nil {
+		return err
 	}
 
 	return nil
@@ -117,7 +110,7 @@ func (s *NoteStore) Delete(ctx context.Context, n *model.Note) error {
 func GetNotesFilter(val string) model.GetNotesOption {
 	return func(m map[string]interface{}) {
 		if len(val) > 0 {
-			m["filter"] = val
+			m["filter"] = strings.ToLower(val)
 		}
 	}
 }
@@ -125,7 +118,7 @@ func GetNotesFilter(val string) model.GetNotesOption {
 func GetNotesSearch(val string) model.GetNotesOption {
 	return func(m map[string]interface{}) {
 		if len(val) > 0 {
-			m["$text"] = bson.M{"$search": val}
+			m["search"] = strings.ToLower(val)
 		}
 	}
 }

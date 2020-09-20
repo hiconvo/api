@@ -176,7 +176,7 @@ func WithNote(s model.NoteStore) func(http.Handler) http.Handler {
 				return
 			}
 
-			if n.OwnerID != u.ID {
+			if !n.OwnerKey.Equal(u.Key) {
 				bjson.HandleError(w, errors.E(
 					op, errors.Str("no permission"), http.StatusNotFound))
 				return

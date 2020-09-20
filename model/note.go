@@ -6,23 +6,23 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/valid"
 )
 
 type Note struct {
-	Key       primitive.ObjectID `json:"-" bson:"_id,omitempty"`
-	ID        string             `json:"id"`
-	OwnerID   string             `json:"-"`
-	Body      string             `json:"body"`
-	Tags      []string           `json:"tags"`
-	URL       string             `json:"url"`
-	Favicon   string             `json:"favicon"`
-	Name      string             `json:"name"`
-	Pin       bool               `json:"pin"`
-	CreatedAt time.Time          `json:"createdAt"`
+	Key       *datastore.Key `json:"-"        datastore:"__key__"`
+	ID        string         `json:"id"       datastore:"-"`
+	OwnerKey  *datastore.Key `json:"-"`
+	Body      string         `json:"body"`
+	Tags      []string       `json:"tags"`
+	URL       string         `json:"url"`
+	Favicon   string         `json:"favicon"`
+	Name      string         `json:"name"`
+	Pin       bool           `json:"pin"`
+	CreatedAt time.Time      `json:"createdAt"`
 }
 
 type GetNotesOption func(m map[string]interface{})
@@ -81,7 +81,8 @@ func NewNote(u *User, name, url, favicon, body string, tags []string) (*Note, er
 	}
 
 	return &Note{
-		OwnerID:   u.ID,
+		Key:       datastore.IncompleteKey("Note", nil),
+		OwnerKey:  u.Key,
 		Name:      name,
 		URL:       url,
 		Favicon:   favicon,
@@ -89,4 +90,21 @@ func NewNote(u *User, name, url, favicon, body string, tags []string) (*Note, er
 		Tags:      tags,
 		CreatedAt: time.Now(),
 	}, nil
+}
+
+func (n *Note) LoadKey(k *datastore.Key) error {
+	n.Key = k
+
+	// Add URL safe key
+	n.ID = k.Encode()
+
+	return nil
+}
+
+func (n *Note) Save() ([]datastore.Property, error) {
+	return datastore.SaveStruct(n)
+}
+
+func (n *Note) Load(ps []datastore.Property) error {
+	return datastore.LoadStruct(n, ps)
 }

@@ -32,7 +32,7 @@ import (
 	"github.com/hiconvo/api/welcome"
 )
 
-func Handler(dbClient dbc.Client, mongoClient *mongo.Client, searchClient search.Client) http.Handler {
+func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 	mailClient := mail.New(sender.NewLogger(), template.NewClient())
 	magicClient := magic.NewClient("")
 	storageClient := storage.NewClient("", "")
@@ -40,7 +40,7 @@ func Handler(dbClient dbc.Client, mongoClient *mongo.Client, searchClient search
 	threadStore := &db.ThreadStore{DB: dbClient, Storage: storageClient}
 	eventStore := &db.EventStore{DB: dbClient}
 	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
-	noteStore := db.NewNoteStore(mongoClient)
+	noteStore := &db.NoteStore{DB: dbClient}
 	welcomer := welcome.New(context.Background(), userStore, "support")
 
 	return handler.New(&handler.Config{
@@ -216,7 +216,7 @@ func NewEventMessage(
 	return m
 }
 
-func NewNote(ctx context.Context, t *testing.T, mongoClient *mongo.Client, u *model.User) *model.Note {
+func NewNote(ctx context.Context, t *testing.T, dbClient dbc.Client, u *model.User) *model.Note {
 	t.Helper()
 
 	n, err := model.NewNote(u, fake.Title(), "", "", fake.Paragraph(), []string{})
@@ -224,7 +224,7 @@ func NewNote(ctx context.Context, t *testing.T, mongoClient *mongo.Client, u *mo
 		t.Fatal(err)
 	}
 
-	s := NewNoteStore(ctx, t, mongoClient)
+	s := NewNoteStore(ctx, t, dbClient)
 
 	err = s.Commit(ctx, n)
 	if err != nil {
@@ -259,9 +259,9 @@ func NewEventStore(ctx context.Context, t *testing.T, dbClient dbc.Client) model
 	return &db.EventStore{DB: dbClient}
 }
 
-func NewNoteStore(ctx context.Context, t *testing.T, mongoClient *mongo.Client) model.NoteStore {
+func NewNoteStore(ctx context.Context, t *testing.T, dbClient dbc.Client) model.NoteStore {
 	t.Helper()
-	return db.NewNoteStore(mongoClient)
+	return &db.NoteStore{DB: dbClient}
 }
 
 func NewSearchClient() search.Client {
