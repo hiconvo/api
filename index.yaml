@@ -1,13 +1,18 @@
 indexes:
-
   - kind: Event
     properties:
-    - name: UserKeys
-    - name: CreatedAt
-      direction: desc
+      - name: UserKeys
+      - name: CreatedAt
+        direction: desc
 
   - kind: Thread
     properties:
-    - name: UserKeys
-    - name: CreatedAt
-      direction: desc
+      - name: UserKeys
+      - name: CreatedAt
+        direction: desc
+
+  - kind: Note
+    properties:
+      - name: OwnerKey
+      - name: CreatedAt
+        direction: desc

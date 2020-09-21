@@ -16,10 +16,10 @@ type Note struct {
 	Key       *datastore.Key `json:"-"        datastore:"__key__"`
 	ID        string         `json:"id"       datastore:"-"`
 	OwnerKey  *datastore.Key `json:"-"`
-	Body      string         `json:"body"`
+	Body      string         `json:"body"     datastore:",noindex"`
 	Tags      []string       `json:"tags"`
 	URL       string         `json:"url"`
-	Favicon   string         `json:"favicon"`
+	Favicon   string         `json:"favicon"  datastore:",noindex"`
 	Name      string         `json:"name"`
 	Pin       bool           `json:"pin"`
 	CreatedAt time.Time      `json:"createdAt"`

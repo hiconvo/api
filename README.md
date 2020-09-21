@@ -29,6 +29,19 @@ docker exec -it <CONTAINER ID> go test ./...
 
 Be mindful that this command will *wipe everything from the database*. There is probably a better way of doing this, but I haven't taken the time to improve this yet.
 
+## Maintenance Commands
+
+```
+# Update datastore indexes
+gcloud datastore indexes create index.yaml
+
+# Delete unused indexes
+gcloud datastore cleanup-indexes index.yaml
+
+# Update cron jobs
+gcloud app deploy cron.yaml
+```
+
 ## Architecture
 
 ![Architecture](architecture.jpg)
