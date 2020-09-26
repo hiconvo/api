@@ -97,7 +97,20 @@ func (c *Config) GetNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bjson.WriteJSON(w, map[string]interface{}{"notes": notes}, http.StatusOK)
+	resp := map[string]interface{}{"notes": notes}
+
+	if p.Page == 0 {
+		pins, err := c.NoteStore.GetNotesByUser(ctx, u,
+			&model.Pagination{Size: -1}, db.GetNotesPins())
+		if err != nil {
+			bjson.HandleError(w, errors.E(op, err))
+			return
+		}
+
+		resp["pins"] = pins
+	}
+
+	bjson.WriteJSON(w, resp, http.StatusOK)
 }
 
 func (c *Config) GetNote(w http.ResponseWriter, r *http.Request) {

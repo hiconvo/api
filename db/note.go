@@ -57,6 +57,10 @@ func (s *NoteStore) GetNotesByUser(
 		f(m)
 	}
 
+	if _, ok := m["pins"]; ok {
+		q = q.Filter("Pin =", true)
+	}
+
 	if val, ok := m["tags"]; ok {
 		q = q.Filter("Tags =", val)
 	}
@@ -128,5 +132,11 @@ func GetNotesTags(val string) model.GetNotesOption {
 		if len(val) > 0 {
 			m["tags"] = strings.ToLower(val)
 		}
+	}
+}
+
+func GetNotesPins() model.GetNotesOption {
+	return func(m map[string]interface{}) {
+		m["pins"] = true
 	}
 }
