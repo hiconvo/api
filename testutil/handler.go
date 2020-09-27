@@ -40,7 +40,7 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 	threadStore := &db.ThreadStore{DB: dbClient, Storage: storageClient}
 	eventStore := &db.EventStore{DB: dbClient}
 	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
-	noteStore := &db.NoteStore{DB: dbClient}
+	noteStore := &db.NoteStore{DB: dbClient, S: searchClient}
 	welcomer := welcome.New(context.Background(), userStore, "support")
 
 	return handler.New(&handler.Config{
@@ -216,7 +216,7 @@ func NewEventMessage(
 	return m
 }
 
-func NewNote(ctx context.Context, t *testing.T, dbClient dbc.Client, u *model.User) *model.Note {
+func NewNote(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClient search.Client, u *model.User) *model.Note {
 	t.Helper()
 
 	n, err := model.NewNote(u, fake.Title(), "", "", fake.Paragraph(), []string{})
@@ -224,7 +224,7 @@ func NewNote(ctx context.Context, t *testing.T, dbClient dbc.Client, u *model.Us
 		t.Fatal(err)
 	}
 
-	s := NewNoteStore(ctx, t, dbClient)
+	s := NewNoteStore(ctx, t, dbClient, searchClient)
 
 	err = s.Commit(ctx, n)
 	if err != nil {
@@ -259,9 +259,9 @@ func NewEventStore(ctx context.Context, t *testing.T, dbClient dbc.Client) model
 	return &db.EventStore{DB: dbClient}
 }
 
-func NewNoteStore(ctx context.Context, t *testing.T, dbClient dbc.Client) model.NoteStore {
+func NewNoteStore(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClient search.Client) model.NoteStore {
 	t.Helper()
-	return &db.NoteStore{DB: dbClient}
+	return &db.NoteStore{DB: dbClient, S: searchClient}
 }
 
 func NewSearchClient() search.Client {
@@ -287,7 +287,7 @@ func NewMongoClient(ctx context.Context) (*mongo.Client, func()) {
 }
 
 func ClearDB(ctx context.Context, client dbc.Client) {
-	for _, tp := range []string{"User", "Thread", "Event", "Message"} {
+	for _, tp := range []string{"User", "Thread", "Event", "Message", "Note"} {
 		q := datastore.NewQuery(tp).KeysOnly()
 
 		keys, err := client.GetAll(ctx, q, nil)

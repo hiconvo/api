@@ -88,7 +88,7 @@ func TestCreateNote(t *testing.T) {
 func TestGetNote(t *testing.T) {
 	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	n1 := testutil.NewNote(_ctx, t, _dbClient, u1)
+	n1 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
 
 	tests := []struct {
 		Name            string
@@ -144,11 +144,11 @@ func TestGetNote(t *testing.T) {
 
 func TestGetNotes(t *testing.T) {
 	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	n1 := testutil.NewNote(_ctx, t, _dbClient, u1)
+	n1 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
 	time.Sleep(time.Millisecond * 100)
-	n2 := testutil.NewNote(_ctx, t, _dbClient, u1)
+	n2 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
 	time.Sleep(time.Millisecond * 100)
-	n3 := testutil.NewNote(_ctx, t, _dbClient, u1)
+	n3 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
 
 	tests := []struct {
 		Name            string
@@ -213,7 +213,7 @@ func TestGetNotes(t *testing.T) {
 func TestUpdateNote(t *testing.T) {
 	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	n1 := testutil.NewNote(_ctx, t, _dbClient, u1)
+	n1 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
 
 	tests := []struct {
 		Name            string
@@ -280,7 +280,7 @@ func TestUpdateNote(t *testing.T) {
 func TestDeleteNote(t *testing.T) {
 	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
 	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	n1 := testutil.NewNote(_ctx, t, _dbClient, u1)
+	n1 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
 
 	tests := []struct {
 		Name            string
