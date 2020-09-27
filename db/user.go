@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	"github.com/olivere/elastic"
+	"github.com/olivere/elastic/v7"
 
 	"github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/clients/notification"

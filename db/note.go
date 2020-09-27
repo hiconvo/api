@@ -2,13 +2,18 @@ package db
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/datastore"
+	"github.com/olivere/elastic/v7"
 
 	"github.com/hiconvo/api/clients/db"
+	"github.com/hiconvo/api/clients/search"
 	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/model"
 )
 
@@ -16,6 +21,7 @@ var _ model.NoteStore = (*NoteStore)(nil)
 
 type NoteStore struct {
 	DB db.Client
+	S  search.Client
 }
 
 func (s *NoteStore) GetNoteByID(ctx context.Context, id string) (*model.Note, error) {
@@ -62,7 +68,11 @@ func (s *NoteStore) GetNotesByUser(
 	}
 
 	if val, ok := m["tags"]; ok {
-		q = q.Filter("Tags =", val)
+		if tag, ok := val.(string); ok {
+			q = q.Filter("Tags =", tag)
+		} else {
+			return nil, errors.E(op, http.StatusBadRequest)
+		}
 	}
 
 	if val, ok := m["filter"]; ok {
@@ -73,8 +83,18 @@ func (s *NoteStore) GetNotesByUser(
 		}
 	}
 
-	if _, ok := m["search"]; ok {
-		return nil, errors.E(op, errors.Str("Not implemented"))
+	if val, ok := m["search"]; ok {
+		if len(m) > 1 {
+			return nil, errors.E(op, errors.Str("search used with other params"),
+				map[string]string{"message": "search cannot be combined with other parameters"},
+				http.StatusBadRequest)
+		}
+
+		if query, ok := val.(string); ok {
+			return s.handleSearch(ctx, u, query)
+		}
+
+		return nil, errors.E(op, http.StatusBadRequest)
 	}
 
 	_, err := s.DB.GetAll(ctx, q, &notes)
@@ -100,15 +120,73 @@ func (s *NoteStore) Commit(ctx context.Context, n *model.Note) error {
 	n.ID = key.Encode()
 	n.Key = key
 
+	s.updateSearchIndex(ctx, n)
+
 	return nil
 }
 
 func (s *NoteStore) Delete(ctx context.Context, n *model.Note) error {
+	s.deleteSearchIndex(ctx, n)
+
 	if err := s.DB.Delete(ctx, n.Key); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (s *NoteStore) handleSearch(ctx context.Context, u *model.User, q string) ([]*model.Note, error) {
+	skip := 0
+	take := 30
+
+	notes := make([]*model.Note, 0)
+
+	esQuery := elastic.NewBoolQuery().
+		Must(elastic.NewMultiMatchQuery(q, "body", "name", "url")).
+		Filter(elastic.NewTermQuery("userId.keyword", u.Key.Encode()))
+
+	result, err := s.S.Search().
+		Index("notes").
+		Query(esQuery).
+		From(skip).Size(take).
+		Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, hit := range result.Hits.Hits {
+		note := new(model.Note)
+
+		if err := json.Unmarshal(hit.Source, note); err != nil {
+			return notes, err
+		}
+
+		notes = append(notes, note)
+	}
+
+	return notes, nil
+}
+
+func (s *NoteStore) updateSearchIndex(ctx context.Context, n *model.Note) {
+	_, upsertErr := s.S.Update().
+		Index("notes").
+		Id(n.ID).
+		DocAsUpsert(true).
+		Doc(n).
+		Do(ctx)
+	if upsertErr != nil {
+		log.Printf("Failed to index note in elasticsearch: %v", upsertErr)
+	}
+}
+
+func (s *NoteStore) deleteSearchIndex(ctx context.Context, n *model.Note) {
+	_, upsertErr := s.S.Delete().
+		Index("notes").
+		Id(n.ID).
+		Do(ctx)
+	if upsertErr != nil {
+		log.Printf("Failed to delete note in elasticsearch: %v", upsertErr)
+	}
 }
 
 func GetNotesFilter(val string) model.GetNotesOption {

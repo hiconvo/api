@@ -56,7 +56,7 @@ func main() {
 		threadStore  = &db.ThreadStore{DB: dbClient, Storage: storageClient}
 		eventStore   = &db.EventStore{DB: dbClient}
 		messageStore = &db.MessageStore{DB: dbClient, Storage: storageClient}
-		noteStore    = &db.NoteStore{DB: dbClient}
+		noteStore    = &db.NoteStore{DB: dbClient, S: searchClient}
 
 		// welcomer
 		welcomer = welcome.New(ctx, userStore, sc.Get("SUPPORT_PASSWORD", "support"))

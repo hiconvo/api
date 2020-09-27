@@ -23,7 +23,6 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.2
 	github.com/mitchellh/mapstructure v1.3.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
-	github.com/olivere/elastic v6.2.31+incompatible
 	github.com/olivere/elastic/v7 v7.0.15
 	github.com/otiai10/opengraph v1.1.1
 	github.com/russross/blackfriday/v2 v2.0.1
