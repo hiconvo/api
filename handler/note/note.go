@@ -144,10 +144,6 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if name := html.UnescapeString(payload.Name); len(name) > 0 {
-		n.Name = name
-	}
-
 	if len(payload.Favicon) > 0 {
 		if url, err := valid.URL(payload.Favicon); err == nil {
 			n.Favicon = url
@@ -179,9 +175,13 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 			n.Body = body
 
 			if n.Variant == "note" {
-				n.UpdateNameFromBody(body)
+				n.UpdateNameFromBlurb(body)
 			}
 		}
+	}
+
+	if name := html.UnescapeString(payload.Name); len(name) > 0 {
+		n.UpdateNameFromBlurb(name)
 	}
 
 	if payload.Pin != nil && *payload.Pin != n.Pin {

@@ -65,6 +65,12 @@ func NewNote(u *User, name, url, favicon, body string) (*Note, error) {
 			errors.Str("failed validation"), http.StatusBadRequest)
 	}
 
+	if len(name) == 0 && len(body) > 0 {
+		name = getNameFromBlurb(body)
+	} else {
+		name = getNameFromBlurb(name)
+	}
+
 	var variant string
 	if len(url) > 0 {
 		variant = "link"
@@ -76,7 +82,7 @@ func NewNote(u *User, name, url, favicon, body string) (*Note, error) {
 		Key:       datastore.IncompleteKey("Note", nil),
 		OwnerKey:  u.Key,
 		UserID:    u.Key.Encode(),
-		Name:      getNameFromBody(body),
+		Name:      name,
 		URL:       url,
 		Favicon:   favicon,
 		Body:      body,
@@ -140,11 +146,11 @@ func (n *Note) RemoveTag(tag string) {
 	}
 }
 
-func (n *Note) UpdateNameFromBody(body string) {
-	n.Name = getNameFromBody(body)
+func (n *Note) UpdateNameFromBlurb(body string) {
+	n.Name = getNameFromBlurb(body)
 }
 
-func getNameFromBody(body string) string {
+func getNameFromBlurb(body string) string {
 	var name string
 
 	trimmed := strings.TrimLeft(body, "#")

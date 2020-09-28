@@ -226,8 +226,9 @@ func TestUpdateNote(t *testing.T) {
 			GivenAuthHeader: testutil.GetAuthHeader(u1.Token),
 			GivenBody: map[string]string{
 				"name":    "test update",
-				"url":     "https://convo.events",
-				"favicon": "https://convo.events/favicon.ico",
+				"body":    "test update",
+				"url":     "",
+				"favicon": "",
 			},
 			ExpectStatus: http.StatusOK,
 		},
