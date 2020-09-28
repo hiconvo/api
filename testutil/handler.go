@@ -219,7 +219,7 @@ func NewEventMessage(
 func NewNote(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClient search.Client, u *model.User) *model.Note {
 	t.Helper()
 
-	n, err := model.NewNote(u, fake.Title(), "", "", fake.Paragraph(), []string{})
+	n, err := model.NewNote(u, fake.Title(), "", "", fake.Paragraph())
 	if err != nil {
 		t.Fatal(err)
 	}

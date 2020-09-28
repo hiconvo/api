@@ -23,6 +23,7 @@ type Note struct {
 	Favicon   string         `json:"favicon"  datastore:",noindex"`
 	Name      string         `json:"name"`
 	Pin       bool           `json:"pin"`
+	Variant   string         `json:"variant"`
 	CreatedAt time.Time      `json:"createdAt"`
 }
 
@@ -35,7 +36,7 @@ type NoteStore interface {
 	Delete(ctx context.Context, n *Note) error
 }
 
-func NewNote(u *User, name, url, favicon, body string, tags []string) (*Note, error) {
+func NewNote(u *User, name, url, favicon, body string) (*Note, error) {
 	op := errors.Op("model.NewNote")
 
 	errMap := map[string]string{}
@@ -43,23 +44,6 @@ func NewNote(u *User, name, url, favicon, body string, tags []string) (*Note, er
 
 	if len(url) == 0 && len(body) == 0 {
 		errMap["body"] = "body cannot be empty without a url"
-	}
-
-	if len(name) == 0 && len(body) > 0 {
-		split := strings.SplitAfterN(body, "\n", 2)
-		if len(split) > 0 {
-			if len(split[0]) > 255 {
-				name = split[0][:255]
-			} else {
-				name = split[0]
-			}
-		} else {
-			if len(body) > 255 {
-				name = body[:255]
-			} else {
-				name = body
-			}
-		}
 	}
 
 	if len(url) > 0 {
@@ -81,15 +65,22 @@ func NewNote(u *User, name, url, favicon, body string, tags []string) (*Note, er
 			errors.Str("failed validation"), http.StatusBadRequest)
 	}
 
+	var variant string
+	if len(url) > 0 {
+		variant = "link"
+	} else {
+		variant = "note"
+	}
+
 	return &Note{
 		Key:       datastore.IncompleteKey("Note", nil),
 		OwnerKey:  u.Key,
 		UserID:    u.Key.Encode(),
-		Name:      name,
+		Name:      getNameFromBody(body),
 		URL:       url,
 		Favicon:   favicon,
 		Body:      body,
-		Tags:      tags,
+		Variant:   variant,
 		CreatedAt: time.Now(),
 	}, nil
 }
@@ -128,4 +119,57 @@ func (n *Note) Load(ps []datastore.Property) error {
 	}
 
 	return nil
+}
+
+func (n *Note) AddTag(tag string) {
+	for i := range n.Tags {
+		if n.Tags[i] == tag {
+			return
+		}
+	}
+
+	n.Tags = append(n.Tags, tag)
+}
+
+func (n *Note) RemoveTag(tag string) {
+	for i := range n.Tags {
+		if n.Tags[i] == tag {
+			n.Tags[i] = n.Tags[len(n.Tags)-1]
+			n.Tags = n.Tags[:len(n.Tags)-1]
+		}
+	}
+}
+
+func (n *Note) UpdateNameFromBody(body string) {
+	n.Name = getNameFromBody(body)
+}
+
+func getNameFromBody(body string) string {
+	var name string
+
+	trimmed := strings.TrimLeft(body, "#")
+	trimmed = strings.TrimSpace(trimmed)
+	split := strings.SplitAfterN(trimmed, "\n", 2)
+
+	if len(split) > 0 {
+		if len(split[0]) > 64 {
+			name = split[0][:64]
+		} else {
+			name = split[0]
+		}
+	} else {
+		if len(body) > 64 {
+			name = body[:64]
+		} else {
+			name = body
+		}
+	}
+
+	name = strings.TrimSpace(name)
+
+	if len(name) == 0 {
+		return "Everything is what it is and not another thing"
+	}
+
+	return name
 }

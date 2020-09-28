@@ -77,9 +77,9 @@ func (s *NoteStore) GetNotesByUser(
 
 	if val, ok := m["filter"]; ok {
 		if val == "note" {
-			q = q.Filter("URL =", "")
+			q = q.Filter("Variant =", "note")
 		} else if val == "link" {
-			q = q.Filter("URL !=", "")
+			q = q.Filter("Variant =", "link")
 		}
 	}
 

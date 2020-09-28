@@ -11,6 +11,7 @@ import (
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/handler/middleware"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/model"
 	"github.com/hiconvo/api/valid"
 )
@@ -67,7 +68,6 @@ func (c *Config) CreateNote(w http.ResponseWriter, r *http.Request) {
 		payload.URL,
 		payload.Favicon,
 		html.UnescapeString(payload.Body),
-		payload.Tags,
 	)
 	if err != nil {
 		bjson.HandleError(w, errors.E(op, err))
@@ -122,7 +122,7 @@ type updateNotePayload struct {
 	Name    string `validate:"max=255"`
 	Favicon string `validate:"max=1023"`
 	URL     string `validate:"max=1023"`
-	Tags    []string
+	Tags    *[]string
 	Body    *string `validate:"max=3071"`
 	Pin     *bool
 }
@@ -131,6 +131,7 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 	op := errors.Op("handlers.UpdateNote")
 	ctx := r.Context()
 	n := middleware.NoteFromContext(ctx)
+	u := middleware.UserFromContext(ctx)
 
 	var payload updateNotePayload
 	if err := bjson.ReadJSON(&payload, r); err != nil {
@@ -156,6 +157,14 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if n.Variant == "note" && len(payload.URL) > 0 {
+		bjson.HandleError(w, errors.E(op,
+			errors.Str("url cannot be added to note"),
+			map[string]string{"message": "URL cannot be added to note of variant note"},
+			http.StatusBadRequest))
+		return
+	}
+
 	if len(payload.URL) > 0 {
 		if url, err := valid.URL(payload.URL); err == nil {
 			n.URL = url
@@ -168,6 +177,10 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 	if payload.Body != nil {
 		if body := html.UnescapeString(*payload.Body); body != n.Body {
 			n.Body = body
+
+			if n.Variant == "note" {
+				n.UpdateNameFromBody(body)
+			}
 		}
 	}
 
@@ -175,7 +188,23 @@ func (c *Config) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		n.Pin = *payload.Pin
 	}
 
+	if payload.Tags != nil {
+		userChanged, err := model.TabulateNoteTags(u, n, *payload.Tags)
+		if err != nil {
+			bjson.HandleError(w, errors.E(op, err))
+			return
+		}
+
+		if userChanged {
+			if err := c.UserStore.Commit(ctx, u); err != nil {
+				bjson.HandleError(w, errors.E(op, err))
+				return
+			}
+		}
+	}
+
 	if err := c.NoteStore.Commit(ctx, n); err != nil {
+		log.Alarm(errors.Errorf("Inconsistent data detected for u=%s note=%v", u.Email, n.Key.ID))
 		bjson.HandleError(w, errors.E(op, err))
 		return
 	}

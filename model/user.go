@@ -45,6 +45,7 @@ type User struct {
 	SendDigest       bool             `json:"sendDigest"`
 	SendThreads      bool             `json:"sendThreads"`
 	SendEvents       bool             `json:"sendEvents"`
+	Tags             TagList          `json:"tags"`
 }
 
 type UserInput struct {
