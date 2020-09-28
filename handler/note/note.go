@@ -216,6 +216,20 @@ func (c *Config) DeleteNote(w http.ResponseWriter, r *http.Request) {
 	op := errors.Op("handlers.DeleteNote")
 	ctx := r.Context()
 	n := middleware.NoteFromContext(ctx)
+	u := middleware.UserFromContext(ctx)
+
+	userChanged, err := model.TabulateNoteTags(u, n, []string{})
+	if err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
+	if userChanged {
+		if err := c.UserStore.Commit(ctx, u); err != nil {
+			bjson.HandleError(w, errors.E(op, err))
+			return
+		}
+	}
 
 	if err := c.NoteStore.Delete(ctx, n); err != nil {
 		bjson.HandleError(w, errors.E(op, err))
