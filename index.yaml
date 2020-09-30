@@ -28,3 +28,9 @@ indexes:
       - name: Tags
       - name: CreatedAt
         direction: desc
+
+  - kind: Note
+    properties:
+      - name: Variant
+      - name: CreatedAt
+        direction: desc
