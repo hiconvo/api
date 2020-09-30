@@ -35,6 +35,10 @@ func (s *NoteStore) GetNoteByID(ctx context.Context, id string) (*model.Note, er
 
 	err = s.DB.Get(ctx, key, note)
 	if err != nil {
+		if errors.Is(err, datastore.ErrNoSuchEntity) {
+			return nil, errors.E(op, err, http.StatusNotFound)
+		}
+
 		return nil, errors.E(op, err)
 	}
 

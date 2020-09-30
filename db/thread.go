@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"cloud.google.com/go/datastore"
@@ -154,6 +155,10 @@ func (s *ThreadStore) Delete(ctx context.Context, t *model.Thread) error {
 
 func (s *ThreadStore) handleGetThread(ctx context.Context, key *datastore.Key, t *model.Thread) (*model.Thread, error) {
 	if err := s.DB.Get(ctx, key, t); err != nil {
+		if errors.Is(err, datastore.ErrNoSuchEntity) {
+			return nil, errors.E(errors.Op("ThreadStore.handleGetThread"), err, http.StatusNotFound)
+		}
+
 		return t, err
 	}
 

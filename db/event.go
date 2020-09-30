@@ -163,7 +163,7 @@ func (s *EventStore) handleGetEvent(
 	e model.Event,
 ) (*model.Event, error) {
 	if err := s.DB.Get(ctx, key, &e); err != nil {
-		if err == datastore.ErrNoSuchEntity {
+		if errors.Is(err, datastore.ErrNoSuchEntity) {
 			return nil, errors.E(errors.Op("models.handleGetEvent"), http.StatusNotFound, err)
 		}
 

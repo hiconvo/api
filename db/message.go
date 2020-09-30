@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"net/http"
 	"sort"
 
 	"cloud.google.com/go/datastore"
@@ -32,6 +33,10 @@ func (s *MessageStore) GetMessageByID(ctx context.Context, id string) (*model.Me
 
 	err = s.DB.Get(ctx, key, message)
 	if err != nil {
+		if errors.Is(err, datastore.ErrNoSuchEntity) {
+			return nil, errors.E(op, err, http.StatusNotFound)
+		}
+
 		return message, errors.E(op, err)
 	}
 

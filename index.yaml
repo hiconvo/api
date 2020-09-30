@@ -16,3 +16,15 @@ indexes:
       - name: OwnerKey
       - name: CreatedAt
         direction: desc
+
+  - kind: Note
+    properties:
+      - name: Pin
+      - name: CreatedAt
+        direction: desc
+
+  - kind: Note
+    properties:
+      - name: Tags
+      - name: CreatedAt
+        direction: desc
