@@ -158,14 +158,14 @@ func getNameFromBlurb(body string) string {
 	split := strings.SplitAfterN(trimmed, "\n", 2)
 
 	if len(split) > 0 {
-		if len(split[0]) > 64 {
-			name = split[0][:64]
+		if len(split[0]) > 128 {
+			name = split[0][:128]
 		} else {
 			name = split[0]
 		}
 	} else {
-		if len(body) > 64 {
-			name = body[:64]
+		if len(body) > 128 {
+			name = body[:128]
 		} else {
 			name = body
 		}
