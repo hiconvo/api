@@ -203,6 +203,11 @@ func (c *Config) MarkThreadAsRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if model.IsRead(thread, user.Key) {
+		bjson.WriteJSON(w, thread, http.StatusOK)
+		return
+	}
+
 	if err := model.MarkMessagesAsRead(ctx, c.MessageStore, user, thread.Key); err != nil {
 		bjson.HandleError(w, err)
 		return

@@ -43,7 +43,7 @@ type createNotePayload struct {
 	Favicon string `validate:"max=1023"`
 	URL     string `validate:"max=1023"`
 	Tags    []string
-	Body    string `validate:"max=4097"`
+	Body    string `validate:"max=8191"`
 }
 
 func (c *Config) CreateNote(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +123,7 @@ type updateNotePayload struct {
 	Favicon string `validate:"max=1023"`
 	URL     string `validate:"max=1023"`
 	Tags    *[]string
-	Body    *string `validate:"max=4097"`
+	Body    *string `validate:"max=8191"`
 	Pin     *bool
 }
 

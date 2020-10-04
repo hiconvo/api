@@ -420,6 +420,11 @@ func (c *Config) MarkEventAsRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if model.IsRead(event, user.Key) {
+		bjson.WriteJSON(w, event, http.StatusOK)
+		return
+	}
+
 	if err := model.MarkMessagesAsRead(ctx, c.MessageStore, user, event.Key); err != nil {
 		bjson.HandleError(w, err)
 		return
