@@ -142,6 +142,19 @@ func (s *EventStore) Commit(ctx context.Context, e *model.Event) error {
 	return nil
 }
 
+func (s *EventStore) CommitMulti(ctx context.Context, events []*model.Event) error {
+	keys := make([]*datastore.Key, len(events))
+	for i := range events {
+		keys[i] = events[i].Key
+	}
+
+	if _, err := s.DB.PutMulti(ctx, keys, events); err != nil {
+		return errors.E(errors.Op("EventStore.CommitMulti"), err)
+	}
+
+	return nil
+}
+
 func (s *EventStore) CommitWithTransaction(
 	tx db.Transaction,
 	e *model.Event,

@@ -137,6 +137,19 @@ func (s *ThreadStore) Commit(ctx context.Context, t *model.Thread) error {
 	return nil
 }
 
+func (s *ThreadStore) CommitMulti(ctx context.Context, threads []*model.Thread) error {
+	keys := make([]*datastore.Key, len(threads))
+	for i := range threads {
+		keys[i] = threads[i].Key
+	}
+
+	if _, err := s.DB.PutMulti(ctx, keys, threads); err != nil {
+		return errors.E(errors.Op("ThreadStore.CommitMulti"), err)
+	}
+
+	return nil
+}
+
 func (s *ThreadStore) CommitWithTransaction(tx db.Transaction, t *model.Thread) (*datastore.PendingKey, error) {
 	if t.CreatedAt.IsZero() {
 		t.CreatedAt = time.Now()

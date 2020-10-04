@@ -35,6 +35,7 @@ type ThreadStore interface {
 	GetUnhydratedThreadsByUser(ctx context.Context, u *User, p *Pagination) ([]*Thread, error)
 	GetThreadsByUser(ctx context.Context, u *User, p *Pagination) ([]*Thread, error)
 	Commit(ctx context.Context, t *Thread) error
+	CommitMulti(ctx context.Context, threads []*Thread) error
 	CommitWithTransaction(tx db.Transaction, t *Thread) (*datastore.PendingKey, error)
 	Delete(ctx context.Context, t *Thread) error
 }

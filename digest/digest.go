@@ -34,6 +34,7 @@ func New(c *Config) Digester {
 }
 
 func (d *digesterImpl) Digest(ctx context.Context) error {
+	// TODO: Rewrite this whole thing so it's not garbage.
 	op := errors.Op("digest.Digest")
 	iter := d.UserStore.IterAll(ctx)
 
@@ -81,11 +82,15 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 		digestables []model.Digestable
 		// Save the upcoming events to a slice at the same time
 		upcoming []*model.Event
+		//
+		toMarkEvents  []*model.Event
+		toMarkThreads []*model.Thread
 	)
 
 	for i := range events {
 		if !model.IsRead(events[i], u.Key) {
 			digestables = append(digestables, events[i])
+			toMarkEvents = append(toMarkEvents, events[i])
 		}
 
 		if events[i].IsUpcoming() {
@@ -96,6 +101,7 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 	for i := range threads {
 		if !model.IsRead(threads[i], u.Key) {
 			digestables = append(digestables, threads[i])
+			toMarkThreads = append(toMarkThreads, threads[i])
 		}
 	}
 
@@ -113,7 +119,15 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 			return err
 		}
 
-		// TODO: Mark parents as read
+		// The following two calls are bad because they're exposed to a race condition
+		// so all this will have to change if there are ever a decent amount of real users
+		if err := markThreadsAsRead(ctx, d.ThreadStore, toMarkThreads, u); err != nil {
+			return err
+		}
+
+		if err := markEventsAsRead(ctx, d.EventStore, toMarkEvents, u); err != nil {
+			return err
+		}
 	}
 
 	log.Printf("digest.sendDigest: processed digest of %d items for user %q",
@@ -193,6 +207,42 @@ func markDigestedMessagesAsRead(
 	}
 
 	err := ms.CommitMulti(ctx, messages)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func markThreadsAsRead(
+	ctx context.Context,
+	ts model.ThreadStore,
+	threads []*model.Thread,
+	user *model.User,
+) error {
+	for i := range threads {
+		model.MarkAsRead(threads[i], user.Key)
+	}
+
+	err := ts.CommitMulti(ctx, threads)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func markEventsAsRead(
+	ctx context.Context,
+	es model.EventStore,
+	events []*model.Event,
+	user *model.User,
+) error {
+	for i := range events {
+		model.MarkAsRead(events[i], user.Key)
+	}
+
+	err := es.CommitMulti(ctx, events)
 	if err != nil {
 		return err
 	}

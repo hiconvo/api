@@ -52,6 +52,7 @@ type EventStore interface {
 	GetUnhydratedEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, error)
 	GetEventsByUser(ctx context.Context, u *User, p *Pagination) ([]*Event, error)
 	Commit(ctx context.Context, e *Event) error
+	CommitMulti(ctx context.Context, events []*Event) error
 	CommitWithTransaction(tx db.Transaction, e *Event) (*datastore.PendingKey, error)
 	Delete(ctx context.Context, e *Event) error
 }
