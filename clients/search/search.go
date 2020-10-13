@@ -6,6 +6,7 @@ import (
 
 	"github.com/olivere/elastic/v7"
 
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 )
 
@@ -17,19 +18,32 @@ type Client interface {
 
 func NewClient(hostname string) Client {
 	var (
+		op     = errors.Opf("search.NewClient(hostname=%s)", hostname)
 		client *elastic.Client
 		err    error
 	)
 
-	for {
+	const (
+		maxAttempts = 10
+		timeout     = 3
+	)
+
+	for i := 1; i <= maxAttempts; i++ {
 		client, err = elastic.NewClient(
 			elastic.SetSniff(false),
 			elastic.SetURL(fmt.Sprintf("http://%s:9200", hostname)),
 		)
 		if err != nil {
-			log.Printf("Failed to initialize elasticsearch; will retry in three seconds.\n%s\n", err)
-			time.Sleep(3 * time.Second)
+			if i == maxAttempts {
+				panic(errors.E(op, errors.Str("Failed to connect to elasticsearch")))
+			}
+
+			log.Printf("%s: Failed to connect to elasticsearch; attempt %d/%d; will retry in %d seconds\n%s\n",
+				string(op), i, maxAttempts, timeout, err)
+			time.Sleep(timeout * time.Second)
 		} else {
+			log.Printf("%s: Connected to elasticsearch", string(op))
+
 			break
 		}
 	}
