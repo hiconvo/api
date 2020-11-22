@@ -3,6 +3,9 @@ jobs:
   test:
     docker:
       - image: hiconvo/docker:ci
+        auth:
+          username: aor215
+          password: $DOCKERHUB_PASSWORD
         environment:
           DATASTORE_PROJECT_ID: local-convo-api
           DATASTORE_LISTEN_ADDRESS: localhost:8081
@@ -13,11 +16,17 @@ jobs:
           ELASTICSEARCH_HOST: localhost
           CGO_ENABLED: "0"
       - image: singularities/datastore-emulator
+        auth:
+          username: aor215
+          password: $DOCKERHUB_PASSWORD
         command: --no-store-on-disk --consistency=1.0
         environment:
           DATASTORE_PROJECT_ID: local-convo-api
           DATASTORE_LISTEN_ADDRESS: localhost:8081
       - image: elasticsearch:7.1.1
+        auth:
+          username: aor215
+          password: $DOCKERHUB_PASSWORD
         environment:
           cluster.name: docker-cluster
           bootstrap.memory_lock: "true"
@@ -49,6 +58,9 @@ jobs:
   deploy:
     docker:
       - image: hiconvo/docker:ci
+        auth:
+          username: aor215
+          password: $DOCKERHUB_PASSWORD
 
     steps:
       - run:
