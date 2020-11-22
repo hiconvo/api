@@ -746,7 +746,7 @@ func TestDeleteThreadMessage(t *testing.T) {
 	// from the database, the result of json marshaling is a couple fewer
 	// digits than marshaling the native time without truncating, which
 	// causes the tests to fail.
-	message2.Timestamp = message2.Timestamp.Truncate(time.Microsecond)
+	message2.CreatedAt = message2.CreatedAt.Truncate(time.Microsecond)
 	message2encoded, err := json.Marshal(message2)
 	if err != nil {
 		t.Error(err)

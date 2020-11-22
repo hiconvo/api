@@ -37,6 +37,8 @@ func (s *UserStore) Commit(ctx context.Context, u *model.User) error {
 		u.CreatedAt = time.Now()
 	}
 
+	u.UpdatedAt = time.Now()
+
 	if u.FirstName != "" && u.LastName != "" {
 		u.FirstName = strings.Title(strings.TrimSpace(u.FirstName))
 		u.LastName = strings.Title(strings.TrimSpace(u.LastName))
@@ -64,6 +66,12 @@ func (s *UserStore) CommitWithTransaction(
 	tx db.Transaction,
 	u *model.User,
 ) (*datastore.PendingKey, error) {
+	if u.CreatedAt.IsZero() {
+		u.CreatedAt = time.Now()
+	}
+
+	u.UpdatedAt = time.Now()
+
 	return tx.Put(u.Key, u)
 }
 

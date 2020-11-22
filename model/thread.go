@@ -25,7 +25,8 @@ type Thread struct {
 	Preview       *Message         `json:"preview"  datastore:",noindex"`
 	UserReads     []*UserPartial   `json:"reads"    datastore:"-"`
 	Reads         []*Read          `json:"-"        datastore:",noindex"`
-	CreatedAt     time.Time        `json:"-"`
+	CreatedAt     time.Time        `json:"createdAt"`
+	UpdatedAt     time.Time        `json:"updatedAt"`
 	ResponseCount int              `json:"responseCount" datastore:",noindex"`
 }
 
@@ -129,7 +130,7 @@ func (t *Thread) Load(ps []datastore.Property) error {
 				t.Preview = &Message{
 					Body:      preview.Body,
 					User:      preview.Sender,
-					Timestamp: preview.Timestamp,
+					CreatedAt: preview.Timestamp,
 				}
 			}
 		}

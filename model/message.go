@@ -21,7 +21,7 @@ type Message struct {
 	ParentKey *datastore.Key `json:"-"`
 	ParentID  string         `json:"parentId" datastore:"-"`
 	Body      string         `json:"body"     datastore:",noindex"`
-	Timestamp time.Time      `json:"timestamp"`
+	CreatedAt time.Time      `json:"createdAt"`
 	Reads     []*Read        `json:"-"        datastore:",noindex"`
 	PhotoKeys []string       `json:"-"`
 	Photos    []string       `json:"photos"   datastore:"-"`
@@ -49,7 +49,7 @@ func NewThreadMessage(u *User, t *Thread, body, photoKey string, link *og.LinkDa
 		ParentKey: t.Key,
 		ParentID:  t.ID,
 		Body:      removeLink(body, link),
-		Timestamp: ts,
+		CreatedAt: ts,
 		Link:      link,
 	}
 
@@ -80,7 +80,7 @@ func NewEventMessage(u *User, e *Event, body, photoKey string, link *og.LinkData
 		ParentKey: e.Key,
 		ParentID:  e.ID,
 		Body:      removeLink(body, link),
-		Timestamp: ts,
+		CreatedAt: ts,
 		Link:      link,
 	}
 
@@ -131,6 +131,14 @@ func (m *Message) Load(ps []datastore.Property) error {
 			}
 			m.ParentKey = k
 			m.ParentID = k.Encode()
+		}
+
+		if p.Name == "Timestamp" {
+			t, ok := p.Value.(time.Time)
+			if !ok {
+				return errors.E(op, errors.Errorf("could not load timestamp into message='%v'", m.ID))
+			}
+			m.CreatedAt = t
 		}
 	}
 

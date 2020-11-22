@@ -25,6 +25,7 @@ type Note struct {
 	Pin       bool           `json:"pin"`
 	Variant   string         `json:"variant"`
 	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
 }
 
 type GetNotesOption func(m map[string]interface{})

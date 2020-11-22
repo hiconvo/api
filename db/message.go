@@ -71,7 +71,7 @@ func (s *MessageStore) GetMessagesByKey(ctx context.Context, k *datastore.Key) (
 
 	// TODO: Get Query#Order to work above.
 	sort.Slice(messages, func(i, j int) bool {
-		return messages[i].Timestamp.Before(messages[j].Timestamp)
+		return messages[i].CreatedAt.Before(messages[j].CreatedAt)
 	})
 
 	return messages, nil

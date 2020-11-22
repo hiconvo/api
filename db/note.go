@@ -116,6 +116,8 @@ func (s *NoteStore) Commit(ctx context.Context, n *model.Note) error {
 		n.CreatedAt = time.Now()
 	}
 
+	n.UpdatedAt = time.Now()
+
 	key, err := s.DB.Put(ctx, n.Key, n)
 	if err != nil {
 		return errors.E(op, err)

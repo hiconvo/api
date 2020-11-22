@@ -44,6 +44,7 @@ type Event struct {
 	UserReads       []*UserPartial   `json:"reads"    datastore:"-"`
 	Reads           []*Read          `json:"-"        datastore:",noindex"`
 	CreatedAt       time.Time        `json:"createdAt"`
+	UpdatedAt       time.Time        `json:"updatedAt"`
 	GuestsCanInvite bool             `json:"guestsCanInvite"`
 }
 

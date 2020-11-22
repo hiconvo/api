@@ -131,6 +131,8 @@ func (s *EventStore) Commit(ctx context.Context, e *model.Event) error {
 		e.CreatedAt = time.Now()
 	}
 
+	e.UpdatedAt = time.Now()
+
 	key, err := s.DB.Put(ctx, e.Key, e)
 	if err != nil {
 		return err
@@ -159,6 +161,12 @@ func (s *EventStore) CommitWithTransaction(
 	tx db.Transaction,
 	e *model.Event,
 ) (*datastore.PendingKey, error) {
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = time.Now()
+	}
+
+	e.UpdatedAt = time.Now()
+
 	return tx.Put(e.Key, e)
 }
 

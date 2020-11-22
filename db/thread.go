@@ -126,6 +126,8 @@ func (s *ThreadStore) Commit(ctx context.Context, t *model.Thread) error {
 		t.CreatedAt = time.Now()
 	}
 
+	t.UpdatedAt = time.Now()
+
 	key, err := s.DB.Put(ctx, t.Key, t)
 	if err != nil {
 		return errors.E(errors.Op("thread.Commit"), err)
@@ -154,6 +156,8 @@ func (s *ThreadStore) CommitWithTransaction(tx db.Transaction, t *model.Thread) 
 	if t.CreatedAt.IsZero() {
 		t.CreatedAt = time.Now()
 	}
+
+	t.UpdatedAt = time.Now()
 
 	return tx.Put(t.Key, t)
 }

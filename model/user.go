@@ -42,6 +42,7 @@ type User struct {
 	ContactKeys      []*datastore.Key `json:"-"`
 	Contacts         []*UserPartial   `json:"-"        datastore:"-"`
 	CreatedAt        time.Time        `json:"-"`
+	UpdatedAt        time.Time        `json:"-"`
 	SendDigest       bool             `json:"sendDigest"`
 	SendThreads      bool             `json:"sendThreads"`
 	SendEvents       bool             `json:"sendEvents"`
