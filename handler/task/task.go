@@ -8,6 +8,7 @@ import (
 	"github.com/hiconvo/api/bjson"
 	"github.com/hiconvo/api/clients/magic"
 	"github.com/hiconvo/api/clients/queue"
+	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/digest"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
@@ -23,6 +24,7 @@ type Config struct {
 	Welcome      model.Welcomer
 	Mail         *mail.Client
 	Magic        magic.Client
+	Storage      *storage.Client
 }
 
 func NewHandler(c *Config) *mux.Router {
@@ -90,7 +92,7 @@ func (c *Config) SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if payload.Action == queue.SendWelcome {
-				err = c.Welcome.Welcome(ctx, c.ThreadStore, c.MessageStore, u)
+				err = c.Welcome.Welcome(ctx, c.ThreadStore, c.Storage, u)
 			}
 
 			if err != nil {

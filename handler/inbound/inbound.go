@@ -10,6 +10,7 @@ import (
 	"github.com/hiconvo/api/clients/magic"
 	"github.com/hiconvo/api/clients/opengraph"
 	"github.com/hiconvo/api/clients/pluck"
+	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/mail"
@@ -25,6 +26,7 @@ type Config struct {
 	Magic        magic.Client
 	Mail         *mail.Client
 	OG           opengraph.Client
+	Storage      *storage.Client
 }
 
 func NewHandler(c *Config) *mux.Router {
@@ -118,11 +120,16 @@ func (c *Config) Inbound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageBody := html.UnescapeString(payload.Body)
-	link := c.OG.Extract(ctx, messageBody)
-
 	// Create the new message
-	message, err := model.NewThreadMessage(user, thread, messageBody, "", link)
+	message, err := model.NewThreadMessage(
+		ctx,
+		c.Storage,
+		c.OG,
+		&model.NewMessageInput{
+			User:   user,
+			Parent: thread.Key,
+			Body:   html.UnescapeString(payload.Body),
+		})
 	if err != nil {
 		handleServerErrorResponse(w, err)
 		return

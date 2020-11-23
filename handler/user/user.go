@@ -145,7 +145,7 @@ func (c *Config) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.Welcome.Welcome(ctx, c.ThreadStore, c.MessageStore, user); err != nil {
+	if err := c.Welcome.Welcome(ctx, c.ThreadStore, c.Storage, user); err != nil {
 		log.Alarm(err)
 	}
 
@@ -373,7 +373,7 @@ func (c *Config) OAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.Welcome.Welcome(ctx, c.ThreadStore, c.MessageStore, u); err != nil {
+	if err := c.Welcome.Welcome(ctx, c.ThreadStore, c.Storage, u); err != nil {
 		log.Alarm(err)
 	}
 

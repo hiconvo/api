@@ -60,6 +60,7 @@ func New(c *Config) http.Handler {
 		Mail:         c.Mail,
 		Magic:        c.Magic,
 		OG:           c.OG,
+		Storage:      c.Storage,
 	}))
 	s.PathPrefix("/tasks").Handler(task.NewHandler(&task.Config{
 		UserStore:    c.UserStore,
@@ -69,6 +70,7 @@ func New(c *Config) http.Handler {
 		Welcome:      c.Welcome,
 		Mail:         c.Mail,
 		Magic:        c.Magic,
+		Storage:      c.Storage,
 	}))
 
 	t := router.NewRoute().Subrouter()

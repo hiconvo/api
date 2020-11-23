@@ -14,6 +14,7 @@ import (
 	"github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/clients/magic"
 	"github.com/hiconvo/api/clients/queue"
+	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/random"
@@ -81,7 +82,11 @@ type UserStore interface {
 }
 
 type Welcomer interface {
-	Welcome(ctx context.Context, ts ThreadStore, ms MessageStore, u *User) error
+	Welcome(
+		ctx context.Context,
+		ts ThreadStore,
+		sclient *storage.Client,
+		u *User) error
 }
 
 func NewIncompleteUser(emailAddress string) (*User, error) {

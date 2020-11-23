@@ -60,3 +60,13 @@ func (c *clientImpl) Extract(ctx context.Context, text string) *LinkData {
 		Image:       image,
 	}
 }
+
+func NewNullClient() Client {
+	return &nullClient{}
+}
+
+type nullClient struct{}
+
+func (c *nullClient) Extract(ctx context.Context, text string) *LinkData {
+	return nil
+}

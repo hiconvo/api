@@ -39,33 +39,47 @@ type MessageStore interface {
 	Delete(ctx context.Context, t *Message) error
 }
 
-func NewThreadMessage(u *User, t *Thread, body, photoKey string, link *og.LinkData) (*Message, error) {
-	ts := time.Now()
+type NewMessageInput struct {
+	User   *User
+	Parent *datastore.Key
+	Body   string
+	Blob   string
+}
+
+func NewThreadMessage(
+	ctx context.Context,
+	sclient *storage.Client,
+	ogclient og.Client,
+	input *NewMessageInput,
+) (*Message, error) {
+	var (
+		op       = errors.Op("model.NewThreadMessage")
+		ts       = time.Now()
+		photoURL string
+		err      error
+	)
+
+	link, photoURL, err := handleLinkAndPhoto(
+		ctx, sclient, ogclient, input.Parent, input.Body, input.Blob)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
 
 	message := Message{
 		Key:       datastore.IncompleteKey("Message", nil),
-		UserKey:   u.Key,
-		User:      MapUserToUserPartial(u),
-		ParentKey: t.Key,
-		ParentID:  t.ID,
-		Body:      removeLink(body, link),
+		UserKey:   input.User.Key,
+		User:      MapUserToUserPartial(input.User),
+		ParentKey: input.Parent,
+		ParentID:  input.Parent.Encode(),
+		Body:      removeLink(input.Body, link),
 		CreatedAt: ts,
 		Link:      link,
 	}
 
-	if photoKey != "" {
-		message.PhotoKeys = []string{photoKey}
-		message.Photos = []string{photoKey}
+	if photoURL != "" {
+		message.PhotoKeys = []string{photoURL}
+		message.Photos = []string{photoURL}
 	}
-
-	if t.Preview == nil {
-		t.Preview = &message
-	}
-
-	t.IncRespCount()
-
-	ClearReads(t)
-	MarkAsRead(t, u.Key)
 
 	return &message, nil
 }
@@ -225,4 +239,29 @@ func removeLink(body string, linkPtr *og.LinkData) string {
 	}
 
 	return strings.Replace(body, linkPtr.URL, "", 1)
+}
+
+func handleLinkAndPhoto(
+	ctx context.Context,
+	sclient *storage.Client,
+	ogclient og.Client,
+	key *datastore.Key,
+	body, blob string,
+) (*og.LinkData, string, error) {
+	var (
+		op       = errors.Op("model.handleLinkAndPhoto")
+		photoURL string
+		err      error
+	)
+
+	if blob != "" {
+		photoURL, err = sclient.PutPhotoFromBlob(ctx, key.Encode(), blob)
+		if err != nil {
+			return nil, "", errors.E(op, err)
+		}
+	}
+
+	link := ogclient.Extract(ctx, body)
+
+	return link, photoURL, nil
 }

@@ -1,11 +1,9 @@
 package model
 
-import (
-	"time"
-)
+import og "github.com/hiconvo/api/clients/opengraph"
 
 type Preview struct {
-	Body      string       `json:"body"`
-	Sender    *UserPartial `json:"user"`
-	Timestamp time.Time    `json:"timestamp"`
+	Body   string       `json:"body"`
+	Photos []string     `json:"photos"`
+	Link   *og.LinkData `json:"link"`
 }

@@ -10,6 +10,8 @@ import (
 	"github.com/gosimple/slug"
 
 	"github.com/hiconvo/api/clients/db"
+	og "github.com/hiconvo/api/clients/opengraph"
+	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 )
 
@@ -22,7 +24,7 @@ type Thread struct {
 	Users         []*User          `json:"-"        datastore:"-"`
 	UserPartials  []*UserPartial   `json:"users"    datastore:"-"`
 	Subject       string           `json:"subject"  datastore:",noindex"`
-	Preview       *Message         `json:"preview"  datastore:",noindex"`
+	Preview       *Preview         `json:"preview"  datastore:",noindex"`
 	UserReads     []*UserPartial   `json:"reads"    datastore:"-"`
 	Reads         []*Read          `json:"-"        datastore:",noindex"`
 	CreatedAt     time.Time        `json:"createdAt"`
@@ -39,11 +41,28 @@ type ThreadStore interface {
 	CommitMulti(ctx context.Context, threads []*Thread) error
 	CommitWithTransaction(tx db.Transaction, t *Thread) (*datastore.PendingKey, error)
 	Delete(ctx context.Context, t *Thread) error
+	AllocateKey(ctx context.Context) (*datastore.Key, error)
 }
 
-func NewThread(subject string, owner *User, users []*User) (*Thread, error) {
-	if len(users) > 11 {
-		return nil, errors.E(errors.Op("NewThread"), http.StatusBadRequest, map[string]string{
+type NewThreadInput struct {
+	Owner   *User
+	Users   []*User
+	Subject string
+	Body    string
+	Blob    string
+}
+
+func NewThread(
+	ctx context.Context,
+	tstore ThreadStore,
+	sclient *storage.Client,
+	ogclient og.Client,
+	input *NewThreadInput,
+) (*Thread, error) {
+	op := errors.Op("NewThread")
+
+	if len(input.Users) > 11 {
+		return nil, errors.E(op, http.StatusBadRequest, map[string]string{
 			"message": "Convos have a maximum of 11 members",
 		})
 	}
@@ -53,12 +72,12 @@ func NewThread(subject string, owner *User, users []*User) (*Thread, error) {
 	userKeys := make([]*datastore.Key, 0)
 	seen := make(map[string]struct{})
 	hasOwner := false
-	for _, u := range users {
+	for _, u := range input.Users {
 		if _, alreadySeen := seen[u.ID]; alreadySeen {
 			continue
 		}
 		seen[u.ID] = struct{}{}
-		if u.Key.Equal(owner.Key) {
+		if u.Key.Equal(input.Owner.Key) {
 			hasOwner = true
 		}
 		userKeys = append(userKeys, u.Key)
@@ -66,36 +85,61 @@ func NewThread(subject string, owner *User, users []*User) (*Thread, error) {
 
 	// Add the owner to the users if not already present
 	if !hasOwner {
-		userKeys = append(userKeys, owner.Key)
-		users = append(users, owner)
+		userKeys = append(userKeys, input.Owner.Key)
+		input.Users = append(input.Users, input.Owner)
+	}
+
+	key, err := tstore.AllocateKey(ctx)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	link, photoURL, err := handleLinkAndPhoto(
+		ctx, sclient, ogclient, key, input.Body, input.Blob)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	var photos []string
+	if photoURL != "" {
+		photos = []string{photoURL}
+	}
+
+	if input.Subject == "" && link != nil && link.Title != "" {
+		input.Subject = link.Title
 	}
 
 	// If a subject wasn't given, create one that is a list of the participants'
 	// names.
-	if subject == "" {
-		if len(users) == 1 {
-			subject = owner.FirstName + "'s Private Convo"
+	if input.Subject == "" {
+		if len(input.Users) == 1 {
+			input.Subject = input.Owner.FirstName + "'s Private Convo"
 		} else {
-			for i, u := range users {
-				if i == len(users)-1 {
-					subject += "and " + u.FirstName
-				} else if i == len(users)-2 {
-					subject += u.FirstName + " "
+			for i, u := range input.Users {
+				if i == len(input.Users)-1 {
+					input.Subject += "and " + u.FirstName
+				} else if i == len(input.Users)-2 {
+					input.Subject += u.FirstName + " "
 				} else {
-					subject += u.FirstName + ", "
+					input.Subject += u.FirstName + ", "
 				}
 			}
 		}
 	}
 
 	return &Thread{
-		Key:          datastore.IncompleteKey("Thread", nil),
-		OwnerKey:     owner.Key,
-		Owner:        MapUserToUserPartial(owner),
+		Key:          key,
+		OwnerKey:     input.Owner.Key,
+		Owner:        MapUserToUserPartial(input.Owner),
 		UserKeys:     userKeys,
-		Users:        users,
-		UserPartials: MapUsersToUserPartials(users),
-		Subject:      subject,
+		Users:        input.Users,
+		UserPartials: MapUsersToUserPartials(input.Users),
+		Subject:      input.Subject,
+		Preview: &Preview{
+			Body:   removeLink(input.Body, link),
+			Photos: photos,
+			Link:   link,
+		},
 	}, nil
 }
 
@@ -127,11 +171,9 @@ func (t *Thread) Load(ps []datastore.Property) error {
 		if p.Name == "Preview" {
 			preview, ok := p.Value.(*Preview)
 			if ok {
-				t.Preview = &Message{
-					Body:      preview.Body,
-					User:      preview.Sender,
-					CreatedAt: preview.Timestamp,
-				}
+				t.Preview = preview
+			} else {
+				// ignore it
 			}
 		}
 	}

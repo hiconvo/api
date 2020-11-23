@@ -110,10 +110,6 @@ func (s *ThreadStore) GetThreadsByUser(ctx context.Context, u *model.User, p *mo
 		threads[i].UserPartials = model.MapUsersToUserPartials(threadUsers)
 		threads[i].UserReads = model.MapReadsToUserPartials(threads[i], threadUsers)
 
-		if threads[i].Preview != nil {
-			threads[i].Preview.RestorePhotoURLs(s.Storage)
-		}
-
 		start += idxs[i]
 		threadPtrs[i] = threads[i]
 	}
@@ -170,6 +166,15 @@ func (s *ThreadStore) Delete(ctx context.Context, t *model.Thread) error {
 	return nil
 }
 
+func (s *ThreadStore) AllocateKey(ctx context.Context) (*datastore.Key, error) {
+	keys, err := s.DB.AllocateIDs(ctx, []*datastore.Key{datastore.IncompleteKey("Thread", nil)})
+	if err != nil {
+		return nil, err
+	}
+
+	return keys[0], nil
+}
+
 func (s *ThreadStore) handleGetThread(ctx context.Context, key *datastore.Key, t *model.Thread) (*model.Thread, error) {
 	if err := s.DB.Get(ctx, key, t); err != nil {
 		if errors.Is(err, datastore.ErrNoSuchEntity) {
@@ -201,10 +206,6 @@ func (s *ThreadStore) handleGetThread(ctx context.Context, key *datastore.Key, t
 	t.UserPartials = model.MapUsersToUserPartials(userPointers)
 	t.UserReads = model.MapReadsToUserPartials(t, userPointers)
 	t.Owner = model.MapUserToUserPartial(&owner)
-
-	if t.Preview != nil {
-		t.Preview.RestorePhotoURLs(s.Storage)
-	}
 
 	return t, nil
 }

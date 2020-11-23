@@ -7,6 +7,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/hiconvo/api/clients/opengraph"
+	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/model"
@@ -17,6 +19,7 @@ var _ model.Welcomer = (*Welcomer)(nil)
 type Welcomer struct {
 	supportUser    *model.User
 	welcomeMessage string
+	nullOG         opengraph.Client
 }
 
 func New(ctx context.Context, us model.UserStore, supportPassword string) *Welcomer {
@@ -45,41 +48,36 @@ func New(ctx context.Context, us model.UserStore, supportPassword string) *Welco
 	return &Welcomer{
 		supportUser:    spuser,
 		welcomeMessage: readStringFromFile("welcome.md"),
+		nullOG:         opengraph.NewNullClient(),
 	}
 }
 
 func (w *Welcomer) Welcome(
 	ctx context.Context,
 	ts model.ThreadStore,
-	ms model.MessageStore,
+	sclient *storage.Client,
 	u *model.User,
 ) error {
 	var op errors.Op = "user.Welcome"
 
-	thread, err := model.NewThread("Welcome", w.supportUser, []*model.User{u})
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	if err := ts.Commit(ctx, thread); err != nil {
-		return errors.E(op, err)
-	}
-
-	message, err := model.NewThreadMessage(
-		w.supportUser, thread, w.welcomeMessage, "", nil)
+	thread, err := model.NewThread(
+		ctx,
+		ts,
+		sclient,
+		w.nullOG,
+		&model.NewThreadInput{
+			Owner:   w.supportUser,
+			Users:   []*model.User{u},
+			Subject: "Welcome",
+			Body:    w.welcomeMessage,
+		})
 	if err != nil {
 		return errors.E(op, err)
 	}
 
 	// Don't spam users with this welcome message in their digests
-	model.MarkAsRead(message, u.Key)
 	model.MarkAsRead(thread, u.Key)
 
-	if err := ms.Commit(ctx, message); err != nil {
-		return errors.E(op, err)
-	}
-
-	// We have to save the thread again, which is annoying
 	if err := ts.Commit(ctx, thread); err != nil {
 		return errors.E(op, err)
 	}

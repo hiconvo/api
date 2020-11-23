@@ -62,6 +62,8 @@ func NewHandler(c *Config) *mux.Router {
 type createThreadPayload struct {
 	Subject string `validate:"max=255"`
 	Users   []*model.UserInput
+	Body    string `validate:"nonzero"`
+	Blob    string
 }
 
 // CreateThread creates a thread.
@@ -94,7 +96,18 @@ func (c *Config) CreateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	thread, err := model.NewThread(html.UnescapeString(payload.Subject), u, users)
+	thread, err := model.NewThread(
+		ctx,
+		c.ThreadStore,
+		c.Storage,
+		c.OG,
+		&model.NewThreadInput{
+			Owner:   u,
+			Users:   users,
+			Subject: html.UnescapeString(payload.Subject),
+			Body:    html.UnescapeString(payload.Body),
+			Blob:    payload.Blob,
+		})
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
@@ -103,6 +116,16 @@ func (c *Config) CreateThread(w http.ResponseWriter, r *http.Request) {
 	if err := c.ThreadStore.Commit(ctx, thread); err != nil {
 		bjson.HandleError(w, err)
 		return
+	}
+
+	if thread.IsSendable() {
+		if err := c.Queue.PutEmail(ctx, queue.EmailPayload{
+			IDs:    []string{thread.ID},
+			Type:   queue.Thread,
+			Action: queue.SendThread,
+		}); err != nil {
+			log.Alarm(err)
+		}
 	}
 
 	bjson.WriteJSON(w, thread, http.StatusCreated)
@@ -156,6 +179,8 @@ func (c *Config) DeleteThread(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	// TODO: Delete messages too
 
 	if err := c.ThreadStore.Delete(ctx, thread); err != nil {
 		bjson.HandleError(w, err)
@@ -433,40 +458,25 @@ func (c *Config) AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		photoURL string
-		err      error
-	)
-
-	if payload.Blob != "" {
-		photoURL, err = c.Storage.PutPhotoFromBlob(ctx, thread.ID, payload.Blob)
-		if err != nil {
-			bjson.HandleError(w, errors.E(op, err))
-			return
-		}
-	}
-
-	messageBody := html.UnescapeString(payload.Body)
-	link := c.OG.Extract(ctx, messageBody)
-
 	message, err := model.NewThreadMessage(
-		u,
-		thread,
-		messageBody,
-		photoURL,
-		link,
+		ctx,
+		c.Storage,
+		c.OG,
+		&model.NewMessageInput{
+			User:   u,
+			Parent: thread.Key,
+			Body:   html.UnescapeString(payload.Body),
+			Blob:   payload.Blob,
+		},
 	)
 	if err != nil {
 		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
-	if thread.ResponseCount == 1 {
-		// Name the thread after the link, if included
-		if message.HasLink() && message.Link.Title != "" {
-			thread.Subject = message.Link.Title
-		}
-	}
+	thread.IncRespCount()
+	model.ClearReads(thread)
+	model.MarkAsRead(thread, u.Key)
 
 	if err := c.MessageStore.Commit(ctx, message); err != nil {
 		bjson.HandleError(w, errors.E(op, err))
@@ -493,16 +503,6 @@ func (c *Config) AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 			TargetName: thread.Subject,
 		}); err != nil {
 			// Log the error but don't fail the request
-			log.Alarm(err)
-		}
-	}
-
-	if thread.IsSendable() {
-		if err := c.Queue.PutEmail(ctx, queue.EmailPayload{
-			IDs:    []string{thread.ID},
-			Type:   queue.Thread,
-			Action: queue.SendThread,
-		}); err != nil {
 			log.Alarm(err)
 		}
 	}

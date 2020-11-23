@@ -21,6 +21,7 @@ type Client interface {
 	PutMultiWithTransaction(ctx context.Context, keys []*datastore.Key, src interface{}) (ret []*datastore.PendingKey, err error)
 	Run(ctx context.Context, q *datastore.Query) *datastore.Iterator
 	NewTransaction(ctx context.Context) (Transaction, error)
+	AllocateIDs(ctx context.Context, keys []*datastore.Key) ([]*datastore.Key, error)
 	Close() error
 }
 
@@ -46,7 +47,11 @@ type clientImpl struct {
 }
 
 func (c *clientImpl) Close() error {
-	return c.Close()
+	return c.client.Close()
+}
+
+func (c *clientImpl) AllocateIDs(ctx context.Context, keys []*datastore.Key) ([]*datastore.Key, error) {
+	return c.client.AllocateIDs(ctx, keys)
 }
 
 func (c *clientImpl) Count(ctx context.Context, q *datastore.Query) (int, error) {
