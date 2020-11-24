@@ -20,13 +20,14 @@ var (
 	_handler      http.Handler
 	_dbClient     db.Client
 	_searchClient search.Client
+	_mock         *testutil.Mock
 )
 
 func TestMain(m *testing.M) {
 	_ctx = context.Background()
 	_dbClient = testutil.NewDBClient(_ctx)
 	_searchClient = testutil.NewSearchClient()
-	_handler = testutil.Handler(_dbClient, _searchClient)
+	_handler, _mock = testutil.Handler(_dbClient, _searchClient)
 
 	testutil.ClearDB(_ctx, _dbClient)
 
@@ -34,8 +35,7 @@ func TestMain(m *testing.M) {
 
 	testutil.ClearDB(_ctx, _dbClient)
 
-	// _dbClient.Close()
-	// closer()
+	_dbClient.Close()
 
 	os.Exit(result)
 }

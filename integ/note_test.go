@@ -15,7 +15,7 @@ import (
 )
 
 func TestCreateNote(t *testing.T) {
-	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u1, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name            string
@@ -86,9 +86,9 @@ func TestCreateNote(t *testing.T) {
 }
 
 func TestGetNote(t *testing.T) {
-	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	n1 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
+	u1, _ := _mock.NewUser(_ctx, t)
+	u2, _ := _mock.NewUser(_ctx, t)
+	n1 := _mock.NewNote(_ctx, t, u1)
 
 	tests := []struct {
 		Name            string
@@ -143,12 +143,12 @@ func TestGetNote(t *testing.T) {
 }
 
 func TestGetNotes(t *testing.T) {
-	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	n1 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
+	u1, _ := _mock.NewUser(_ctx, t)
+	n1 := _mock.NewNote(_ctx, t, u1)
 	time.Sleep(time.Millisecond * 100)
-	n2 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
+	n2 := _mock.NewNote(_ctx, t, u1)
 	time.Sleep(time.Millisecond * 100)
-	n3 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
+	n3 := _mock.NewNote(_ctx, t, u1)
 
 	tests := []struct {
 		Name            string
@@ -211,9 +211,9 @@ func TestGetNotes(t *testing.T) {
 }
 
 func TestUpdateNote(t *testing.T) {
-	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	n1 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
+	u1, _ := _mock.NewUser(_ctx, t)
+	u2, _ := _mock.NewUser(_ctx, t)
+	n1 := _mock.NewNote(_ctx, t, u1)
 
 	tests := []struct {
 		Name            string
@@ -279,9 +279,9 @@ func TestUpdateNote(t *testing.T) {
 }
 
 func TestDeleteNote(t *testing.T) {
-	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	n1 := testutil.NewNote(_ctx, t, _dbClient, _searchClient, u1)
+	u1, _ := _mock.NewUser(_ctx, t)
+	u2, _ := _mock.NewUser(_ctx, t)
+	n1 := _mock.NewNote(_ctx, t, u1)
 
 	tests := []struct {
 		Name            string

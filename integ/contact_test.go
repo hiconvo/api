@@ -12,9 +12,9 @@ import (
 )
 
 func TestGetContacts(t *testing.T) {
-	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	contact1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	contact2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	user, _ := _mock.NewUser(_ctx, t)
+	contact1, _ := _mock.NewUser(_ctx, t)
+	contact2, _ := _mock.NewUser(_ctx, t)
 
 	if err := user.AddContact(contact1); err != nil {
 		t.Fatal(err)
@@ -81,8 +81,8 @@ func TestGetContacts(t *testing.T) {
 }
 
 func TestCreateContact(t *testing.T) {
-	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	contact1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	user, _ := _mock.NewUser(_ctx, t)
+	contact1, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name         string
@@ -139,8 +139,8 @@ func TestCreateContact(t *testing.T) {
 ////////////////////////////////////
 
 func TestDeleteContact(t *testing.T) {
-	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	contact1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	user, _ := _mock.NewUser(_ctx, t)
+	contact1, _ := _mock.NewUser(_ctx, t)
 
 	user.AddContact(contact1)
 

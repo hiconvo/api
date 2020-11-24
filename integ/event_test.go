@@ -19,9 +19,9 @@ import (
 )
 
 func TestCreateEvent(t *testing.T) {
-	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	u3, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u1, _ := _mock.NewUser(_ctx, t)
+	u2, _ := _mock.NewUser(_ctx, t)
+	u3, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name           string
@@ -176,12 +176,12 @@ func TestCreateEvent(t *testing.T) {
 }
 
 func TestGetEvents(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	host1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host1}, []*model.User{member1, member2})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	host1, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host1}, []*model.User{member1, member2})
 
 	tests := []struct {
 		Name         string
@@ -239,11 +239,11 @@ func TestGetEvents(t *testing.T) {
 }
 
 func TestGetEvent(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	host, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host}, []*model.User{member})
 	url := fmt.Sprintf("/events/%s", event.ID)
 
 	tests := []struct {
@@ -291,11 +291,11 @@ func TestGetEvent(t *testing.T) {
 }
 
 func TestDeleteEvent(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	host, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host}, []*model.User{member})
 	url := fmt.Sprintf("/events/%s", event.ID)
 
 	tests := []struct {
@@ -355,13 +355,13 @@ func TestDeleteEvent(t *testing.T) {
 }
 
 func TestGetEventMessages(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
-	message1 := testutil.NewEventMessage(_ctx, t, _dbClient, owner, event)
-	message2 := testutil.NewEventMessage(_ctx, t, _dbClient, owner, event)
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member1, member2})
+	message1 := _mock.NewEventMessage(_ctx, t, owner, event)
+	message2 := _mock.NewEventMessage(_ctx, t, owner, event)
 	url := fmt.Sprintf("/events/%s/messages", event.ID)
 
 	tests := []struct {
@@ -413,11 +413,11 @@ func TestGetEventMessages(t *testing.T) {
 }
 
 func TestAddMessageToEvent(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member1, member2})
 	url := fmt.Sprintf("/events/%s/messages", event.ID)
 
 	tests := []struct {
@@ -499,13 +499,13 @@ func TestAddMessageToEvent(t *testing.T) {
 }
 
 func TestDeleteEventMessage(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
-	message1 := testutil.NewEventMessage(_ctx, t, _dbClient, owner, event)
-	message2 := testutil.NewEventMessage(_ctx, t, _dbClient, member1, event)
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member1, member2})
+	message1 := _mock.NewEventMessage(_ctx, t, owner, event)
+	message2 := _mock.NewEventMessage(_ctx, t, member1, event)
 
 	// We reduce the time resolution because the test database does not
 	// store it with native resolution. When the time is retrieved
@@ -568,13 +568,13 @@ func TestDeleteEventMessage(t *testing.T) {
 }
 
 func TestMarkEventAsRead(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
-	testutil.NewEventMessage(_ctx, t, _dbClient, owner, event)
-	testutil.NewEventMessage(_ctx, t, _dbClient, member1, event)
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member1, member2})
+	_mock.NewEventMessage(_ctx, t, owner, event)
+	_mock.NewEventMessage(_ctx, t, member1, event)
 	url := fmt.Sprintf("/events/%s/reads", event.ID)
 
 	tests := []struct {
@@ -621,11 +621,11 @@ func TestMarkEventAsRead(t *testing.T) {
 }
 
 func TestGetMagicLink(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	host, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host}, []*model.User{member})
 
 	tests := []struct {
 		Name         string
@@ -668,11 +668,11 @@ func TestGetMagicLink(t *testing.T) {
 }
 
 func TestUpdateEvent(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	host, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host}, []*model.User{member})
 	url := fmt.Sprintf("/events/%s", event.ID)
 
 	tests := []struct {
@@ -736,16 +736,16 @@ func TestUpdateEvent(t *testing.T) {
 }
 
 func TestAddUserToEvent(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	memberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	secondMemberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thridMemberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	host, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	memberToAdd, _ := _mock.NewUser(_ctx, t)
+	secondMemberToAdd, _ := _mock.NewUser(_ctx, t)
+	thridMemberToAdd, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host}, []*model.User{member})
 
-	eventAllowGuests := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member})
+	eventAllowGuests := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member})
 	eventAllowGuests.GuestsCanInvite = true
 	if _, err := _dbClient.Put(_ctx, eventAllowGuests.Key, eventAllowGuests); err != nil {
 		t.Fatal(err)
@@ -847,12 +847,12 @@ func TestAddUserToEvent(t *testing.T) {
 }
 
 func TestRemoveUserFromEvent(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	memberToRemove, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	memberToLeave, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member, memberToRemove, memberToLeave})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	memberToRemove, _ := _mock.NewUser(_ctx, t)
+	memberToLeave, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member, memberToRemove, memberToLeave})
 
 	tests := []struct {
 		Name              string
@@ -925,10 +925,10 @@ func TestRemoveUserFromEvent(t *testing.T) {
 }
 
 func TestAddRSVPToEvent(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member})
 	url := fmt.Sprintf("/events/%s/rsvps", event.ID)
 
 	tests := []struct {
@@ -978,11 +978,11 @@ func TestAddRSVPToEvent(t *testing.T) {
 }
 
 func TestRemoveRSVPFromEvent(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	memberToRemove, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member, memberToRemove})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	memberToRemove, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member, memberToRemove})
 
 	if err := event.AddRSVP(memberToRemove); err != nil {
 		t.Fatal(err)
@@ -1055,12 +1055,12 @@ func TestRemoveRSVPFromEvent(t *testing.T) {
 }
 
 func TestMagicInvite(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
-	event2 := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	host, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host}, []*model.User{member})
+	event2 := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member})
 
 	magicClient := magic.NewClient("")
 	magicLink := event.GetInviteMagicLink(magicClient)
@@ -1118,11 +1118,11 @@ func TestMagicInvite(t *testing.T) {
 }
 
 func TestRollMagicLink(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	host, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{host}, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	host, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host}, []*model.User{member})
 
 	tests := []struct {
 		Name         string
@@ -1166,11 +1166,11 @@ func TestRollMagicLink(t *testing.T) {
 }
 
 func TestMagicRSVP(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member1, member2})
 
 	link := event.GetRSVPMagicLink(magic.NewClient(""), member1)
 	kenc, b64ts, sig := testutil.GetMagicLinkParts(link)

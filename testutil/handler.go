@@ -32,7 +32,23 @@ import (
 	"github.com/hiconvo/api/welcome"
 )
 
-func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
+type Mock struct {
+	UserStore    model.UserStore
+	ThreadStore  model.ThreadStore
+	EventStore   model.EventStore
+	MessageStore model.MessageStore
+	NoteStore    model.NoteStore
+	Welcome      model.Welcomer
+	Mail         *mail.Client
+	Magic        magic.Client
+	OAuth        oauth.Client
+	Storage      *storage.Client
+	OG           opengraph.Client
+	Places       places.Client
+	Queue        queue.Client
+}
+
+func Handler(dbClient dbc.Client, searchClient search.Client) (http.Handler, *Mock) {
 	mailClient := mail.New(sender.NewLogger(), template.NewClient())
 	magicClient := magic.NewClient("")
 	storageClient := storage.NewClient("", "")
@@ -43,7 +59,7 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 	noteStore := &db.NoteStore{DB: dbClient, S: searchClient}
 	welcomer := welcome.New(context.Background(), userStore, "support")
 
-	return handler.New(&handler.Config{
+	h := handler.New(&handler.Config{
 		Transacter:    dbClient,
 		UserStore:     userStore,
 		ThreadStore:   threadStore,
@@ -61,9 +77,27 @@ func Handler(dbClient dbc.Client, searchClient search.Client) http.Handler {
 		Places:        places.NewLogger(),
 		Queue:         queue.NewLogger(),
 	})
+
+	m := &Mock{
+		UserStore:    userStore,
+		ThreadStore:  threadStore,
+		EventStore:   eventStore,
+		MessageStore: messageStore,
+		NoteStore:    noteStore,
+		Welcome:      welcomer,
+		Mail:         mailClient,
+		Magic:        magicClient,
+		Storage:      storageClient,
+		OAuth:        oauth.NewClient(""),
+		OG:           opengraph.NewClient(),
+		Places:       places.NewLogger(),
+		Queue:        queue.NewLogger(),
+	}
+
+	return h, m
 }
 
-func NewUser(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClient search.Client) (*model.User, string) {
+func (m *Mock) NewUser(ctx context.Context, t *testing.T) (*model.User, string) {
 	t.Helper()
 
 	email := fake.EmailAddress()
@@ -80,9 +114,7 @@ func NewUser(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClien
 
 	u.Verified = true
 
-	s := NewUserStore(ctx, t, dbClient, searchClient)
-
-	err = s.Commit(ctx, u)
+	err = m.UserStore.Commit(ctx, u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +122,7 @@ func NewUser(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClien
 	return u, pw
 }
 
-func NewIncompleteUser(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClient search.Client) *model.User {
+func (m *Mock) NewIncompleteUser(ctx context.Context, t *testing.T) *model.User {
 	t.Helper()
 
 	u, err := model.NewIncompleteUser(fake.EmailAddress())
@@ -98,9 +130,7 @@ func NewIncompleteUser(ctx context.Context, t *testing.T, dbClient dbc.Client, s
 		t.Fatal(err)
 	}
 
-	s := NewUserStore(ctx, t, dbClient, searchClient)
-
-	err = s.Commit(ctx, u)
+	err = m.UserStore.Commit(ctx, u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,23 +138,25 @@ func NewIncompleteUser(ctx context.Context, t *testing.T, dbClient dbc.Client, s
 	return u
 }
 
-func NewThread(
+func (m *Mock) NewThread(
 	ctx context.Context,
 	t *testing.T,
-	dbClient dbc.Client,
 	owner *model.User,
 	users []*model.User,
 ) *model.Thread {
 	t.Helper()
 
-	th, err := model.NewThread(fake.Title(), owner, users)
+	th, err := model.NewThread(ctx, m.ThreadStore, m.Storage, m.OG, &model.NewThreadInput{
+		Owner:   owner,
+		Users:   users,
+		Subject: fake.Title(),
+		Body:    fake.Paragraph(),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := NewThreadStore(ctx, t, dbClient)
-
-	err = s.Commit(ctx, th)
+	err = m.ThreadStore.Commit(ctx, th)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,10 +164,9 @@ func NewThread(
 	return th
 }
 
-func NewEvent(
+func (m *Mock) NewEvent(
 	ctx context.Context,
 	t *testing.T,
-	dbClient dbc.Client,
 	owner *model.User,
 	hosts []*model.User,
 	users []*model.User,
@@ -158,9 +189,7 @@ func NewEvent(
 		t.Fatal(err)
 	}
 
-	s := NewEventStore(ctx, t, dbClient)
-
-	err = s.Commit(ctx, ev)
+	err = m.EventStore.Commit(ctx, ev)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,55 +197,58 @@ func NewEvent(
 	return ev
 }
 
-func NewThreadMessage(
+func (m *Mock) NewThreadMessage(
 	ctx context.Context,
 	t *testing.T,
-	dbClient dbc.Client,
 	owner *model.User,
 	thread *model.Thread,
 ) *model.Message {
 	t.Helper()
 
-	m, err := model.NewThreadMessage(owner, thread, fake.Paragraph(), "", nil)
+	mess, err := model.NewThreadMessage(
+		ctx,
+		m.Storage,
+		m.OG,
+		&model.NewMessageInput{
+			User:   owner,
+			Parent: thread.Key,
+			Body:   fake.Paragraph(),
+			Blob:   "",
+		})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := NewMessageStore(ctx, t, dbClient)
-
-	err = s.Commit(ctx, m)
+	err = m.MessageStore.Commit(ctx, mess)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return m
+	return mess
 }
 
-func NewEventMessage(
+func (m *Mock) NewEventMessage(
 	ctx context.Context,
 	t *testing.T,
-	dbClient dbc.Client,
 	owner *model.User,
 	event *model.Event,
 ) *model.Message {
 	t.Helper()
 
-	m, err := model.NewEventMessage(owner, event, fake.Paragraph(), "", nil)
+	mess, err := model.NewEventMessage(owner, event, fake.Paragraph(), "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := NewMessageStore(ctx, t, dbClient)
-
-	err = s.Commit(ctx, m)
+	err = m.MessageStore.Commit(ctx, mess)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return m
+	return mess
 }
 
-func NewNote(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClient search.Client, u *model.User) *model.Note {
+func (m *Mock) NewNote(ctx context.Context, t *testing.T, u *model.User) *model.Note {
 	t.Helper()
 
 	n, err := model.NewNote(u, fake.Title(), "", "", fake.Paragraph())
@@ -224,9 +256,7 @@ func NewNote(ctx context.Context, t *testing.T, dbClient dbc.Client, searchClien
 		t.Fatal(err)
 	}
 
-	s := NewNoteStore(ctx, t, dbClient, searchClient)
-
-	err = s.Commit(ctx, n)
+	err = m.NoteStore.Commit(ctx, n)
 	if err != nil {
 		t.Fatal(err)
 	}

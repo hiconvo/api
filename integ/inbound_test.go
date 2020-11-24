@@ -11,18 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/hiconvo/api/model"
-	"github.com/hiconvo/api/testutil"
 )
 
 func TestInbound(t *testing.T) {
-	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	u3, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, u1, []*model.User{u2, u3})
+	u1, _ := _mock.NewUser(_ctx, t)
+	u2, _ := _mock.NewUser(_ctx, t)
+	u3, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, u1, []*model.User{u2, u3})
 
-	ms := testutil.NewMessageStore(_ctx, t, _dbClient)
-
-	messages, err := ms.GetMessagesByThread(_ctx, thread)
+	messages, err := _mock.MessageStore.GetMessagesByThread(_ctx, thread)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +52,7 @@ func TestInbound(t *testing.T) {
 	rr := httptest.NewRecorder()
 	_handler.ServeHTTP(rr, req)
 
-	newMessages, err := ms.GetMessagesByThread(_ctx, thread)
+	newMessages, err := _mock.MessageStore.GetMessagesByThread(_ctx, thread)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,8 +18,8 @@ import (
 )
 
 func TestCreateThread(t *testing.T) {
-	u1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	u2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	u1, _ := _mock.NewUser(_ctx, t)
+	u2, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name             string
@@ -40,6 +40,7 @@ func TestCreateThread(t *testing.T) {
 						"id": u2.ID,
 					},
 				},
+				"body": fake.Paragraph(),
 			},
 			ExpectStatus:     http.StatusCreated,
 			ExpectOwnerID:    u1.ID,
@@ -65,6 +66,7 @@ func TestCreateThread(t *testing.T) {
 						"email": "someone@somewhere.com",
 					},
 				},
+				"body": fake.Paragraph(),
 			},
 			ExpectStatus:     http.StatusCreated,
 			ExpectOwnerID:    u1.ID,
@@ -94,6 +96,7 @@ func TestCreateThread(t *testing.T) {
 						"id": u2.ID,
 					},
 				},
+				"body": fake.Paragraph(),
 			},
 			ExpectStatus: http.StatusUnauthorized,
 		},
@@ -121,11 +124,11 @@ func TestCreateThread(t *testing.T) {
 }
 
 func TestGetThreads(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member1, member2})
 
 	tests := []struct {
 		Name          string
@@ -185,10 +188,10 @@ func TestGetThreads(t *testing.T) {
 }
 
 func TestGetThread(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member})
 	url := fmt.Sprintf("/threads/%s", thread.ID)
 
 	tests := []struct {
@@ -237,10 +240,10 @@ func TestGetThread(t *testing.T) {
 }
 
 func TestDeleteThread(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member})
 	url := fmt.Sprintf("/threads/%s", thread.ID)
 
 	tests := []struct {
@@ -303,13 +306,13 @@ func TestDeleteThread(t *testing.T) {
 }
 
 func TestGetMessagesByThread(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
-	message1 := testutil.NewThreadMessage(_ctx, t, _dbClient, owner, thread)
-	message2 := testutil.NewThreadMessage(_ctx, t, _dbClient, member1, thread)
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member1, member2})
+	message1 := _mock.NewThreadMessage(_ctx, t, owner, thread)
+	message2 := _mock.NewThreadMessage(_ctx, t, member1, thread)
 	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
 	tests := []struct {
@@ -361,10 +364,10 @@ func TestGetMessagesByThread(t *testing.T) {
 }
 
 func TestMarkThreadAsRead(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member})
 	url := fmt.Sprintf("/threads/%s/reads", thread.ID)
 
 	tests := []struct {
@@ -411,10 +414,10 @@ func TestMarkThreadAsRead(t *testing.T) {
 }
 
 func TestUpdateThread(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member})
 	url := fmt.Sprintf("/threads/%s", thread.ID)
 
 	tests := []struct {
@@ -472,12 +475,12 @@ func TestUpdateThread(t *testing.T) {
 }
 
 func TestAddUserToThread(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	memberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	secondMemberToAdd, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	memberToAdd, _ := _mock.NewUser(_ctx, t)
+	secondMemberToAdd, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member})
 
 	tests := []struct {
 		Name         string
@@ -570,12 +573,12 @@ func TestAddUserToThread(t *testing.T) {
 }
 
 func TestRemoveFromThread(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	memberToRemove, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	memberToLeave, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member, memberToRemove, memberToLeave})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member, _ := _mock.NewUser(_ctx, t)
+	memberToRemove, _ := _mock.NewUser(_ctx, t)
+	memberToLeave, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member, memberToRemove, memberToLeave})
 
 	tests := []struct {
 		Name              string
@@ -648,11 +651,11 @@ func TestRemoveFromThread(t *testing.T) {
 }
 
 func TestAddMessageToThread(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member1, member2})
 	url := fmt.Sprintf("/threads/%s/messages", thread.ID)
 
 	tests := []struct {
@@ -733,13 +736,13 @@ func TestAddMessageToThread(t *testing.T) {
 }
 
 func TestDeleteThreadMessage(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	nonmember, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
-	message1 := testutil.NewThreadMessage(_ctx, t, _dbClient, owner, thread)
-	message2 := testutil.NewThreadMessage(_ctx, t, _dbClient, member1, thread)
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	nonmember, _ := _mock.NewUser(_ctx, t)
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member1, member2})
+	message1 := _mock.NewThreadMessage(_ctx, t, owner, thread)
+	message2 := _mock.NewThreadMessage(_ctx, t, member1, thread)
 
 	// We reduce the time resolution because the test database does not
 	// store it with native resolution. When the time is retrieved
@@ -759,13 +762,6 @@ func TestDeleteThreadMessage(t *testing.T) {
 		ExpectCode      int
 		ExpectBody      string
 	}{
-		{
-			Name:            "owner attempt to delete top message",
-			GivenAuthHeader: testutil.GetAuthHeader(owner.Token),
-			GivenMessageID:  message1.ID,
-			ExpectCode:      http.StatusBadRequest,
-			ExpectBody:      `{"message":"You cannot delete this message. Delete your Convo instead."}`,
-		},
 		{
 			Name:            "member attempt to delete message he does not own",
 			GivenAuthHeader: testutil.GetAuthHeader(member1.Token),
@@ -790,14 +786,16 @@ func TestDeleteThreadMessage(t *testing.T) {
 	}
 
 	for _, tcase := range tests {
-		apitest.New(tcase.Name).
-			Handler(_handler).
-			Delete(fmt.Sprintf("/threads/%s/messages/%s", thread.ID, tcase.GivenMessageID)).
-			JSON(`{}`).
-			Headers(tcase.GivenAuthHeader).
-			Expect(t).
-			Status(tcase.ExpectCode).
-			Body(tcase.ExpectBody).
-			End()
+		t.Run(tcase.Name, func(t *testing.T) {
+			apitest.New(tcase.Name).
+				Handler(_handler).
+				Delete(fmt.Sprintf("/threads/%s/messages/%s", thread.ID, tcase.GivenMessageID)).
+				JSON(`{}`).
+				Headers(tcase.GivenAuthHeader).
+				Expect(t).
+				Status(tcase.ExpectCode).
+				Body(tcase.ExpectBody).
+				End()
+		})
 	}
 }

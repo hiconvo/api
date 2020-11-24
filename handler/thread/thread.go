@@ -46,10 +46,10 @@ func NewHandler(c *Config) *mux.Router {
 	s.HandleFunc("/threads/{threadID}", c.GetThread).Methods("GET")
 	s.HandleFunc("/threads/{threadID}", c.DeleteThread).Methods("DELETE")
 	s.HandleFunc("/threads/{threadID}/messages", c.GetMessagesByThread).Methods("GET")
-	s.HandleFunc("/threads/{threadID}/reads", c.MarkThreadAsRead).Methods("POST")
 
 	t := r.NewRoute().Subrouter()
 	t.Use(c.TxnMiddleware, middleware.WithThread(c.ThreadStore))
+	t.HandleFunc("/threads/{threadID}/reads", c.MarkThreadAsRead).Methods("POST")
 	t.HandleFunc("/threads/{threadID}", c.UpdateThread).Methods("PATCH")
 	t.HandleFunc("/threads/{threadID}/users/{userID}", c.AddUserToThread).Methods("POST")
 	t.HandleFunc("/threads/{threadID}/users/{userID}", c.RemoveUserFromThread).Methods("DELETE")
@@ -170,7 +170,7 @@ func (c *Config) DeleteThread(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
 
-	// If the requestor is not the owner, throw an error
+	// If the requester is not the owner, throw an error
 	if !thread.OwnerIs(u) {
 		bjson.HandleError(w, errors.E(
 			errors.Op("handlers.DeleteThread"),
@@ -205,6 +205,8 @@ func (c *Config) GetMessagesByThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: Pagination
+
 	messages, err := c.MessageStore.GetMessagesByThread(ctx, thread)
 	if err != nil {
 		bjson.HandleError(w, err)
@@ -216,6 +218,7 @@ func (c *Config) GetMessagesByThread(w http.ResponseWriter, r *http.Request) {
 
 func (c *Config) MarkThreadAsRead(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := middleware.TransactionFromContext(ctx)
 	user := middleware.UserFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
 
@@ -241,7 +244,12 @@ func (c *Config) MarkThreadAsRead(w http.ResponseWriter, r *http.Request) {
 	model.MarkAsRead(thread, user.Key)
 	thread.UserReads = model.MapReadsToUserPartials(thread, thread.Users)
 
-	if err := c.ThreadStore.Commit(ctx, thread); err != nil {
+	if _, err := c.ThreadStore.CommitWithTransaction(tx, thread); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
@@ -260,7 +268,7 @@ func (c *Config) UpdateThread(w http.ResponseWriter, r *http.Request) {
 	u := middleware.UserFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
 
-	// If the requestor is not the owner, throw an error
+	// If the requester is not the owner, throw an error
 	if !thread.OwnerIs(u) {
 		bjson.HandleError(w, errors.E(
 			errors.Op("handlers.UpdateThread"),
@@ -474,7 +482,11 @@ func (c *Config) AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	thread.IncRespCount()
+	if err := thread.IncRespCount(); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
+		return
+	}
+
 	model.ClearReads(thread)
 	model.MarkAsRead(thread, u.Key)
 
@@ -520,22 +532,9 @@ func (c *Config) DeleteThreadMessage(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["messageID"]
 
-	messages, err := c.MessageStore.GetMessagesByThread(ctx, thread)
+	message, err := c.MessageStore.GetMessageByID(ctx, id)
 	if err != nil {
 		bjson.HandleError(w, errors.E(op, err))
-		return
-	}
-
-	var message *model.Message
-	for i := range messages {
-		if messages[i].ID == id {
-			message = messages[i]
-		}
-	}
-
-	if message == nil {
-		bjson.HandleError(w, errors.E(
-			op, errors.Str("message not a child of thread"), http.StatusNotFound))
 		return
 	}
 
@@ -544,12 +543,13 @@ func (c *Config) DeleteThreadMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The top message from a thread cannot be deleted.
-	if messages[0].Key.Equal(message.Key) {
-		bjson.HandleError(w, errors.E(op, errors.Str("delete head message"),
-			map[string]string{"message": "You cannot delete this message. Delete your Convo instead."},
-			http.StatusBadRequest))
+	// GetMessageByID doesn't get the associated user. Since we confirmed that u is the owner,
+	// we assign u to the User field of the message.
+	message.User = model.MapUserToUserPartial(u)
 
+	if !message.ParentKey.Equal(thread.Key) {
+		bjson.HandleError(w, errors.E(
+			op, errors.Str("message not a child of thread"), http.StatusNotFound))
 		return
 	}
 

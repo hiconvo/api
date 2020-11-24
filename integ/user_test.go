@@ -14,8 +14,8 @@ import (
 )
 
 func TestCreateUser(t *testing.T) {
-	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	incompleteUser := testutil.NewIncompleteUser(_ctx, t, _dbClient, _searchClient)
+	existingUser, _ := _mock.NewUser(_ctx, t)
+	incompleteUser := _mock.NewIncompleteUser(_ctx, t)
 
 	tests := []struct {
 		Name         string
@@ -114,7 +114,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestAuthenticateUser(t *testing.T) {
-	existingUser, password := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser, password := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name         string
@@ -186,7 +186,7 @@ func TestAuthenticateUser(t *testing.T) {
 }
 
 func TestGetCurrentUser(t *testing.T) {
-	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name            string
@@ -245,8 +245,8 @@ func TestGetCurrentUser(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	user1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser, _ := _mock.NewUser(_ctx, t)
+	user1, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name            string
@@ -304,8 +304,8 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestOAuth(t *testing.T) {
-	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser1, _ := _mock.NewUser(_ctx, t)
+	existingUser2, _ := _mock.NewUser(_ctx, t)
 	existingUser2.PasswordDigest = ""
 	existingUser2.Verified = false
 	if _, err := _dbClient.Put(_ctx, existingUser2.Key, existingUser2); err != nil {
@@ -414,10 +414,10 @@ func TestOAuth(t *testing.T) {
 func TestUpdatePassword(t *testing.T) {
 	magicClient := magic.NewClient("")
 
-	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser1, _ := _mock.NewUser(_ctx, t)
 	kenc, b64ts, sig := testutil.GetMagicLinkParts(existingUser1.GetPasswordResetMagicLink(magicClient))
 
-	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser2, _ := _mock.NewUser(_ctx, t)
 	kenc2, b64ts2, _ := testutil.GetMagicLinkParts(existingUser2.GetPasswordResetMagicLink(magicClient))
 
 	tests := []struct {
@@ -494,34 +494,34 @@ func TestUpdatePassword(t *testing.T) {
 
 func TestVerifyEmail(t *testing.T) {
 	magicClient := magic.NewClient("")
-	us := testutil.NewUserStore(_ctx, t, _dbClient, _searchClient)
-	ms := testutil.NewMessageStore(_ctx, t, _dbClient)
-	es := testutil.NewEventStore(_ctx, t, _dbClient)
-	ts := testutil.NewThreadStore(_ctx, t, _dbClient)
+	us := _mock.UserStore
+	ms := _mock.MessageStore
+	es := _mock.EventStore
+	ts := _mock.ThreadStore
 
 	// Standard case of verifying email after account creation
-	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser1, _ := _mock.NewUser(_ctx, t)
 	existingUser1.Emails = []string{}
 	existingUser1.Verified = false
 	_dbClient.Put(_ctx, existingUser1.Key, existingUser1)
 	kenc1, b64ts1, sig1 := testutil.GetMagicLinkParts(existingUser1.GetVerifyEmailMagicLink(magicClient, existingUser1.Email))
 
 	// Bad signature case
-	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser2, _ := _mock.NewUser(_ctx, t)
 	kenc2, b64ts2, _ := testutil.GetMagicLinkParts(existingUser2.GetVerifyEmailMagicLink(magicClient, existingUser2.Email))
 
 	// Adding a new email
-	existingUser3, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser3, _ := _mock.NewUser(_ctx, t)
 	kenc3, b64ts3, sig3 := testutil.GetMagicLinkParts(existingUser3.GetVerifyEmailMagicLink(magicClient, "new@email.com"))
 
 	// Merging accounts
-	existingUser4, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient) // User to merge into
-	existingUser5, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient) // User to be merged
+	existingUser4, _ := _mock.NewUser(_ctx, t) // User to merge into
+	existingUser5, _ := _mock.NewUser(_ctx, t) // User to be merged
 	// Assign test event, thread, and messages to user to be merged
-	event := testutil.NewEvent(_ctx, t, _dbClient, existingUser2, []*model.User{}, []*model.User{existingUser5})
-	eventMessage := testutil.NewEventMessage(_ctx, t, _dbClient, existingUser5, event)
-	thread := testutil.NewThread(_ctx, t, _dbClient, existingUser5, []*model.User{existingUser4, existingUser3})
-	threadMessage := testutil.NewThreadMessage(_ctx, t, _dbClient, existingUser5, thread)
+	event := _mock.NewEvent(_ctx, t, existingUser2, []*model.User{}, []*model.User{existingUser5})
+	eventMessage := _mock.NewEventMessage(_ctx, t, existingUser5, event)
+	thread := _mock.NewThread(_ctx, t, existingUser5, []*model.User{existingUser4, existingUser3})
+	threadMessage := _mock.NewThreadMessage(_ctx, t, existingUser5, thread)
 	// Add reference to user to be merged in existingUser2's contacts
 	existingUser2.AddContact(existingUser5)
 	if err := us.Commit(_ctx, existingUser2); err != nil {
@@ -747,7 +747,7 @@ func TestVerifyEmail(t *testing.T) {
 }
 
 func TestForgotPassword(t *testing.T) {
-	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name         string
@@ -794,7 +794,7 @@ func TestForgotPassword(t *testing.T) {
 
 func TestMagicLogin(t *testing.T) {
 	magicClient := magic.NewClient("")
-	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	user, _ := _mock.NewUser(_ctx, t)
 	kenc, b64ts, sig := testutil.GetMagicLinkParts(user.GetMagicLoginMagicLink(magicClient))
 
 	tests := []struct {
@@ -834,7 +834,7 @@ func TestMagicLogin(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
-	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name            string
@@ -908,7 +908,7 @@ func TestUpdateUser(t *testing.T) {
 func TestUploadAvatar(t *testing.T) {
 	payload := `{"blob":"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAKAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcJ/8QAKBAAAQICCAcBAAAAAAAAAAAAAwQFAAECBhESExQjMQkYISIkVIOT/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAbEQACAQUAAAAAAAAAAAAAAAAAAgMEBRIUcf/aAAwDAQACEQMRAD8AYO3EBMjrTVpEtYnIKUxvMyhsYJgH0cb4xVebmrs+sngNk9taM/X4xk6pgy5aYsRl77lKdG9rG3s3gbnlvuH/AEnDacoVtuhwTh//2Q==","x":0,"y":0,"size":9.195831298828125}`
 
-	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	user, _ := _mock.NewUser(_ctx, t)
 
 	apitest.New("UploadAvatar").
 		Handler(_handler).
@@ -921,7 +921,7 @@ func TestUploadAvatar(t *testing.T) {
 }
 
 func TestAddEmail(t *testing.T) {
-	existingUser, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser, _ := _mock.NewUser(_ctx, t)
 
 	tests := []struct {
 		Name            string
@@ -954,8 +954,8 @@ func TestAddEmail(t *testing.T) {
 
 func TestRemoveEmail(t *testing.T) {
 	const emailToRemove = "testemailfun@mail.com"
-	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser1, _ := _mock.NewUser(_ctx, t)
+	existingUser2, _ := _mock.NewUser(_ctx, t)
 	existingUser2.AddEmail(emailToRemove)
 	_dbClient.Put(_ctx, existingUser2.Key, existingUser2)
 
@@ -1000,8 +1000,8 @@ func TestRemoveEmail(t *testing.T) {
 
 func TestMakeEmailPrimary(t *testing.T) {
 	const emailToMakePrimary = "myprimary@mail.com"
-	existingUser1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	existingUser2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	existingUser1, _ := _mock.NewUser(_ctx, t)
+	existingUser2, _ := _mock.NewUser(_ctx, t)
 	existingUser2.AddEmail(emailToMakePrimary)
 	_dbClient.Put(_ctx, existingUser2.Key, existingUser2)
 
@@ -1046,7 +1046,7 @@ func TestMakeEmailPrimary(t *testing.T) {
 
 func TestMagicUnsubscribe(t *testing.T) {
 	magicClient := magic.NewClient("")
-	user, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
+	user, _ := _mock.NewUser(_ctx, t)
 	kenc, b64ts, sig := testutil.GetMagicLinkParts(user.GetUnsubscribeMagicLink(magicClient))
 
 	tests := []struct {

@@ -8,16 +8,15 @@ import (
 	"github.com/steinfletcher/apitest"
 
 	"github.com/hiconvo/api/model"
-	"github.com/hiconvo/api/testutil"
 )
 
 func TestSendEmailsAsync(t *testing.T) {
-	owner, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member1, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	member2, _ := testutil.NewUser(_ctx, t, _dbClient, _searchClient)
-	event := testutil.NewEvent(_ctx, t, _dbClient, owner, []*model.User{}, []*model.User{member1, member2})
-	thread := testutil.NewThread(_ctx, t, _dbClient, owner, []*model.User{member1, member2})
-	_ = testutil.NewThreadMessage(_ctx, t, _dbClient, owner, thread)
+	owner, _ := _mock.NewUser(_ctx, t)
+	member1, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
+	event := _mock.NewEvent(_ctx, t, owner, []*model.User{}, []*model.User{member1, member2})
+	thread := _mock.NewThread(_ctx, t, owner, []*model.User{member1, member2})
+	_ = _mock.NewThreadMessage(_ctx, t, owner, thread)
 
 	tests := []struct {
 		Name         string
