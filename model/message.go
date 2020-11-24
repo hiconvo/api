@@ -129,7 +129,7 @@ func (m *Message) Load(ps []datastore.Property) error {
 
 	if err := datastore.LoadStruct(m, ps); err != nil {
 		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
-			if mismatch.FieldName != "ThreadKey" {
+			if !(mismatch.FieldName == "ThreadKey" || mismatch.FieldName == "Timestamp") {
 				return errors.E(op, err)
 			}
 		} else {

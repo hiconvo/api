@@ -157,13 +157,15 @@ func (t *Thread) Save() ([]datastore.Property, error) {
 }
 
 func (t *Thread) Load(ps []datastore.Property) error {
+	op := errors.Opf("thread.Load(id=%s)", t.ID)
+
 	if err := datastore.LoadStruct(t, ps); err != nil {
 		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
 			if mismatch.FieldName != "Preview" {
-				return err
+				return errors.E(op, err)
 			}
 		} else {
-			return err
+			return errors.E(op, err)
 		}
 	}
 
@@ -173,7 +175,7 @@ func (t *Thread) Load(ps []datastore.Property) error {
 			if ok {
 				t.Preview = preview
 			} else {
-				// ignore it
+				fmt.Printf("%s: ignoring malformed preview\n", op)
 			}
 		}
 	}
