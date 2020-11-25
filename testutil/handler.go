@@ -205,7 +205,7 @@ func (m *Mock) NewThreadMessage(
 ) *model.Message {
 	t.Helper()
 
-	mess, err := model.NewThreadMessage(
+	mess, err := model.NewMessage(
 		ctx,
 		m.Storage,
 		m.OG,
@@ -235,7 +235,16 @@ func (m *Mock) NewEventMessage(
 ) *model.Message {
 	t.Helper()
 
-	mess, err := model.NewEventMessage(owner, event, fake.Paragraph(), "", nil)
+	mess, err := model.NewMessage(
+		ctx,
+		m.Storage,
+		m.OG,
+		&model.NewMessageInput{
+			User:   owner,
+			Parent: event.Key,
+			Body:   fake.Paragraph(),
+			Blob:   "",
+		})
 	if err != nil {
 		t.Fatal(err)
 	}

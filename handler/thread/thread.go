@@ -466,7 +466,7 @@ func (c *Config) AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := model.NewThreadMessage(
+	message, err := model.NewMessage(
 		ctx,
 		c.Storage,
 		c.OG,

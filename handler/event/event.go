@@ -50,13 +50,13 @@ func NewHandler(c *Config) *mux.Router {
 	t.HandleFunc("/events/{eventID}", c.GetEvent).Methods("GET")
 	t.HandleFunc("/events/{eventID}", c.DeleteEvent).Methods("DELETE")
 	t.HandleFunc("/events/{eventID}/messages", c.GetMessagesByEvent).Methods("GET")
-	t.HandleFunc("/events/{eventID}/messages", c.AddMessageToEvent).Methods("POST")
 	t.HandleFunc("/events/{eventID}/messages/{messageID}", c.DeleteEventMessage).Methods("DELETE")
-	t.HandleFunc("/events/{eventID}/reads", c.MarkEventAsRead).Methods("POST")
 	t.HandleFunc("/events/{eventID}/magic", c.GetMagicLink).Methods("GET")
 
 	u := r.NewRoute().Subrouter()
 	u.Use(c.TxnMiddleware, middleware.WithUser(c.UserStore), middleware.WithEvent(c.EventStore))
+	u.HandleFunc("/events/{eventID}/messages", c.AddMessageToEvent).Methods("POST")
+	u.HandleFunc("/events/{eventID}/reads", c.MarkEventAsRead).Methods("POST")
 	u.HandleFunc("/events/{eventID}", c.UpdateEvent).Methods("PATCH")
 	u.HandleFunc("/events/{eventID}/users/{userID}", c.AddUserToEvent).Methods("POST")
 	u.HandleFunc("/events/{eventID}/users/{userID}", c.RemoveUserFromEvent).Methods("DELETE")
@@ -275,6 +275,8 @@ func (c *Config) GetMessagesByEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: Pagination
+
 	messages, err := c.MessageStore.GetMessagesByEvent(ctx, event)
 	if err != nil {
 		bjson.HandleError(w, err)
@@ -293,10 +295,19 @@ type createMessagePayload struct {
 func (c *Config) AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 	op := errors.Op("handlers.AddMessageToEvent")
 	ctx := r.Context()
+	tx, _ := middleware.TransactionFromContext(ctx)
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
 
-	// Validate raw data
+	// Check permissions
+	if !(event.OwnerIs(u) || event.HasUser(u)) {
+		bjson.HandleError(w, errors.E(op,
+			errors.Str("no permission"),
+			http.StatusNotFound))
+
+		return
+	}
+
 	var payload createMessagePayload
 	if err := bjson.ReadJSON(&payload, r); err != nil {
 		bjson.HandleError(w, err)
@@ -308,49 +319,36 @@ func (c *Config) AddMessageToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check permissions
-	if !(event.OwnerIs(u) || event.HasUser(u)) {
-		bjson.HandleError(w, errors.E(op,
-			errors.Str("no permission"),
-			http.StatusNotFound))
-
-		return
-	}
-
-	var (
-		photoURL string
-		err      error
-	)
-
-	if payload.Blob != "" {
-		photoURL, err = c.Storage.PutPhotoFromBlob(ctx, event.ID, payload.Blob)
-		if err != nil {
-			bjson.HandleError(w, errors.E(op, err))
-			return
-		}
-	}
-
-	messageBody := html.UnescapeString(payload.Body)
-	link := c.OG.Extract(ctx, messageBody)
-
-	message, err := model.NewEventMessage(
-		u,
-		event,
-		messageBody,
-		photoURL,
-		link)
+	message, err := model.NewMessage(
+		ctx,
+		c.Storage,
+		c.OG,
+		&model.NewMessageInput{
+			User:   u,
+			Parent: event.Key,
+			Body:   html.UnescapeString(payload.Body),
+			Blob:   payload.Blob,
+		})
 	if err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
+
+	model.ClearReads(event)
+	model.MarkAsRead(event, u.Key)
 
 	if err := c.MessageStore.Commit(ctx, message); err != nil {
 		bjson.HandleError(w, err)
 		return
 	}
 
-	if err := c.EventStore.Commit(ctx, event); err != nil {
+	if _, err := c.EventStore.CommitWithTransaction(tx, event); err != nil {
 		bjson.HandleError(w, err)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
+		bjson.HandleError(w, errors.E(op, err))
 		return
 	}
 
@@ -408,6 +406,7 @@ func (c *Config) DeleteEventMessage(w http.ResponseWriter, r *http.Request) {
 
 func (c *Config) MarkEventAsRead(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tx, _ := middleware.TransactionFromContext(ctx)
 	user := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
 
@@ -433,7 +432,12 @@ func (c *Config) MarkEventAsRead(w http.ResponseWriter, r *http.Request) {
 	model.MarkAsRead(event, user.Key)
 	event.UserReads = model.MapReadsToUserPartials(event, event.Users)
 
-	if err := c.EventStore.Commit(ctx, event); err != nil {
+	if _, err := c.EventStore.CommitWithTransaction(tx, event); err != nil {
+		bjson.HandleError(w, err)
+		return
+	}
+
+	if _, err := tx.Commit(); err != nil {
 		bjson.HandleError(w, err)
 		return
 	}

@@ -46,7 +46,7 @@ type NewMessageInput struct {
 	Blob   string
 }
 
-func NewThreadMessage(
+func NewMessage(
 	ctx context.Context,
 	sclient *storage.Client,
 	ogclient og.Client,
@@ -81,30 +81,7 @@ func NewThreadMessage(
 		message.Photos = []string{photoURL}
 	}
 
-	return &message, nil
-}
-
-func NewEventMessage(u *User, e *Event, body, photoKey string, link *og.LinkData) (*Message, error) {
-	ts := time.Now()
-
-	message := Message{
-		Key:       datastore.IncompleteKey("Message", nil),
-		UserKey:   u.Key,
-		User:      MapUserToUserPartial(u),
-		ParentKey: e.Key,
-		ParentID:  e.ID,
-		Body:      removeLink(body, link),
-		CreatedAt: ts,
-		Link:      link,
-	}
-
-	if photoKey != "" {
-		message.PhotoKeys = []string{photoKey}
-		message.Photos = []string{photoKey}
-	}
-
-	ClearReads(e)
-	MarkAsRead(e, u.Key)
+	MarkAsRead(&message, input.User.Key)
 
 	return &message, nil
 }

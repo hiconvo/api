@@ -121,7 +121,7 @@ func (c *Config) Inbound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the new message
-	message, err := model.NewThreadMessage(
+	message, err := model.NewMessage(
 		ctx,
 		c.Storage,
 		c.OG,
@@ -134,6 +134,9 @@ func (c *Config) Inbound(w http.ResponseWriter, r *http.Request) {
 		handleServerErrorResponse(w, err)
 		return
 	}
+
+	model.ClearReads(thread)
+	model.MarkAsRead(thread, user.Key)
 
 	if err := c.MessageStore.Commit(ctx, message); err != nil {
 		handleServerErrorResponse(w, err)
