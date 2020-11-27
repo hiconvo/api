@@ -40,10 +40,13 @@ func main() {
 	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
 
 	log.Print("starting loop...")
+	log.Print("----------")
 
+	count := 0
 	iter := dbClient.Run(ctx, datastore.NewQuery("Thread"))
 
 	for {
+		count++
 		var thread model.Thread
 		_, err := iter.Next(&thread)
 
@@ -57,7 +60,7 @@ func main() {
 			log.Panicf(err.Error())
 		}
 
-		log.Printf("starting thread id=%s, subject=%s", thread.ID, thread.Subject)
+		log.Printf("count=%d, starting thread id=%d, subject=%s", count, thread.Key.ID, thread.Subject)
 
 		messages, err := messageStore.GetMessagesByThread(ctx, &thread)
 		if err != nil {
@@ -73,8 +76,8 @@ func main() {
 
 		firstMessage := messages[0]
 
-		if firstMessage.Body == thread.Preview.Body {
-			log.Printf("message id=%s has same body as thread preview, deleting...", firstMessage.ID)
+		if thread.Preview != nil && firstMessage.Body == thread.Preview.Body {
+			log.Printf("message id=%d has same body as thread preview, deleting...", firstMessage.Key.ID)
 
 			if isDryRun {
 				log.Print("skipping since this is a dry run")
@@ -83,6 +86,8 @@ func main() {
 			}
 
 			log.Printf("deleted message id=%s", firstMessage.ID)
+		} else {
+			log.Print("message and thread preview are not identical, skipping...")
 		}
 
 		log.Print("----------")

@@ -13,7 +13,6 @@ import (
 	og "github.com/hiconvo/api/clients/opengraph"
 	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
-	"github.com/hiconvo/api/log"
 )
 
 type Thread struct {
@@ -172,11 +171,21 @@ func (t *Thread) Load(ps []datastore.Property) error {
 
 	for _, p := range ps {
 		if p.Name == "Preview" {
-			preview, ok := p.Value.(*Preview)
-			if ok {
-				t.Preview = preview
-			} else {
-				log.Printf("%s: ignoring malformed preview\n", op)
+			ent := p.Value.(*datastore.Entity)
+			for i := range ent.Properties {
+				switch ent.Properties[i].Name {
+				case "PhotoKeys", "Photos":
+					switch v := ent.Properties[i].Value.(type) {
+					case []string:
+						t.Preview.Photos = v
+					case []interface{}:
+						photos := make([]string, len(v))
+						for i, vv := range v {
+							photos[i] = vv.(string)
+						}
+						t.Preview.Photos = photos
+					}
+				}
 			}
 		}
 	}

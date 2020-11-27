@@ -46,12 +46,13 @@ func (s *MessageStore) GetMessageByID(ctx context.Context, id string) (*model.Me
 }
 
 func (s *MessageStore) GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*model.Message, error) {
-	var messages []*model.Message
+	op := errors.Opf("MessageStore.GetMessagesByKey(key=%d)", k.ID)
+	messages := make([]*model.Message, 0)
 
 	q := datastore.NewQuery("Message").Filter("ParentKey =", k)
 
 	if _, err := s.DB.GetAll(ctx, q, &messages); err != nil {
-		return messages, err
+		return messages, errors.E(op, err)
 	}
 
 	userKeys := make([]*datastore.Key, len(messages))
@@ -61,7 +62,7 @@ func (s *MessageStore) GetMessagesByKey(ctx context.Context, k *datastore.Key) (
 
 	users := make([]*model.User, len(userKeys))
 	if err := s.DB.GetMulti(ctx, userKeys, users); err != nil {
-		return messages, err
+		return messages, errors.E(op, err)
 	}
 
 	for i := range messages {
