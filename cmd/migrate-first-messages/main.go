@@ -67,6 +67,7 @@ func main() {
 		if len(messages) == 0 {
 			log.Print("no messages in thread, continuing...")
 
+			log.Print("----------")
 			continue
 		}
 
@@ -83,6 +84,8 @@ func main() {
 
 			log.Printf("deleted message id=%s", firstMessage.ID)
 		}
+
+		log.Print("----------")
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	og "github.com/hiconvo/api/clients/opengraph"
 	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
+	"github.com/hiconvo/api/log"
 )
 
 type Thread struct {
@@ -175,7 +176,7 @@ func (t *Thread) Load(ps []datastore.Property) error {
 			if ok {
 				t.Preview = preview
 			} else {
-				fmt.Printf("%s: ignoring malformed preview\n", op)
+				log.Printf("%s: ignoring malformed preview\n", op)
 			}
 		}
 	}
