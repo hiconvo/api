@@ -39,7 +39,7 @@ func NewHandler(c *Config) *mux.Router {
 }
 
 type createNotePayload struct {
-	Name    string `validate:"max=255"`
+	Name    string `validate:"max=511"`
 	Favicon string `validate:"max=1023"`
 	URL     string `validate:"max=1023"`
 	Tags    []string
@@ -119,7 +119,7 @@ func (c *Config) GetNote(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateNotePayload struct {
-	Name    string `validate:"max=255"`
+	Name    string `validate:"max=511"`
 	Favicon string `validate:"max=1023"`
 	URL     string `validate:"max=1023"`
 	Tags    *[]string
