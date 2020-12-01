@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"net/http"
-	"sort"
 
 	"cloud.google.com/go/datastore"
 
@@ -49,7 +48,7 @@ func (s *MessageStore) GetMessagesByKey(ctx context.Context, k *datastore.Key) (
 	op := errors.Opf("MessageStore.GetMessagesByKey(key=%d)", k.ID)
 	messages := make([]*model.Message, 0)
 
-	q := datastore.NewQuery("Message").Filter("ParentKey =", k)
+	q := datastore.NewQuery("Message").Filter("ParentKey =", k).Order("-CreatedAt").Order("-Timestamp")
 
 	if _, err := s.DB.GetAll(ctx, q, &messages); err != nil {
 		return messages, errors.E(op, err)
@@ -70,14 +69,8 @@ func (s *MessageStore) GetMessagesByKey(ctx context.Context, k *datastore.Key) (
 		messages[i].RestorePhotoURLs(s.Storage)
 	}
 
-	// TODO: Get Query#Order to work above.
-	sort.Slice(messages, func(i, j int) bool {
-		return messages[i].CreatedAt.Before(messages[j].CreatedAt)
-	})
-
 	return messages, nil
 }
-
 func (s *MessageStore) GetMessagesByThread(ctx context.Context, t *model.Thread) ([]*model.Message, error) {
 	return s.GetMessagesByKey(ctx, t.Key)
 }
