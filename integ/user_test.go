@@ -527,6 +527,8 @@ func TestVerifyEmail(t *testing.T) {
 	if err := us.Commit(_ctx, existingUser2); err != nil {
 		t.Error(err)
 	}
+	note1 := _mock.NewNote(_ctx, t, existingUser5)
+	note2 := _mock.NewNote(_ctx, t, existingUser4)
 	kenc4, b64ts4, sig4 := testutil.GetMagicLinkParts(existingUser4.GetVerifyEmailMagicLink(magicClient, existingUser5.Email))
 
 	tests := []struct {
@@ -706,6 +708,25 @@ func TestVerifyEmail(t *testing.T) {
 					}
 				}
 				if !found {
+					return false
+				}
+
+				notes, err := _mock.NoteStore.GetNotesByUser(_ctx, existingUser4, &model.Pagination{Size: -1})
+				if err != nil {
+					return false
+				}
+
+				foundNote1 := false
+				foundNote2 := false
+				for i := range notes {
+					if notes[i].Key.Equal(note1.Key) {
+						foundNote1 = true
+					}
+					if notes[i].Key.Equal(note2.Key) {
+						foundNote2 = true
+					}
+				}
+				if !(foundNote1 || foundNote2) {
 					return false
 				}
 

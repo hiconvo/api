@@ -25,6 +25,7 @@ type Config struct {
 	ThreadStore  model.ThreadStore
 	EventStore   model.EventStore
 	MessageStore model.MessageStore
+	NoteStore    model.NoteStore
 	Mail         *mail.Client
 	Magic        magic.Client
 	OA           oauth.Client
@@ -275,6 +276,7 @@ func (c *Config) OAuth(w http.ResponseWriter, r *http.Request) {
 				c.MessageStore,
 				c.ThreadStore,
 				c.EventStore,
+				c.NoteStore,
 				tokenUser,
 			); err != nil {
 				bjson.HandleError(w, err)
@@ -336,6 +338,7 @@ func (c *Config) OAuth(w http.ResponseWriter, r *http.Request) {
 				c.MessageStore,
 				c.ThreadStore,
 				c.EventStore,
+				c.NoteStore,
 				tokenUser,
 			); err != nil {
 				bjson.HandleError(w, err)
@@ -520,6 +523,7 @@ func (c *Config) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 			c.MessageStore,
 			c.ThreadStore,
 			c.EventStore,
+			c.NoteStore,
 			dupUser,
 		); err != nil {
 			bjson.HandleError(w, err)

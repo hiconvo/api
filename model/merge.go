@@ -187,3 +187,28 @@ func reassignEventUsers(
 
 	return nil
 }
+
+func reassignNoteUsers(
+	ctx context.Context,
+	tx db.Transaction,
+	ns NoteStore,
+	old, newUser *User,
+) error {
+	notes, err := ns.GetNotesByUser(ctx, old, &Pagination{Size: -1})
+	if err != nil {
+		return err
+	}
+
+	keys := make([]*datastore.Key, len(notes))
+	for i := range notes {
+		notes[i].OwnerKey = newUser.Key
+		keys[i] = notes[i].Key
+	}
+
+	_, err = tx.PutMulti(keys, notes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

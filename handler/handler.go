@@ -82,6 +82,7 @@ func New(c *Config) http.Handler {
 		ThreadStore:  c.ThreadStore,
 		EventStore:   c.EventStore,
 		MessageStore: c.MessageStore,
+		NoteStore:    c.NoteStore,
 		Mail:         c.Mail,
 		Magic:        c.Magic,
 		OA:           c.OAuth,

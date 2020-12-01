@@ -377,6 +377,7 @@ func (u *User) MergeWith(
 	ms MessageStore,
 	ts ThreadStore,
 	es EventStore,
+	ns NoteStore,
 	oldUser *User,
 ) error {
 	if u.Key.Incomplete() {
@@ -408,6 +409,12 @@ func (u *User) MergeWith(
 
 		// Events
 		err = reassignEventUsers(ctx, tx, es, oldUser, u)
+		if err != nil {
+			return err
+		}
+
+		// Notes
+		err = reassignNoteUsers(ctx, tx, ns, oldUser, u)
 		if err != nil {
 			return err
 		}
