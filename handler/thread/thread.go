@@ -505,18 +505,16 @@ func (c *Config) AddMessageToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if thread.ResponseCount > 1 {
-		if err := c.Notif.Put(&notif.Notification{
-			UserKeys:   notif.FilterKey(thread.UserKeys, u.Key),
-			Actor:      u.FullName,
-			Verb:       notif.NewMessage,
-			Target:     notif.Thread,
-			TargetID:   thread.ID,
-			TargetName: thread.Subject,
-		}); err != nil {
-			// Log the error but don't fail the request
-			log.Alarm(err)
-		}
+	if err := c.Notif.Put(&notif.Notification{
+		UserKeys:   notif.FilterKey(thread.UserKeys, u.Key),
+		Actor:      u.FullName,
+		Verb:       notif.NewMessage,
+		Target:     notif.Thread,
+		TargetID:   thread.ID,
+		TargetName: thread.Subject,
+	}); err != nil {
+		// Log the error but don't fail the request
+		log.Alarm(err)
 	}
 
 	bjson.WriteJSON(w, message, http.StatusCreated)
