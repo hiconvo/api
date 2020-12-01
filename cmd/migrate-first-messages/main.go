@@ -62,7 +62,7 @@ func main() {
 
 		log.Printf("count=%d, starting thread id=%d, subject=%s", count, thread.Key.ID, thread.Subject)
 
-		messages, err := messageStore.GetMessagesByThread(ctx, &thread)
+		messages, err := messageStore.GetMessagesByThread(ctx, &thread, &model.Pagination{})
 		if err != nil {
 			log.Panicf(err.Error())
 		}

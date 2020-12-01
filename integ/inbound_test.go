@@ -19,7 +19,7 @@ func TestInbound(t *testing.T) {
 	u3, _ := _mock.NewUser(_ctx, t)
 	thread := _mock.NewThread(_ctx, t, u1, []*model.User{u2, u3})
 
-	messages, err := _mock.MessageStore.GetMessagesByThread(_ctx, thread)
+	messages, err := _mock.MessageStore.GetMessagesByThread(_ctx, thread, &model.Pagination{Size: -1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestInbound(t *testing.T) {
 	rr := httptest.NewRecorder()
 	_handler.ServeHTTP(rr, req)
 
-	newMessages, err := _mock.MessageStore.GetMessagesByThread(_ctx, thread)
+	newMessages, err := _mock.MessageStore.GetMessagesByThread(_ctx, thread, &model.Pagination{Size: -1})
 	if err != nil {
 		t.Fatal(err)
 	}

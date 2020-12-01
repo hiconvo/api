@@ -148,7 +148,7 @@ func (c *Config) Inbound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages, err := c.MessageStore.GetMessagesByThread(ctx, thread)
+	messages, err := c.MessageStore.GetMessagesByThread(ctx, thread, &model.Pagination{Size: 5})
 	if err != nil {
 		handleServerErrorResponse(w, err)
 		return

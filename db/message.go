@@ -44,11 +44,19 @@ func (s *MessageStore) GetMessageByID(ctx context.Context, id string) (*model.Me
 	return message, nil
 }
 
-func (s *MessageStore) GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*model.Message, error) {
+func (s *MessageStore) GetMessagesByKey(
+	ctx context.Context,
+	k *datastore.Key,
+	p *model.Pagination,
+) ([]*model.Message, error) {
 	op := errors.Opf("MessageStore.GetMessagesByKey(key=%d)", k.ID)
 	messages := make([]*model.Message, 0)
 
-	q := datastore.NewQuery("Message").Filter("ParentKey =", k).Order("-CreatedAt").Order("-Timestamp")
+	q := datastore.NewQuery("Message").
+		Filter("ParentKey =", k).
+		Order("CreatedAt").
+		Offset(p.Offset()).
+		Limit(p.Limit())
 
 	if _, err := s.DB.GetAll(ctx, q, &messages); err != nil {
 		return messages, errors.E(op, err)
@@ -71,12 +79,21 @@ func (s *MessageStore) GetMessagesByKey(ctx context.Context, k *datastore.Key) (
 
 	return messages, nil
 }
-func (s *MessageStore) GetMessagesByThread(ctx context.Context, t *model.Thread) ([]*model.Message, error) {
-	return s.GetMessagesByKey(ctx, t.Key)
+
+func (s *MessageStore) GetMessagesByThread(
+	ctx context.Context,
+	t *model.Thread,
+	p *model.Pagination,
+) ([]*model.Message, error) {
+	return s.GetMessagesByKey(ctx, t.Key, p)
 }
 
-func (s *MessageStore) GetMessagesByEvent(ctx context.Context, e *model.Event) ([]*model.Message, error) {
-	return s.GetMessagesByKey(ctx, e.Key)
+func (s *MessageStore) GetMessagesByEvent(
+	ctx context.Context,
+	e *model.Event,
+	p *model.Pagination,
+) ([]*model.Message, error) {
+	return s.GetMessagesByKey(ctx, e.Key, p)
 }
 
 func (s *MessageStore) GetUnhydratedMessagesByUser(

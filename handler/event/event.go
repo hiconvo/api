@@ -266,6 +266,7 @@ func (c *Config) GetMessagesByEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
 	event := middleware.EventFromContext(ctx)
+	p := model.GetPagination(r)
 
 	if !(event.OwnerIs(u) || event.HasUser(u)) {
 		bjson.HandleError(w, errors.E(
@@ -275,9 +276,7 @@ func (c *Config) GetMessagesByEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Pagination
-
-	messages, err := c.MessageStore.GetMessagesByEvent(ctx, event)
+	messages, err := c.MessageStore.GetMessagesByEvent(ctx, event, p)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return

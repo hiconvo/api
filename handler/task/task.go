@@ -122,7 +122,7 @@ func (c *Config) SendEmailsAsync(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 
-			messages, err := c.MessageStore.GetMessagesByThread(ctx, thread)
+			messages, err := c.MessageStore.GetMessagesByThread(ctx, thread, &model.Pagination{Size: 5})
 			if err != nil {
 				log.Alarm(errors.E(op, err))
 				break

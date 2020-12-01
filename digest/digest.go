@@ -167,7 +167,7 @@ func generateDigestItem(
 	d model.Digestable,
 	u *model.User,
 ) (model.DigestItem, error) {
-	messages, err := ms.GetMessagesByKey(ctx, d.GetKey())
+	messages, err := ms.GetMessagesByKey(ctx, d.GetKey(), &model.Pagination{})
 	if err != nil {
 		return model.DigestItem{}, err
 	}

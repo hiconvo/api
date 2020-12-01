@@ -195,6 +195,7 @@ func (c *Config) GetMessagesByThread(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := middleware.UserFromContext(ctx)
 	thread := middleware.ThreadFromContext(ctx)
+	p := model.GetPagination(r)
 
 	if !(thread.OwnerIs(u) || thread.HasUser(u)) {
 		bjson.HandleError(w, errors.E(
@@ -205,9 +206,7 @@ func (c *Config) GetMessagesByThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Pagination
-
-	messages, err := c.MessageStore.GetMessagesByThread(ctx, thread)
+	messages, err := c.MessageStore.GetMessagesByThread(ctx, thread, p)
 	if err != nil {
 		bjson.HandleError(w, err)
 		return

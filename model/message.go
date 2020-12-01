@@ -30,9 +30,9 @@ type Message struct {
 
 type MessageStore interface {
 	GetMessageByID(ctx context.Context, id string) (*Message, error)
-	GetMessagesByKey(ctx context.Context, k *datastore.Key) ([]*Message, error)
-	GetMessagesByThread(ctx context.Context, t *Thread) ([]*Message, error)
-	GetMessagesByEvent(ctx context.Context, t *Event) ([]*Message, error)
+	GetMessagesByKey(ctx context.Context, k *datastore.Key, p *Pagination) ([]*Message, error)
+	GetMessagesByThread(ctx context.Context, t *Thread, p *Pagination) ([]*Message, error)
+	GetMessagesByEvent(ctx context.Context, t *Event, p *Pagination) ([]*Message, error)
 	GetUnhydratedMessagesByUser(ctx context.Context, u *User, p *Pagination) ([]*Message, error)
 	Commit(ctx context.Context, t *Message) error
 	CommitMulti(ctx context.Context, messages []*Message) error
@@ -187,7 +187,7 @@ func MarkMessagesAsRead(
 ) error {
 	op := errors.Op("model.MarkMessagesAsRead")
 
-	messages, err := s.GetMessagesByKey(ctx, parentKey)
+	messages, err := s.GetMessagesByKey(ctx, parentKey, &Pagination{Size: 50})
 	if err != nil {
 		return errors.E(op, err)
 	}
