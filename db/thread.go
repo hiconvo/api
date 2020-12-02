@@ -8,7 +8,6 @@ import (
 	"cloud.google.com/go/datastore"
 
 	"github.com/hiconvo/api/clients/db"
-	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/model"
 )
@@ -16,8 +15,7 @@ import (
 var _ model.ThreadStore = (*ThreadStore)(nil)
 
 type ThreadStore struct {
-	DB      db.Client
-	Storage *storage.Client
+	DB db.Client
 }
 
 func (s *ThreadStore) GetThreadByID(ctx context.Context, id string) (*model.Thread, error) {

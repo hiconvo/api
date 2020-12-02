@@ -53,9 +53,9 @@ func Handler(dbClient dbc.Client, searchClient search.Client) (http.Handler, *Mo
 	magicClient := magic.NewClient("")
 	storageClient := storage.NewClient("", "")
 	userStore := &db.UserStore{DB: dbClient, Notif: notification.NewLogger(), S: searchClient, Queue: queue.NewLogger()}
-	threadStore := &db.ThreadStore{DB: dbClient, Storage: storageClient}
+	threadStore := &db.ThreadStore{DB: dbClient}
 	eventStore := &db.EventStore{DB: dbClient}
-	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
+	messageStore := &db.MessageStore{DB: dbClient}
 	noteStore := &db.NoteStore{DB: dbClient, S: searchClient}
 	welcomer := welcome.New(context.Background(), userStore, "support")
 

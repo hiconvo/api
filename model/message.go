@@ -23,8 +23,7 @@ type Message struct {
 	Body      string         `json:"body"     datastore:",noindex"`
 	CreatedAt time.Time      `json:"createdAt"`
 	Reads     []*Read        `json:"-"        datastore:",noindex"`
-	PhotoKeys []string       `json:"-"`
-	Photos    []string       `json:"photos"   datastore:"-"`
+	PhotoKeys []string       `json:"photos"`
 	Link      *og.LinkData   `json:"link"     datastore:",noindex"`
 }
 
@@ -78,7 +77,6 @@ func NewMessage(
 
 	if photoURL != "" {
 		message.PhotoKeys = []string{photoURL}
-		message.Photos = []string{photoURL}
 	}
 
 	MarkAsRead(&message, input.User.Key)
@@ -105,31 +103,17 @@ func (m *Message) Load(ps []datastore.Property) error {
 	op := errors.Op("message.Load")
 
 	if err := datastore.LoadStruct(m, ps); err != nil {
-		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
-			if !(mismatch.FieldName == "ThreadKey" || mismatch.FieldName == "Timestamp") {
-				return errors.E(op, err)
-			}
-		} else {
-			return errors.E(op, err)
-		}
+		return errors.E(op, err)
 	}
 
 	for _, p := range ps {
-		if p.Name == "ThreadKey" || p.Name == "ParentKey" {
+		if p.Name == "ParentKey" {
 			k, ok := p.Value.(*datastore.Key)
 			if !ok {
-				return errors.E(op, errors.Errorf("could not load parent key into message='%v'", m.ID))
+				return errors.E(op, errors.Errorf("could not load parent key into message='%v'", m.Key.ID))
 			}
 			m.ParentKey = k
 			m.ParentID = k.Encode()
-		}
-
-		if p.Name == "Timestamp" {
-			t, ok := p.Value.(time.Time)
-			if !ok {
-				return errors.E(op, errors.Errorf("could not load timestamp into message='%v'", m.ID))
-			}
-			m.CreatedAt = t
 		}
 	}
 
@@ -164,19 +148,6 @@ func (m *Message) HasPhotoKey(key string) bool {
 	}
 
 	return false
-}
-
-func (m *Message) RestorePhotoURLs(c *storage.Client) {
-	if len(m.PhotoKeys) == 0 {
-		return
-	}
-
-	photos := make([]string, len(m.PhotoKeys))
-	for i := range m.PhotoKeys {
-		photos[i] = c.GetPhotoURLFromKey(m.PhotoKeys[i])
-	}
-
-	m.Photos = photos
 }
 
 func MarkMessagesAsRead(

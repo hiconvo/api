@@ -2,102 +2,119 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"log"
 	"os"
+	"os/signal"
 	"time"
 
 	"cloud.google.com/go/datastore"
 	dbc "github.com/hiconvo/api/clients/db"
-	"github.com/hiconvo/api/clients/secrets"
-	"github.com/hiconvo/api/clients/storage"
 	"github.com/hiconvo/api/db"
+	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/model"
 	"google.golang.org/api/iterator"
 )
 
-// This command deletes the first message M of every thread T if M's body is identical to T's preview body.
+const (
+	exitCodeOK        = 0
+	exitCodeInterrupt = 2
+)
+
+// This command deletes the first message M of every
+// thread T if M's body is identical to T's preview body.
 func main() {
-	var isDryRun bool
-	flag.BoolVar(&isDryRun, "dry-run", false, "if passed, deletions are not done.")
+	var (
+		isDryRun   bool
+		projectID  string
+		sleepTime  int = 3
+		ctx            = context.Background()
+		signalChan     = make(chan os.Signal, 1)
+	)
+
+	flag.BoolVar(&isDryRun, "dry-run", false, "if passed, nothing is mutated.")
+	flag.StringVar(&projectID, "project-id", "local-convo-api", "overrides the default project ID.")
 	flag.Parse()
 
-	ctx := context.Background()
-	projectID := getenv("GOOGLE_CLOUD_PROJECT", "local-convo-api")
-	sleepTime := 3
-
-	log.Printf("about to migrate first messages with db=%s, dry-run=%v", projectID, isDryRun)
+	log.Printf("About to migrate messages with db=%s, dry-run=%v", projectID, isDryRun)
 	log.Printf("You have %d seconds to ctl+c if this is incorrect", sleepTime)
 	time.Sleep(time.Duration(sleepTime) * time.Second)
 
 	dbClient := dbc.NewClient(ctx, projectID)
 	defer dbClient.Close()
 
-	sc := secrets.NewClient(ctx, dbClient)
-	storageClient := storage.NewClient(sc.Get("AVATAR_BUCKET_NAME", ""), sc.Get("PHOTO_BUCKET_NAME", ""))
+	signal.Notify(signalChan, os.Interrupt)
+	defer signal.Stop(signalChan)
 
-	messageStore := &db.MessageStore{DB: dbClient, Storage: storageClient}
+	go func() {
+		<-signalChan // first signal: clean up and exit gracefully
+		log.Print("Ctl+C detected, cleaning up")
+		dbClient.Close() // close the db conn when ctl+c
+		os.Exit(exitCodeOK)
+		<-signalChan // second signal: hard exit
+		os.Exit(exitCodeInterrupt)
+	}()
 
-	log.Print("starting loop...")
-	log.Print("----------")
+	if err := run(ctx, dbClient, isDryRun); err != nil {
+		log.Panic(err)
+	}
+}
 
-	count := 0
+func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
+	var (
+		op               = errors.Op("run")
+		count        int = 0
+		messageStore     = &db.MessageStore{DB: dbClient}
+	)
+
 	iter := dbClient.Run(ctx, datastore.NewQuery("Thread"))
+
+	log.Print("Starting loop...")
 
 	for {
 		count++
-		var thread model.Thread
+
+		thread := new(model.Thread)
 		_, err := iter.Next(&thread)
 
 		if errors.Is(err, iterator.Done) {
-			log.Printf("done")
+			log.Printf("Done")
 
-			break
+			return nil
 		}
 
 		if err != nil {
-			log.Panicf(err.Error())
+			return errors.E(op, err)
 		}
 
-		log.Printf("count=%d, starting thread id=%d, subject=%s", count, thread.Key.ID, thread.Subject)
+		log.Printf("Count=%d, ThreadID=%d, Subject=%s", count, thread.Key.ID, thread.Subject)
 
-		messages, err := messageStore.GetMessagesByThread(ctx, &thread, &model.Pagination{})
+		messages, err := messageStore.GetMessagesByThread(ctx, thread, &model.Pagination{})
 		if err != nil {
 			log.Panicf(err.Error())
 		}
 
 		if len(messages) == 0 {
-			log.Print("no messages in thread, continuing...")
-
-			log.Print("----------")
+			log.Print("CleaningCrew-> no messages in thread")
+			log.Print("CleaningCrew-> skipping")
 			continue
 		}
 
 		firstMessage := messages[0]
 
 		if thread.Preview != nil && firstMessage.Body == thread.Preview.Body {
-			log.Printf("message id=%d has same body as thread preview, deleting...", firstMessage.Key.ID)
+			log.Print("CleaningCrew-> message has same body as thread preview")
 
 			if isDryRun {
-				log.Print("skipping since this is a dry run")
+				log.Print("CleaningCrew-> skipping since this is a dry run")
 			} else if err := messageStore.Delete(ctx, firstMessage); err != nil {
-				log.Panicf(err.Error())
+				return errors.E(op, err)
 			}
 
-			log.Printf("deleted message id=%s", firstMessage.ID)
+			log.Printf("CleaningCrew-> deleted message id=%s", firstMessage.ID)
 		} else {
-			log.Print("message and thread preview are not identical, skipping...")
+			log.Print("CleaningCrew-> message and thread preview are not identical")
+			log.Print("CleaningCrew-> skipping")
 		}
-
-		log.Print("----------")
 	}
-}
-
-func getenv(name, fallback string) string {
-	if val, ok := os.LookupEnv(name); ok {
-		return val
-	}
-
-	return fallback
 }

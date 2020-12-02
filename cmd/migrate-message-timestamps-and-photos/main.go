@@ -21,6 +21,8 @@ const (
 	exitCodeInterrupt = 2
 )
 
+// This command fixes photos stored in the old way on messages and
+// brings all fields up to date on outdated messages.
 func main() {
 	var (
 		isDryRun   bool

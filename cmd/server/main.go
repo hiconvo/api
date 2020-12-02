@@ -53,9 +53,9 @@ func main() {
 
 		// stores
 		userStore    = &db.UserStore{DB: dbClient, Notif: notifClient, S: searchClient, Queue: queueClient}
-		threadStore  = &db.ThreadStore{DB: dbClient, Storage: storageClient}
+		threadStore  = &db.ThreadStore{DB: dbClient}
 		eventStore   = &db.EventStore{DB: dbClient}
-		messageStore = &db.MessageStore{DB: dbClient, Storage: storageClient}
+		messageStore = &db.MessageStore{DB: dbClient}
 		noteStore    = &db.NoteStore{DB: dbClient, S: searchClient}
 
 		// welcomer
