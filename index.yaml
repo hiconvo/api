@@ -34,3 +34,8 @@ indexes:
       - name: Variant
       - name: CreatedAt
         direction: desc
+
+  - kind: Message
+    properties:
+      - name: ParentKey
+      - name: CreatedAt
