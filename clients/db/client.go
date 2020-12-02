@@ -47,6 +47,7 @@ type clientImpl struct {
 }
 
 func (c *clientImpl) Close() error {
+	fmt.Printf("Closing DB client\n")
 	return c.client.Close()
 }
 

@@ -17,7 +17,7 @@ STREAM_API_SECRET=<YOUR API SECRET>
 
 If you don't include this file, the app will panic during startup.
 
-After your `.env` file is ready, all you need to do is run `docker-compose up`. The source code is shared between your machine and the docker container via a volume. The default command runs [`realize`](https://github.com/oxequa/realize), a file watcher that automatically compiles the code and restarts the server when the source changes. By default, the server listens on port `:8080`.
+After your `.env` file is ready, all you need to do is run `docker-compose up`. The source code is shared between your machine and the docker container via a volume. The default command runs [`air`](https://github.com/cosmtrek/air), a file watcher that automatically compiles the code and restarts the server when the source changes. By default, the server listens on port `:8080`.
 
 ### Running Tests
 
@@ -40,6 +40,19 @@ gcloud datastore cleanup-indexes index.yaml
 
 # Update cron jobs
 gcloud app deploy cron.yaml
+```
+
+## One-Off Commands
+
+```
+# Get credentials to connect to the production database. [DANGEROUS]
+gcloud auth application-default login
+
+# Run the command. Example:
+go run cmd/migrate-message-timestamps-and-photos/main.go --dry-run
+
+# Clean up. [ALWAYS REMEMBER]
+gcloud auth revoke application-default
 ```
 
 ## Architecture
