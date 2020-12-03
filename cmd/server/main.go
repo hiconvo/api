@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/getsentry/raven-go"
 
@@ -27,12 +29,30 @@ import (
 	"github.com/hiconvo/api/welcome"
 )
 
+const (
+	exitCodeOK        = 0
+	exitCodeInterrupt = 2
+)
+
 func main() {
 	ctx := context.Background()
 	projectID := getenv("GOOGLE_CLOUD_PROJECT", "local-convo-api")
+	signalChan := make(chan os.Signal, 1)
 
 	dbClient := dbc.NewClient(ctx, projectID)
 	defer dbClient.Close()
+
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(signalChan)
+
+	go func() {
+		<-signalChan // first signal: clean up and exit gracefully
+		log.Print("Signal detected, cleaning up")
+		dbClient.Close() // close the db conn when ctl+c
+		os.Exit(exitCodeOK)
+		<-signalChan // second signal: hard exit
+		os.Exit(exitCodeInterrupt)
+	}()
 
 	sc := secrets.NewClient(ctx, dbClient)
 
@@ -83,7 +103,7 @@ func main() {
 
 	port := getenv("PORT", "8080")
 	log.Printf("Listening on port :%s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), h))
+	log.Panic(http.ListenAndServe(fmt.Sprintf(":%s", port), h))
 }
 
 func getenv(name, fallback string) string {

@@ -24,7 +24,7 @@ func NewClient(hostname string) Client {
 	)
 
 	const (
-		maxAttempts = 10
+		maxAttempts = 5
 		timeout     = 3
 	)
 
