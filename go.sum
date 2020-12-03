@@ -48,6 +48,8 @@ github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym
 github.com/GetStream/stream-go2 v3.2.1+incompatible h1:hvTIS7EUkvOMyJvizMPiIuhKeM/6yLjd3ABvC45ZakA=
 github.com/GetStream/stream-go2 v3.2.1+incompatible/go.mod h1:aZVTfyICTDMILqfEe7yd+65nbo+/xy2Lz1KMv75fOR0=
 github.com/GoogleCloudPlatform/cloudsql-proxy v0.0.0-20191009163259-e802c2cb94ae/go.mod h1:mjwGPas4yKduTyubHvD1Atl9r1rUq8DfVy+gkVvZ+oo=
+github.com/Jeffail/gabs v1.4.0 h1://5fYRRTq1edjfIrQGvdkcd22pkYUrHZ5YC/H2GJVAo=
+github.com/Jeffail/gabs v1.4.0/go.mod h1:6xMvQMK4k33lb7GUUpaAPh6nKMmemQeg5d4gn7/bOXc=
 github.com/Masterminds/glide v0.13.2/go.mod h1:STyF5vcenH/rUqTEv+/hBXlSTo7KYwg2oc2f4tzPWic=
 github.com/Masterminds/semver v1.4.2/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
 github.com/Masterminds/vcs v1.13.0/go.mod h1:N09YCmOQr6RLxC6UNHzuVwAdodYbbnycGHSmwVJjcKA=
@@ -91,6 +93,14 @@ github.com/devigned/tab v0.1.1/go.mod h1:XG9mPq0dFghrYvoBF3xdRrJzSTX1b7IQrvaL9mz
 github.com/dgrijalva/jwt-go v3.2.0+incompatible h1:7qlOGliEKZXTDg6OTjfoBKDXWrumCAMpl/TFQ4/5kLM=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dimchansky/utfbom v1.1.0/go.mod h1:rO41eb7gLfo8SF1jd9F8HplJm1Fewwi4mQvIirEdv+8=
+github.com/dyatlov/go-htmlinfo v0.0.0-20180517114536-d9417c75de65 h1:WfjVLSpoK/4Yu7aMv9+CuMH/TRqvWt7LWj8HJTSLrqY=
+github.com/dyatlov/go-htmlinfo v0.0.0-20180517114536-d9417c75de65/go.mod h1:DwtDzuGvUJmwvhPZsGE6BzMCmiG9mL4pF5CujWCrO80=
+github.com/dyatlov/go-oembed v0.0.0-20191103150536-a57c85b3b37c h1:MEV1LrQtCBGacXajlT4CSuYWbZuLl/qaZVqwoOmwAbU=
+github.com/dyatlov/go-oembed v0.0.0-20191103150536-a57c85b3b37c/go.mod h1:DjlDZiZGRRKbiJZmiEiiXozsBQAQzHmxwHKFeXifL2g=
+github.com/dyatlov/go-opengraph v0.0.0-20180429202543-816b6608b3c8 h1:6muCmMJat6z7qptVrIf/+OWPxsjAfvhw5/6t+FwEkgg=
+github.com/dyatlov/go-opengraph v0.0.0-20180429202543-816b6608b3c8/go.mod h1:nYia/MIs9OyvXXYboPmNOj0gVWo97Wx0sde+ZuKkoM4=
+github.com/dyatlov/go-readability v0.0.0-20150926130635-e7b2080f87f8 h1:/6sPTaZTpCbYqoUtxaKCr2hvaJyaK/EouQT0+9het04=
+github.com/dyatlov/go-readability v0.0.0-20150926130635-e7b2080f87f8/go.mod h1:vvHYzM3Pw1OQCMjtkxmQXYW+b1i8D7MnGUQwD5EcBK4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=

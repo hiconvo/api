@@ -11,6 +11,10 @@ require (
 	github.com/aymerick/douceur v0.2.0
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
 	github.com/corpix/uarand v0.1.1 // indirect
+	github.com/dyatlov/go-htmlinfo v0.0.0-20180517114536-d9417c75de65
+	github.com/dyatlov/go-oembed v0.0.0-20191103150536-a57c85b3b37c // indirect
+	github.com/dyatlov/go-opengraph v0.0.0-20180429202543-816b6608b3c8 // indirect
+	github.com/dyatlov/go-readability v0.0.0-20150926130635-e7b2080f87f8 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/getsentry/raven-go v0.2.0
 	github.com/gofrs/uuid v3.3.0+incompatible

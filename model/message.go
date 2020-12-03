@@ -182,11 +182,11 @@ func removeLink(body string, linkPtr *og.LinkData) string {
 
 	// If this is a markdown formatted link, leave it. Otherwise, remove the link.
 	// This isn't a perfect test, but it gets the job done and I'm lazy.
-	if strings.Contains(body, fmt.Sprintf("[%s]", linkPtr.URL)) {
+	if strings.Contains(body, fmt.Sprintf("[%s]", linkPtr.Original)) {
 		return body
 	}
 
-	return strings.Replace(body, linkPtr.URL, "", 1)
+	return strings.Replace(body, linkPtr.Original, "", 1)
 }
 
 func handleLinkAndPhoto(

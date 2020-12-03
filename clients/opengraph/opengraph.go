@@ -2,8 +2,10 @@ package opengraph
 
 import (
 	"context"
+	"net/http"
+	"time"
 
-	og "github.com/otiai10/opengraph"
+	"github.com/dyatlov/go-htmlinfo/htmlinfo"
 	xurls "mvdan.cc/xurls/v2"
 
 	"github.com/hiconvo/api/log"
@@ -16,6 +18,7 @@ type LinkData struct {
 	Title       string `json:"title"`
 	Site        string `json:"site"`
 	Description string `json:"description" datastore:",noindex"`
+	Original    string `json:"-"`
 }
 
 type Client interface {
@@ -23,10 +26,14 @@ type Client interface {
 }
 
 func NewClient() Client {
-	return &clientImpl{}
+	return &clientImpl{
+		httpClient: &http.Client{Timeout: time.Duration(5) * time.Second},
+	}
 }
 
-type clientImpl struct{}
+type clientImpl struct {
+	httpClient *http.Client
+}
 
 func (c *clientImpl) Extract(ctx context.Context, text string) *LinkData {
 	url := xurls.Strict().FindString(text)
@@ -34,30 +41,43 @@ func (c *clientImpl) Extract(ctx context.Context, text string) *LinkData {
 		return nil
 	}
 
-	data, err := og.FetchWithContext(ctx, url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		log.Printf("opengraph.Extract(%s): %v", url, err)
+
 		return nil
 	}
 
-	data = data.ToAbsURL()
+	req.Header.Set("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)")
+	req.Header.Set("Cache-Control", "no-cache")
 
-	if err := data.Fulfill(); err != nil {
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
 		log.Printf("opengraph.Extract(%s): %v", url, err)
+
+		return nil
+	}
+	defer resp.Body.Close()
+
+	info := htmlinfo.NewHTMLInfo()
+
+	err = info.Parse(resp.Body, &url, nil)
+	if err != nil {
+		log.Printf("opengraph.Extract(%s): %v", url, err)
+
+		return nil
 	}
 
-	var image string
-	if len(data.Image) > 0 {
-		image = data.Image[0].URL
-	}
+	oembed := info.GenerateOembedFor(url)
 
 	return &LinkData{
-		Title:       data.Title,
-		URL:         data.URL.String(),
-		Site:        data.SiteName,
-		Description: data.Description,
-		Favicon:     data.Favicon,
-		Image:       image,
+		Title:       oembed.Title,
+		URL:         oembed.URL,
+		Site:        oembed.ProviderName,
+		Description: oembed.Description,
+		Favicon:     info.FaviconURL,
+		Image:       oembed.ThumbnailURL,
+		Original:    url,
 	}
 }
 
