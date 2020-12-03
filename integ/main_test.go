@@ -58,3 +58,12 @@ func Test415(t *testing.T) {
 		Status(http.StatusUnsupportedMediaType).
 		End()
 }
+
+func TestWarmup(t *testing.T) {
+	apitest.New().
+		Handler(_handler).
+		Get("/_ah/warmup").
+		Expect(t).
+		Status(http.StatusOK).
+		End()
+}

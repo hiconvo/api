@@ -50,6 +50,7 @@ func New(c *Config) http.Handler {
 	router := mux.NewRouter()
 
 	router.NotFoundHandler = http.HandlerFunc(notFound)
+	router.HandleFunc("/_ah/warmup", warmup)
 
 	s := router.NewRoute().Subrouter()
 	s.PathPrefix("/inbound").Handler(inbound.NewHandler(&inbound.Config{
@@ -132,4 +133,9 @@ func New(c *Config) http.Handler {
 
 func notFound(w http.ResponseWriter, r *http.Request) {
 	bjson.WriteJSON(w, map[string]string{"message": "Not found"}, http.StatusNotFound)
+}
+
+func warmup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Shall I by justice reach the higher stronghold, or by deceit? -Pindar"))
 }
