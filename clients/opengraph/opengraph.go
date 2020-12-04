@@ -25,7 +25,6 @@ type LinkData struct {
 	Site        string `json:"site"`
 	Description string `json:"description" datastore:",noindex"`
 	Original    string `json:"-"`
-	HTML        string `json:"html"`
 }
 
 type Client interface {
@@ -57,13 +56,11 @@ func (c *clientImpl) Extract(ctx context.Context, text string) *LinkData {
 		return nil
 	}
 
-	if hn := urlobj.Hostname(); hn == "youtu.be" || strings.HasSuffix(hn, "youtube.com") {
-		return c.handleYouTube(ctx, urlobj.String(), found)
-	} else if strings.HasSuffix(hn, "twitter.com") {
-		return c.handleTwitter(ctx, urlobj.String(), found)
-	}
+	urlobj.Host = strings.TrimPrefix(urlobj.Host, "m.")
+	urlobj.Host = strings.TrimPrefix(urlobj.Host, "mobile.")
+	cleanURL := urlobj.String()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, found, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cleanURL, nil)
 	if err != nil {
 		log.Print(errors.E(op, err))
 
@@ -83,16 +80,15 @@ func (c *clientImpl) Extract(ctx context.Context, text string) *LinkData {
 
 	info := htmlinfo.NewHTMLInfo()
 
-	err = info.Parse(resp.Body, &found, nil)
+	err = info.Parse(resp.Body, &cleanURL, nil)
 	if err != nil {
 		log.Print(errors.E(op, err))
 
 		return nil
 	}
 
-	oembed := info.GenerateOembedFor(found)
-
-	return &LinkData{
+	oembed := info.GenerateOembedFor(cleanURL)
+	ld := &LinkData{
 		Title:       oembed.Title,
 		URL:         oembed.URL,
 		Site:        oembed.ProviderName,
@@ -101,10 +97,25 @@ func (c *clientImpl) Extract(ctx context.Context, text string) *LinkData {
 		Image:       oembed.ThumbnailURL,
 		Original:    found,
 	}
+
+	// YouTube and Twitter are not reliable. Sometimes they give us what we're
+	// looking for and other times they give us nothing. In that case, we
+	// fall back to their oembed APIs which don't provide much info but which
+	// provide more than nothing.
+	if ld.Image == "" {
+		if hn := urlobj.Hostname(); hn == "youtu.be" || strings.HasSuffix(hn, "youtube.com") {
+			return c.handleYouTube(ctx, cleanURL, found)
+		} else if strings.HasSuffix(hn, "twitter.com") {
+			return c.handleTwitter(ctx, urlobj.String(), found)
+		}
+	}
+
+	return ld
 }
 
 func (c *clientImpl) handleYouTube(ctx context.Context, found, original string) *LinkData {
-	purl := fmt.Sprintf("https://www.youtube.com/oembed?url=%s&format=json", html.EscapeString(found))
+	purl := fmt.Sprintf("https://www.youtube.com/oembed?url=%s&maxwidth=560&maxheight=400&format=json",
+		html.EscapeString(found))
 	op := errors.Opf("opengraph.handleYouTube(%s)", purl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, purl, nil)
@@ -129,6 +140,7 @@ func (c *clientImpl) handleYouTube(ctx context.Context, found, original string) 
 	}
 
 	var msi map[string]interface{}
+
 	err = json.NewDecoder(resp.Body).Decode(&msi)
 	if err != nil {
 		log.Print(errors.E(op, err))
@@ -149,9 +161,9 @@ func (c *clientImpl) handleYouTube(ctx context.Context, found, original string) 
 		log.Print(errors.E(op, errors.Str("no title in response")))
 
 		return nil
-	} else {
-		ld.Title = title
 	}
+
+	ld.Title = title
 
 	thumbnail, ok := msi["thumbnail_url"].(string)
 	if !ok {
@@ -160,18 +172,12 @@ func (c *clientImpl) handleYouTube(ctx context.Context, found, original string) 
 		ld.Image = thumbnail
 	}
 
-	html, ok := msi["html"].(string)
-	if !ok {
-		log.Print(errors.E(op, errors.Str("no html in response")))
-	} else {
-		ld.HTML = html
-	}
-
 	return ld
 }
 
 func (c *clientImpl) handleTwitter(ctx context.Context, found, original string) *LinkData {
-	purl := fmt.Sprintf("https://publish.twitter.com/oembed?url=%s&format=json", html.EscapeString(found))
+	purl := fmt.Sprintf("https://publish.twitter.com/oembed?url=%s&omit_script=true&format=json",
+		html.EscapeString(found))
 	op := errors.Opf("opengraph.handleTwitter(%s)", purl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, purl, nil)
@@ -196,6 +202,7 @@ func (c *clientImpl) handleTwitter(ctx context.Context, found, original string) 
 	}
 
 	var msi map[string]interface{}
+
 	err = json.NewDecoder(resp.Body).Decode(&msi)
 	if err != nil {
 		log.Print(errors.E(op, err))
@@ -203,24 +210,33 @@ func (c *clientImpl) handleTwitter(ctx context.Context, found, original string) 
 		return nil
 	}
 
-	ld := &LinkData{
-		Site:        "Twitter",
-		Favicon:     "https://www.twitter.com/favicon.ico",
-		URL:         found,
-		Original:    original,
-		Description: "",
-	}
-
 	html, ok := msi["html"].(string)
 	if !ok {
 		log.Print(errors.E(op, err))
 
 		return nil
-	} else {
-		ld.HTML = html
 	}
 
-	return ld
+	info := htmlinfo.NewHTMLInfo()
+
+	err = info.Parse(strings.NewReader(html), &found, nil)
+	if err != nil {
+		log.Print(errors.E(op, err))
+
+		return nil
+	}
+
+	oembed := info.GenerateOembedFor(found)
+
+	return &LinkData{
+		Title:       oembed.Title,
+		URL:         found,
+		Site:        "Twitter",
+		Favicon:     "https://www.twitter.com/favicon.ico",
+		Description: oembed.Description,
+		Image:       oembed.ThumbnailURL,
+		Original:    found,
+	}
 }
 
 func NewNullClient() Client {
