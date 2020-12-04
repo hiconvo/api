@@ -39,3 +39,9 @@ indexes:
     properties:
       - name: ParentKey
       - name: CreatedAt
+
+  - kind: Message
+    properties:
+      - name: ParentKey
+      - name: CreatedAt
+        direction: desc
