@@ -20,6 +20,10 @@ func Printf(format string, i ...interface{}) {
 	_logger.Printf(format, i...)
 }
 
+func Panicf(format string, i ...interface{}) {
+	_logger.Panicf(format, i...)
+}
+
 // Alarm logs the error to stderr and triggers an alarm.
 func Alarm(err error) {
 	raven.CaptureError(err, nil)

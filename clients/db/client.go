@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/datastore"
+
+	"github.com/hiconvo/api/log"
 )
 
 type Client interface {
@@ -47,7 +49,7 @@ type clientImpl struct {
 }
 
 func (c *clientImpl) Close() error {
-	fmt.Printf("Closing DB client\n")
+	log.Print("Closing DB client")
 	return c.client.Close()
 }
 

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,6 +24,7 @@ import (
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/handler"
+	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/mail"
 	"github.com/hiconvo/api/template"
 	"github.com/hiconvo/api/welcome"
@@ -100,7 +100,9 @@ func main() {
 
 		if err := srv.Shutdown(ctx); err != nil {
 			// Error from closing listeners, or context timeout:
-			log.Printf("HTTP server Shutdown: %v", err)
+			log.Printf("HTTP server shutdown error: %v", err)
+		} else {
+			log.Print("HTTP server shutdown")
 		}
 
 		close(idleConnsClosed)
@@ -109,6 +111,7 @@ func main() {
 	log.Printf("Listening on port :%s", port)
 
 	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Alarm(err)
 		log.Panicf("ListenAndServe: %v", err)
 	}
 
