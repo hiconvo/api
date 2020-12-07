@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/getsentry/raven-go"
 
@@ -91,7 +92,7 @@ func main() {
 	go func() {
 		signalChan := make(chan os.Signal, 1)
 
-		signal.Notify(signalChan, os.Interrupt)
+		signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 		defer signal.Stop(signalChan)
 
 		<-signalChan // first signal: clean up and exit gracefully
