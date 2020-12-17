@@ -16,7 +16,6 @@ type Note struct {
 	Key       *datastore.Key `json:"-"        datastore:"__key__"`
 	ID        string         `json:"id"       datastore:"-"`
 	OwnerKey  *datastore.Key `json:"-"`
-	UserID    string         `json:"userId"   datastore:"-"`
 	Body      string         `json:"body"     datastore:",noindex"`
 	Tags      []string       `json:"tags"`
 	URL       string         `json:"url"`
@@ -82,7 +81,6 @@ func NewNote(u *User, name, url, favicon, body string) (*Note, error) {
 	return &Note{
 		Key:       datastore.IncompleteKey("Note", nil),
 		OwnerKey:  u.Key,
-		UserID:    u.Key.Encode(),
 		Name:      name,
 		URL:       url,
 		Favicon:   favicon,
@@ -106,26 +104,7 @@ func (n *Note) Save() ([]datastore.Property, error) {
 }
 
 func (n *Note) Load(ps []datastore.Property) error {
-	op := errors.Op("note.Load")
-
-	err := datastore.LoadStruct(n, ps)
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	for _, p := range ps {
-		if p.Name == "OwnerKey" {
-			k, ok := p.Value.(*datastore.Key)
-			if !ok {
-				return errors.E(op, errors.Errorf("could not load owner key into note='%v'", n.ID))
-			}
-
-			n.OwnerKey = k
-			n.UserID = k.Encode()
-		}
-	}
-
-	return nil
+	return datastore.LoadStruct(n, ps)
 }
 
 func (n *Note) AddTag(tag string) {

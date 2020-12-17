@@ -11,6 +11,12 @@ indexes:
       - name: CreatedAt
         direction: desc
 
+  - kind: Thread
+    properties:
+      - name: UserKeys
+      - name: UpdatedAt
+        direction: desc
+
   - kind: Note
     properties:
       - name: OwnerKey

@@ -157,67 +157,7 @@ func (t *Thread) Save() ([]datastore.Property, error) {
 }
 
 func (t *Thread) Load(ps []datastore.Property) error {
-	op := errors.Opf("thread.Load(id=%s)", t.ID)
-
-	if err := datastore.LoadStruct(t, ps); err != nil {
-		if mismatch, ok := err.(*datastore.ErrFieldMismatch); ok {
-			if mismatch.FieldName != "Preview" {
-				return errors.E(op, err)
-			}
-		} else {
-			return errors.E(op, err)
-		}
-	}
-
-	for _, p := range ps {
-		if p.Name == "Preview" {
-			ent := p.Value.(*datastore.Entity)
-			for i := range ent.Properties {
-				switch ent.Properties[i].Name {
-				case "PhotoKeys", "Photos":
-					switch v := ent.Properties[i].Value.(type) {
-					case []string:
-						t.Photos = v
-					case []interface{}:
-						photos := make([]string, len(v))
-						for i, vv := range v {
-							photos[i] = vv.(string)
-						}
-						t.Photos = photos
-					}
-				case "Body":
-					if body, ok := ent.Properties[i].Value.(string); ok {
-						t.Body = body
-					}
-				case "Link":
-					if linkEnt, ok := ent.Properties[i].Value.(*datastore.Entity); ok {
-						link := new(og.LinkData)
-						for j := range linkEnt.Properties {
-							switch linkEnt.Properties[j].Name {
-							case "URL":
-								link.URL = linkEnt.Properties[j].Value.(string)
-							case "Image":
-								link.Image = linkEnt.Properties[j].Value.(string)
-							case "Favicon":
-								link.Favicon = linkEnt.Properties[j].Value.(string)
-							case "Title":
-								link.Title = linkEnt.Properties[j].Value.(string)
-							case "Site":
-								link.Site = linkEnt.Properties[j].Value.(string)
-							case "Description":
-								link.Description = linkEnt.Properties[j].Value.(string)
-							case "Original":
-								link.Original = linkEnt.Properties[j].Value.(string)
-							}
-						}
-						t.Link = link
-					}
-				}
-			}
-		}
-	}
-
-	return nil
+	return datastore.LoadStruct(t, ps)
 }
 
 func (t *Thread) GetReads() []*Read {

@@ -46,7 +46,7 @@ func (s *ThreadStore) GetUnhydratedThreadsByUser(
 
 	q := datastore.NewQuery("Thread").
 		Filter("UserKeys =", u.Key).
-		Order("-CreatedAt").
+		Order("-UpdatedAt").
 		Offset(p.Offset()).
 		Limit(p.Limit())
 

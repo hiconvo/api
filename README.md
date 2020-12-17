@@ -52,7 +52,7 @@ gcloud auth application-default login
 go run cmd/migrate-message-timestamps-and-photos/main.go --dry-run
 
 # Clean up. [ALWAYS REMEMBER]
-gcloud auth revoke
+gcloud auth application-default revoke
 ```
 
 ## Architecture
