@@ -31,7 +31,7 @@ type Thread struct {
 	Reads         []*Read          `json:"-"        datastore:",noindex"`
 	CreatedAt     time.Time        `json:"createdAt"`
 	UpdatedAt     time.Time        `json:"updatedAt"`
-	ResponseCount int              `json:"responseCount" datastore:",noindex"`
+	ResponseCount int              `json:"responseCount"`
 }
 
 type ThreadStore interface {

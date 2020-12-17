@@ -24,11 +24,11 @@ const (
 // brings all fields up to date on outdated messages.
 func main() {
 	var (
-		isDryRun   bool
-		projectID  string
-		sleepTime  int = 3
-		ctx            = context.Background()
-		signalChan     = make(chan os.Signal, 1)
+		isDryRun    bool
+		projectID   string
+		sleepTime   int = 3
+		ctx, cancel     = context.WithCancel(context.Background())
+		signalChan      = make(chan os.Signal, 1)
 	)
 
 	flag.BoolVar(&isDryRun, "dry-run", false, "if passed, nothing is mutated.")
@@ -48,6 +48,7 @@ func main() {
 	go func() {
 		<-signalChan // first signal: clean up and exit gracefully
 		log.Print("Ctl+C detected, cleaning up")
+		cancel()
 		dbClient.Close() // close the db conn when ctl+c
 		os.Exit(exitCodeOK)
 	}()

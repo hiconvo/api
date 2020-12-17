@@ -24,11 +24,11 @@ const (
 // to support sorting by UpdatedAt.
 func main() {
 	var (
-		isDryRun   bool
-		projectID  string
-		sleepTime  int = 3
-		ctx            = context.Background()
-		signalChan     = make(chan os.Signal, 1)
+		isDryRun    bool
+		projectID   string
+		sleepTime   int = 3
+		ctx, cancel     = context.WithCancel(context.Background())
+		signalChan      = make(chan os.Signal, 1)
 	)
 
 	flag.BoolVar(&isDryRun, "dry-run", false, "if passed, nothing is mutated.")
@@ -48,6 +48,7 @@ func main() {
 	go func() {
 		<-signalChan // first signal: clean up and exit gracefully
 		log.Print("Ctl+C detected, cleaning up")
+		cancel()
 		dbClient.Close() // close the db conn when ctl+c
 		os.Exit(exitCodeOK)
 	}()
@@ -61,9 +62,11 @@ func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
 	var (
 		op            = errors.Op("run")
 		count     int = 0
-		flushSize int = 20
+		flushSize int = 100
 		queue     []*model.Thread
 		urlPrefix string = "https://storage.googleapis.com/convo-photos/"
+		// t0 is when first thread messages were removed.
+		t0 = time.Date(2020, time.Month(11), 23, 0, 0, 0, 0, time.UTC)
 	)
 
 	flush := func() error {
@@ -126,6 +129,11 @@ func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
 
 		if thread.UpdatedAt.IsZero() {
 			thread.UpdatedAt = thread.CreatedAt
+		}
+
+		if thread.CreatedAt.Before(t0) && thread.ResponseCount > 0 {
+			thread.ResponseCount--
+			log.Printf("Decrementing thread response count to %d", thread.ResponseCount)
 		}
 
 		queue = append(queue, thread)
