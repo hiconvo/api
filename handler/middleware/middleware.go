@@ -206,7 +206,7 @@ func WithTransaction(c db.Client) func(http.Handler) http.Handler {
 // GetAuthToken extracts the Authorization Bearer token from request
 // headers if present.
 func GetAuthToken(h http.Header) (string, bool) {
-	if val := h.Get("Authorization"); val != "" {
+	if val := h.Get("Authorization"); val != "" && len(val) >= 7 {
 		if strings.ToLower(val[:7]) == "bearer " {
 			return val[7:], true
 		}

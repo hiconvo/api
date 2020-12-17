@@ -24,7 +24,9 @@ type Thread struct {
 	Users         []*User          `json:"-"        datastore:"-"`
 	UserPartials  []*UserPartial   `json:"users"    datastore:"-"`
 	Subject       string           `json:"subject"  datastore:",noindex"`
-	Preview       *Preview         `json:"preview"  datastore:",noindex"`
+	Body          string           `json:"body"     datastore:",noindex"`
+	Photos        []string         `json:"photos"   datastore:",noindex"`
+	Link          *og.LinkData     `json:"link"`
 	UserReads     []*UserPartial   `json:"reads"    datastore:"-"`
 	Reads         []*Read          `json:"-"        datastore:",noindex"`
 	CreatedAt     time.Time        `json:"createdAt"`
@@ -135,11 +137,9 @@ func NewThread(
 		Users:        input.Users,
 		UserPartials: MapUsersToUserPartials(input.Users),
 		Subject:      input.Subject,
-		Preview: &Preview{
-			Body:   removeLink(input.Body, link),
-			Photos: photos,
-			Link:   link,
-		},
+		Body:         removeLink(input.Body, link),
+		Photos:       photos,
+		Link:         link,
 	}, nil
 }
 
@@ -177,13 +177,40 @@ func (t *Thread) Load(ps []datastore.Property) error {
 				case "PhotoKeys", "Photos":
 					switch v := ent.Properties[i].Value.(type) {
 					case []string:
-						t.Preview.Photos = v
+						t.Photos = v
 					case []interface{}:
 						photos := make([]string, len(v))
 						for i, vv := range v {
 							photos[i] = vv.(string)
 						}
-						t.Preview.Photos = photos
+						t.Photos = photos
+					}
+				case "Body":
+					if body, ok := ent.Properties[i].Value.(string); ok {
+						t.Body = body
+					}
+				case "Link":
+					if linkEnt, ok := ent.Properties[i].Value.(*datastore.Entity); ok {
+						link := new(og.LinkData)
+						for j := range linkEnt.Properties {
+							switch linkEnt.Properties[j].Name {
+							case "URL":
+								link.URL = linkEnt.Properties[j].Value.(string)
+							case "Image":
+								link.Image = linkEnt.Properties[j].Value.(string)
+							case "Favicon":
+								link.Favicon = linkEnt.Properties[j].Value.(string)
+							case "Title":
+								link.Title = linkEnt.Properties[j].Value.(string)
+							case "Site":
+								link.Site = linkEnt.Properties[j].Value.(string)
+							case "Description":
+								link.Description = linkEnt.Properties[j].Value.(string)
+							case "Original":
+								link.Original = linkEnt.Properties[j].Value.(string)
+							}
+						}
+						t.Link = link
 					}
 				}
 			}
