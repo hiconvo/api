@@ -99,7 +99,7 @@ func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
 
 		firstMessage := messages[0]
 
-		if thread.Body != nil && firstMessage.Body == thread.Body {
+		if thread.Body != "" && firstMessage.Body == thread.Body {
 			log.Print("CleaningCrew-> message has same body as thread preview")
 
 			if isDryRun {
