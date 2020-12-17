@@ -20,8 +20,8 @@ const (
 	exitCodeOK = 0
 )
 
-// This command fixes photos stored in the old way on messages and
-// brings all fields up to date on outdated messages.
+// This command fixes migrates thread previews and populates the UpdatedAt field
+// to support sorting by UpdatedAt.
 func main() {
 	var (
 		isDryRun   bool
@@ -35,7 +35,7 @@ func main() {
 	flag.StringVar(&projectID, "project-id", "local-convo-api", "overrides the default project ID.")
 	flag.Parse()
 
-	log.Printf("About to migrate messages with db=%s, dry-run=%v", projectID, isDryRun)
+	log.Printf("About to migrate threads with db=%s, dry-run=%v", projectID, isDryRun)
 	log.Printf("You have %d seconds to ctl+c if this is incorrect", sleepTime)
 	time.Sleep(time.Duration(sleepTime) * time.Second)
 
@@ -62,7 +62,7 @@ func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
 		op            = errors.Op("run")
 		count     int = 0
 		flushSize int = 20
-		queue     []*model.Message
+		queue     []*model.Thread
 		urlPrefix string = "https://storage.googleapis.com/convo-photos/"
 	)
 
@@ -75,7 +75,7 @@ func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
 		}
 
 		if !isDryRun {
-			log.Printf("Flushing-> putting %d messages", len(keys))
+			log.Printf("Flushing-> putting %d threads", len(keys))
 
 			_, err := dbClient.PutMulti(ctx, keys, queue)
 			if err != nil {
@@ -83,7 +83,7 @@ func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
 			}
 		}
 
-		log.Print("Flushing-> done putting messages")
+		log.Print("Flushing-> done putting threads")
 
 		queue = queue[:0]
 
@@ -92,15 +92,15 @@ func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
 		return nil
 	}
 
-	iter := dbClient.Run(ctx, datastore.NewQuery("Message").Order("Timestamp"))
+	iter := dbClient.Run(ctx, datastore.NewQuery("Thread").Order("CreatedAt"))
 
 	log.Print("Starting loop...")
 
 	for {
 		count++
 
-		message := new(model.Message)
-		_, err := iter.Next(message)
+		thread := new(model.Thread)
+		_, err := iter.Next(thread)
 
 		if errors.Is(err, iterator.Done) {
 			log.Print("Done")
@@ -112,19 +112,23 @@ func run(ctx context.Context, dbClient dbc.Client, isDryRun bool) error {
 			return errors.E(op, err)
 		}
 
-		log.Printf("Count=%d, MessageID=%d", count, message.Key.ID)
+		log.Printf("Count=%d, ThreadID=%d", count, thread.Key.ID)
 
-		if len(message.PhotoKeys) > 0 {
-			for i := range message.PhotoKeys {
-				if !strings.HasPrefix(message.PhotoKeys[i], "https://") {
-					newURL := urlPrefix + message.PhotoKeys[i]
-					message.PhotoKeys[i] = newURL
+		if len(thread.Photos) > 0 {
+			for i := range thread.Photos {
+				if !strings.HasPrefix(thread.Photos[i], "https://") {
+					newURL := urlPrefix + thread.Photos[i]
+					thread.Photos[i] = newURL
 					log.Printf("Updating photo URL: %s", newURL)
 				}
 			}
 		}
 
-		queue = append(queue, message)
+		if thread.UpdatedAt.IsZero() {
+			thread.UpdatedAt = thread.CreatedAt
+		}
+
+		queue = append(queue, thread)
 
 		if len(queue) >= flushSize {
 			if err := flush(); err != nil {

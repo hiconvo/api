@@ -17,8 +17,7 @@ import (
 )
 
 const (
-	exitCodeOK        = 0
-	exitCodeInterrupt = 2
+	exitCodeOK = 0
 )
 
 // This command deletes the first message M of every
@@ -51,8 +50,6 @@ func main() {
 		log.Print("Ctl+C detected, cleaning up")
 		dbClient.Close() // close the db conn when ctl+c
 		os.Exit(exitCodeOK)
-		<-signalChan // second signal: hard exit
-		os.Exit(exitCodeInterrupt)
 	}()
 
 	if err := run(ctx, dbClient, isDryRun); err != nil {
