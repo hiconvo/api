@@ -295,6 +295,39 @@ func (e *Event) RemoveUser(u *User) error {
 	return nil
 }
 
+func (e *Event) SetHosts(hosts []*User) error {
+	// TODO: Find a way to remove duplicated code here...
+	// Get all of the hosts' keys, remove duplicates, and check whether
+	// hosts were included in the users slice.
+	hostKeys := make([]*datastore.Key, 0)
+	seenHosts := make(map[string]struct{})
+	cleanHosts := make([]*User, 0)
+	for _, u := range hosts {
+		if u.Key.Equal(e.OwnerKey) {
+			continue
+		}
+
+		if _, alreadySeenHost := seenHosts[u.ID]; alreadySeenHost {
+			continue
+		}
+
+		seenHosts[u.ID] = struct{}{}
+		hostKeys = append(hostKeys, u.Key)
+		cleanHosts = append(cleanHosts, u)
+
+		if e.HasUser(u) {
+			continue
+		}
+
+		e.AddUser(u)
+	}
+
+	e.HostKeys = hostKeys
+	e.HostPartials = MapUsersToUserPartials(cleanHosts)
+
+	return nil
+}
+
 // AddRSVP RSVPs a user for the event.
 func (e *Event) AddRSVP(u *User) error {
 	op := errors.Op("event.AddRSVP")

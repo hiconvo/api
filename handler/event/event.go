@@ -484,7 +484,7 @@ func (c *Config) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	event := middleware.EventFromContext(ctx)
 	tx, _ := middleware.TransactionFromContext(ctx)
 
-	// If the requestor is not the owner, throw an error
+	// If the requester is not the owner, throw an error
 	if !event.OwnerIs(u) {
 		bjson.HandleError(w, errors.E(op, http.StatusNotFound))
 		return
@@ -516,9 +516,10 @@ func (c *Config) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if model.IsHostsDifferent(event.HostKeys, hosts) {
-		event.HostPartials = model.MapUsersToUserPartials(hosts)
-		event.HostKeys = model.MapUsersToKeys(hosts)
+	err = event.SetHosts(hosts)
+	if err != nil {
+		bjson.HandleError(w, err)
+		return
 	}
 
 	if payload.Name != "" && payload.Name != event.Name {

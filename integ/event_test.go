@@ -698,6 +698,7 @@ func TestUpdateEvent(t *testing.T) {
 	owner, _ := _mock.NewUser(_ctx, t)
 	host, _ := _mock.NewUser(_ctx, t)
 	member, _ := _mock.NewUser(_ctx, t)
+	member2, _ := _mock.NewUser(_ctx, t)
 	nonmember, _ := _mock.NewUser(_ctx, t)
 	event := _mock.NewEvent(_ctx, t, owner, []*model.User{host}, []*model.User{member})
 	url := fmt.Sprintf("/events/%s", event.ID)
@@ -708,31 +709,48 @@ func TestUpdateEvent(t *testing.T) {
 		ExpectStatus int
 		ShouldPass   bool
 		GivenBody    map[string]interface{}
+		ExpectHostID string
 	}{
 		{
+			Name:         "owner change name",
 			AuthHeader:   testutil.GetAuthHeader(owner.Token),
 			ExpectStatus: http.StatusOK,
 			ShouldPass:   true,
 			GivenBody:    map[string]interface{}{"name": "Ruth Marcus"},
 		},
 		{
+			Name:         "owner add host",
+			AuthHeader:   testutil.GetAuthHeader(owner.Token),
+			ExpectStatus: http.StatusOK,
+			ShouldPass:   true,
+			GivenBody: map[string]interface{}{"hosts": []map[string]string{
+				{"id": owner.ID}, // make sure owner doesn't get added as host
+				{"id": member2.ID},
+			}},
+			ExpectHostID: member2.ID,
+		},
+		{
+			Name:         "host change name",
 			AuthHeader:   testutil.GetAuthHeader(host.Token),
 			ExpectStatus: http.StatusNotFound,
 			ShouldPass:   false,
 			GivenBody:    map[string]interface{}{"name": "Ruth Marcus"},
 		},
 		{
+			Name:         "member change name",
 			AuthHeader:   testutil.GetAuthHeader(member.Token),
 			ExpectStatus: http.StatusNotFound,
 			ShouldPass:   false,
 			GivenBody:    map[string]interface{}{"name": "Ruth Marcus"},
 		},
 		{
+			Name:         "nonmember try update",
 			AuthHeader:   testutil.GetAuthHeader(nonmember.Token),
 			ExpectStatus: http.StatusNotFound,
 			ShouldPass:   false,
 		},
 		{
+			Name:         "invalid headers",
 			AuthHeader:   map[string]string{"boop": "beep"},
 			ExpectStatus: http.StatusUnauthorized,
 			ShouldPass:   false,
@@ -752,6 +770,9 @@ func TestUpdateEvent(t *testing.T) {
 			if tcase.ExpectStatus <= http.StatusBadRequest {
 				if tcase.ShouldPass {
 					tt.Assert(jsonpath.Equal("$.name", tcase.GivenBody["name"]))
+					if tcase.ExpectHostID != "" {
+						tt.Assert(jsonpath.Equal("$.hosts[0].id", tcase.ExpectHostID))
+					}
 				} else {
 					tt.Assert(jsonpath.Equal("$.name", event.Name))
 				}
