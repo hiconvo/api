@@ -18,7 +18,10 @@ import (
 	"github.com/hiconvo/api/random"
 )
 
-const MaxEventMembers = 300
+const (
+	MaxEventMembers = 300
+	MaxEventHosts   = 20
+)
 
 type Event struct {
 	Key             *datastore.Key   `json:"-"        datastore:"__key__"`
@@ -296,6 +299,7 @@ func (e *Event) RemoveUser(u *User) error {
 }
 
 func (e *Event) SetHosts(hosts []*User) error {
+	op := errors.Op("event.SetHosts")
 	// TODO: Find a way to remove duplicated code here...
 	// Get all of the hosts' keys, remove duplicates, and check whether
 	// hosts were included in the users slice.
@@ -320,6 +324,13 @@ func (e *Event) SetHosts(hosts []*User) error {
 		}
 
 		e.AddUser(u)
+	}
+
+	if len(hostKeys) > MaxEventHosts {
+		return errors.E(op,
+			map[string]string{"message": "Max number of hosts is 20"},
+			errors.Str("max hosts"),
+			http.StatusBadRequest)
 	}
 
 	e.HostKeys = hostKeys

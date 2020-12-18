@@ -723,10 +723,12 @@ func TestUpdateEvent(t *testing.T) {
 			AuthHeader:   testutil.GetAuthHeader(owner.Token),
 			ExpectStatus: http.StatusOK,
 			ShouldPass:   true,
-			GivenBody: map[string]interface{}{"hosts": []map[string]string{
-				{"id": owner.ID}, // make sure owner doesn't get added as host
-				{"id": member2.ID},
-			}},
+			GivenBody: map[string]interface{}{
+				"name": "Ruth Marcus",
+				"hosts": []map[string]string{
+					{"id": owner.ID}, // make sure owner doesn't get added as host
+					{"id": member2.ID},
+				}},
 			ExpectHostID: member2.ID,
 		},
 		{
