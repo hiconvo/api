@@ -101,7 +101,32 @@ func TestCreateEvent(t *testing.T) {
 			ExpectMemberID: u2.ID,
 			ExpectHostID:   u3.ID,
 		},
-
+		{
+			Name:       "good payload with dupe host owner",
+			AuthHeader: testutil.GetAuthHeader(u1.Token),
+			GivenPayload: map[string]interface{}{
+				"name":        fake.Title(),
+				"placeId":     fake.CharactersN(32),
+				"timestamp":   "2119-09-08T01:19:20.915Z",
+				"description": fake.Paragraph(),
+				"users": []map[string]string{
+					{
+						"id": u2.ID,
+					},
+					{
+						"email": "test@test.com",
+					},
+				},
+				"hosts": []map[string]string{
+					{
+						"id": u1.ID,
+					},
+				},
+			},
+			ExpectStatus:   http.StatusCreated,
+			ExpectOwnerID:  u1.ID,
+			ExpectMemberID: u2.ID,
+		},
 		{
 			Name:       "bad payload",
 			AuthHeader: testutil.GetAuthHeader(u1.Token),
@@ -162,11 +187,13 @@ func TestCreateEvent(t *testing.T) {
 				Expect(t).
 				Status(tcase.ExpectStatus)
 
-			if tcase.ExpectStatus < http.StatusOK {
+			if tcase.ExpectStatus < http.StatusBadRequest {
 				tt.Assert(jsonpath.Equal("$.owner.id", tcase.ExpectOwnerID))
 				tt.Assert(jsonpath.Contains("$.users[*].id", tcase.ExpectMemberID))
 				if tcase.ExpectHostID != "" {
 					tt.Assert(jsonpath.Contains("$.hosts[*].id", tcase.ExpectHostID))
+				} else {
+					tt.Assert(jsonpath.Len("$.hosts", 0))
 				}
 			}
 

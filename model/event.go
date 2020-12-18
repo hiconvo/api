@@ -102,13 +102,19 @@ func NewEvent(
 	// hosts were included in the users slice.
 	hostKeys := make([]*datastore.Key, 0)
 	seenHosts := make(map[string]struct{})
+	cleanHosts := make([]*User, 0)
 	for _, u := range hosts {
+		if u.Key.Equal(owner.Key) {
+			continue
+		}
+
 		if _, alreadySeenHost := seenHosts[u.ID]; alreadySeenHost {
 			continue
 		}
 
 		seenHosts[u.ID] = struct{}{}
 		hostKeys = append(hostKeys, u.Key)
+		cleanHosts = append(cleanHosts, u)
 
 		if _, alreadySeenUser := seenUsers[u.ID]; alreadySeenUser {
 			continue
@@ -133,7 +139,7 @@ func NewEvent(
 		OwnerKey:        owner.Key,
 		Owner:           MapUserToUserPartial(owner),
 		HostKeys:        hostKeys,
-		HostPartials:    MapUsersToUserPartials(hosts),
+		HostPartials:    MapUsersToUserPartials(cleanHosts),
 		UserKeys:        userKeys,
 		UserPartials:    MapUsersToUserPartials(users),
 		Users:           allUsers,
