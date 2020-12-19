@@ -303,8 +303,8 @@ func generateDigestItemFromThread(
 			ParentID:  t.Key.Encode(),
 			CreatedAt: t.CreatedAt,
 		}
-		cleanMessages = append(cleanMessages, firstMessage)
 		cleanMessages = append(cleanMessages, messages...)
+		cleanMessages = append(cleanMessages, firstMessage)
 	} else {
 		cleanMessages = messages
 	}
@@ -325,6 +325,10 @@ func markThreadsAsRead(
 	user *model.User,
 ) error {
 	op := errors.Opf("markThreadsAsRead(user=%s)", user.Email)
+
+	if len(threads) == 0 {
+		return nil
+	}
 
 	for i := range threads {
 		model.MarkAsRead(threads[i], user.Key)
@@ -347,6 +351,10 @@ func markEventsAsRead(
 	user *model.User,
 ) error {
 	op := errors.Opf("markEventsAsRead(user=%s)", user.Email)
+
+	if len(events) == 0 {
+		return nil
+	}
 
 	for i := range events {
 		model.MarkAsRead(events[i], user.Key)
