@@ -265,7 +265,7 @@ func generateDigestItemFromEvent(
 		return &model.DigestItem{
 			ParentID: e.Key,
 			Name:     e.Name,
-			Messages: messages,
+			Messages: reverse(messages),
 		}, nil
 	}
 
@@ -314,7 +314,7 @@ func generateDigestItemFromThread(
 	return &model.DigestItem{
 		ParentID: t.Key,
 		Name:     t.Subject,
-		Messages: cleanMessages,
+		Messages: reverse(cleanMessages),
 	}, nil
 }
 
@@ -368,4 +368,13 @@ func markEventsAsRead(
 	log.Printf("%v: marked %d event(s) as read", op, len(events))
 
 	return nil
+}
+
+func reverse(messages []*model.Message) []*model.Message {
+	reversedMessages := make([]*model.Message, len(messages))
+	for i := range messages {
+		reversedMessages[len(messages)-1-i] = messages[i]
+	}
+
+	return reversedMessages
 }
