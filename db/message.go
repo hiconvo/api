@@ -50,7 +50,7 @@ func (s *MessageStore) GetMessagesByKey(
 
 	q := datastore.NewQuery("Message").
 		Filter("ParentKey =", k).
-		Order("-CreatedAt").
+		Order("CreatedAt").
 		Offset(p.Offset()).
 		Limit(p.Limit())
 

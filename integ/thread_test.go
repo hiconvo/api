@@ -352,10 +352,10 @@ func TestGetMessagesByThread(t *testing.T) {
 				Status(tcase.ExpectStatus)
 
 			if tcase.ExpectStatus < http.StatusBadRequest {
-				tt.Assert(jsonpath.Equal("$.messages[1].id", message1.ID))
-				tt.Assert(jsonpath.Equal("$.messages[1].body", message1.Body))
-				tt.Assert(jsonpath.Equal("$.messages[0].id", message2.ID))
-				tt.Assert(jsonpath.Equal("$.messages[0].body", message2.Body))
+				tt.Assert(jsonpath.Equal("$.messages[0].id", message1.ID))
+				tt.Assert(jsonpath.Equal("$.messages[0].body", message1.Body))
+				tt.Assert(jsonpath.Equal("$.messages[1].id", message2.ID))
+				tt.Assert(jsonpath.Equal("$.messages[1].body", message2.Body))
 			}
 
 			tt.End()
