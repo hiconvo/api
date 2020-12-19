@@ -60,6 +60,7 @@ func Handler(dbClient dbc.Client, searchClient search.Client) (http.Handler, *Mo
 	welcomer := welcome.New(context.Background(), userStore, "support")
 
 	h := handler.New(&handler.Config{
+		DB:            dbClient,
 		Transacter:    dbClient,
 		UserStore:     userStore,
 		ThreadStore:   threadStore,

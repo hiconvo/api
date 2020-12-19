@@ -129,7 +129,7 @@ func NewThread(
 		}
 	}
 
-	return &Thread{
+	t := &Thread{
 		Key:          key,
 		OwnerKey:     input.Owner.Key,
 		Owner:        MapUserToUserPartial(input.Owner),
@@ -140,7 +140,11 @@ func NewThread(
 		Body:         removeLink(input.Body, link),
 		Photos:       photos,
 		Link:         link,
-	}, nil
+	}
+
+	MarkAsRead(t, input.Owner.Key)
+
+	return t, nil
 }
 
 func (t *Thread) LoadKey(k *datastore.Key) error {

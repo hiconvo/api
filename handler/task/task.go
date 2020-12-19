@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hiconvo/api/bjson"
+	"github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/clients/magic"
 	"github.com/hiconvo/api/clients/queue"
 	"github.com/hiconvo/api/clients/storage"
@@ -17,6 +18,7 @@ import (
 )
 
 type Config struct {
+	DB           db.Client
 	UserStore    model.UserStore
 	ThreadStore  model.ThreadStore
 	EventStore   model.EventStore
@@ -46,6 +48,7 @@ func (c *Config) CreateDigest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := digest.New(&digest.Config{
+		DB:           c.DB,
 		UserStore:    c.UserStore,
 		EventStore:   c.EventStore,
 		ThreadStore:  c.ThreadStore,

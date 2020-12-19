@@ -28,6 +28,7 @@ import (
 )
 
 type Config struct {
+	DB            db.Client
 	Transacter    db.Transacter
 	UserStore     model.UserStore
 	ThreadStore   model.ThreadStore
@@ -64,6 +65,7 @@ func New(c *Config) http.Handler {
 		Storage:      c.Storage,
 	}))
 	s.PathPrefix("/tasks").Handler(task.NewHandler(&task.Config{
+		DB:           c.DB,
 		UserStore:    c.UserStore,
 		ThreadStore:  c.ThreadStore,
 		EventStore:   c.EventStore,

@@ -66,6 +66,7 @@ func main() {
 	)
 
 	h := handler.New(&handler.Config{
+		DB:            dbClient,
 		Transacter:    dbClient,
 		UserStore:     userStore,
 		ThreadStore:   threadStore,

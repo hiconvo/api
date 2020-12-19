@@ -2,9 +2,12 @@ package digest
 
 import (
 	"context"
+	"time"
 
+	"cloud.google.com/go/datastore"
 	"google.golang.org/api/iterator"
 
+	dbc "github.com/hiconvo/api/clients/db"
 	"github.com/hiconvo/api/clients/magic"
 	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/errors"
@@ -20,6 +23,7 @@ type Digester interface {
 }
 
 type Config struct {
+	DB           dbc.Client
 	UserStore    model.UserStore
 	EventStore   model.EventStore
 	ThreadStore  model.ThreadStore
@@ -37,35 +41,102 @@ func New(c *Config) Digester {
 }
 
 func (d *digesterImpl) Digest(ctx context.Context) error {
-	// TODO: Rewrite this whole thing so it's not garbage.
-	op := errors.Op("digest.Digest")
-	iter := d.UserStore.IterAll(ctx)
+	op := errors.Op("Digest")
 
-	for {
+	keys, err := d.getUserList(ctx)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	for i, k := range keys {
+		log.Printf("--> digest.sendDigest(count=%d): start", i)
+
 		var user model.User
-		_, err := iter.Next(&user)
 
-		if errors.Is(err, iterator.Done) {
-			break
-		}
-
+		err := d.DB.Get(ctx, k, &user)
 		if err != nil {
-			return errors.E(op, err)
+			log.Alarm(errors.E(op, errors.Errorf("digest.sendDigest(count=%d): %v", i, err)))
+
+			continue
 		}
 
 		if !user.SendDigest {
-			log.Printf("digest.sendDigest: skipping digest for user=%q", user.Email)
+			log.Printf("digest.sendDigest(count=%d): skipping digest for user=%q", i, user.Email)
+
 			continue
 		}
 
 		if err := d.sendDigest(ctx, &user); err != nil {
 			log.Alarm(errors.E(
 				op,
-				errors.Errorf("digest.sendDigest: could not send digest for user=%q: %v", user.Email, err)))
+				errors.Errorf("digest.sendDigest(count=%d): could not send digest for user=%q: %v",
+					i, user.Email, err)))
 		}
 	}
 
 	return nil
+}
+
+func (d *digesterImpl) getUserList(ctx context.Context) ([]*datastore.Key, error) {
+	op := errors.Op("getUserList")
+	yesterday := time.Now().Add(time.Duration(24) * time.Hour * -1)
+
+	users := map[string]struct{}{}
+
+	q := datastore.NewQuery("Event").Filter("UpdatedAt >", yesterday)
+	iter := d.DB.Run(ctx, q)
+
+	for {
+		var event model.Event
+		_, err := iter.Next(&event)
+
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
+
+		for _, k := range event.UserKeys {
+			users[k.Encode()] = struct{}{}
+		}
+	}
+
+	q = datastore.NewQuery("Thread").Filter("UpdatedAt >", yesterday)
+	iter = d.DB.Run(ctx, q)
+
+	for {
+		var thread model.Thread
+		_, err := iter.Next(&thread)
+
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
+
+		for _, k := range thread.UserKeys {
+			users[k.Encode()] = struct{}{}
+		}
+	}
+
+	var keys []*datastore.Key
+
+	for s := range users {
+		k, err := datastore.DecodeKey(s)
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
+
+		keys = append(keys, k)
+	}
+
+	log.Printf("%v: found %d users who may need digest emails", op, len(keys))
+
+	return keys, nil
 }
 
 func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
@@ -90,6 +161,7 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 	)
 
 	for i := range events {
+		// Get all of the unread events
 		if !model.IsRead(events[i], u.Key) {
 			cleanEvents = append(cleanEvents, events[i])
 		}
@@ -100,6 +172,7 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 	}
 
 	for i := range threads {
+		// Get all of the unread threads
 		if !model.IsRead(threads[i], u.Key) {
 			cleanThreads = append(cleanThreads, threads[i])
 		}
@@ -115,7 +188,7 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 			return errors.E(op, err)
 		}
 
-		// The following two calls are bad because they're exposed to a race condition
+		// TODO: The following two calls are bad because they're exposed to a race condition
 		// so all this will have to change if there are ever a decent amount of real users
 		if err := markThreadsAsRead(ctx, d.ThreadStore, cleanThreads, u); err != nil {
 			return errors.E(op, err)
@@ -126,8 +199,8 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 		}
 	}
 
-	log.Printf("digest.sendDigest: processed digest of %d items for user %q",
-		len(digestList)+len(upcoming), u.Email)
+	log.Printf("%v: processed digest of %d items",
+		op, len(digestList)+len(upcoming))
 
 	return nil
 }
@@ -177,7 +250,7 @@ func generateDigestItemFromEvent(
 	e *model.Event,
 	u *model.User,
 ) (*model.DigestItem, error) {
-	op := errors.Opf("generateDigestItemFromEvent(event=%d)", e.Key.ID)
+	op := errors.Opf("generateDigestItemFromEvent(user=%s, event=%d)", u.Email, e.Key.ID)
 
 	messages, err := ms.GetMessagesByKey(
 		ctx, e.Key, &model.Pagination{Size: 5},
@@ -187,6 +260,8 @@ func generateDigestItemFromEvent(
 	}
 
 	if len(messages) > 0 {
+		log.Printf("%v: adding event with name=%s", op, e.Name)
+
 		return &model.DigestItem{
 			ParentID: e.Key,
 			Name:     e.Name,
@@ -203,7 +278,7 @@ func generateDigestItemFromThread(
 	t *model.Thread,
 	u *model.User,
 ) (*model.DigestItem, error) {
-	op := errors.Opf("generateDigestItemFromThread(thread=%d)", t.Key.ID)
+	op := errors.Opf("generateDigestItemFromThread(user=%s, thread=%d)", u.Email, t.Key.ID)
 
 	// Get the most recent five messages
 	messages, err := ms.GetMessagesByKey(
@@ -234,6 +309,8 @@ func generateDigestItemFromThread(
 		cleanMessages = messages
 	}
 
+	log.Printf("%v: adding thread with subject=%s", op, t.Subject)
+
 	return &model.DigestItem{
 		ParentID: t.Key,
 		Name:     t.Subject,
@@ -247,14 +324,18 @@ func markThreadsAsRead(
 	threads []*model.Thread,
 	user *model.User,
 ) error {
+	op := errors.Opf("markThreadsAsRead(user=%s)", user.Email)
+
 	for i := range threads {
 		model.MarkAsRead(threads[i], user.Key)
 	}
 
 	err := ts.CommitMulti(ctx, threads)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
+
+	log.Printf("%v: marked %d thread(s) as read", op, len(threads))
 
 	return nil
 }
@@ -265,14 +346,18 @@ func markEventsAsRead(
 	events []*model.Event,
 	user *model.User,
 ) error {
+	op := errors.Opf("markEventsAsRead(user=%s)", user.Email)
+
 	for i := range events {
 		model.MarkAsRead(events[i], user.Key)
 	}
 
 	err := es.CommitMulti(ctx, events)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
+
+	log.Printf("%v: marked %d event(s) as read", op, len(events))
 
 	return nil
 }
