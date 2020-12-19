@@ -335,7 +335,7 @@ func (c *Client) SendCancellation(m magic.Client, event *model.Event, message st
 
 func (c *Client) SendDigest(
 	magicClient magic.Client,
-	digestList []model.DigestItem,
+	digestList []*model.DigestItem,
 	upcomingEvents []*model.Event,
 	user *model.User,
 ) error {

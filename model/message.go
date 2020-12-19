@@ -27,12 +27,18 @@ type Message struct {
 	Link      *og.LinkData   `json:"link"     datastore:",noindex"`
 }
 
+type GetMessagesOption func(m map[string]interface{})
+
 type MessageStore interface {
 	GetMessageByID(ctx context.Context, id string) (*Message, error)
-	GetMessagesByKey(ctx context.Context, k *datastore.Key, p *Pagination) ([]*Message, error)
-	GetMessagesByThread(ctx context.Context, t *Thread, p *Pagination) ([]*Message, error)
-	GetMessagesByEvent(ctx context.Context, t *Event, p *Pagination) ([]*Message, error)
-	GetUnhydratedMessagesByUser(ctx context.Context, u *User, p *Pagination) ([]*Message, error)
+	GetMessagesByKey(ctx context.Context,
+		k *datastore.Key, p *Pagination, o ...GetMessagesOption) ([]*Message, error)
+	GetMessagesByThread(ctx context.Context,
+		t *Thread, p *Pagination, o ...GetMessagesOption) ([]*Message, error)
+	GetMessagesByEvent(ctx context.Context,
+		t *Event, p *Pagination, o ...GetMessagesOption) ([]*Message, error)
+	GetUnhydratedMessagesByUser(ctx context.Context,
+		u *User, p *Pagination, o ...GetMessagesOption) ([]*Message, error)
 	Commit(ctx context.Context, t *Message) error
 	CommitMulti(ctx context.Context, messages []*Message) error
 	Delete(ctx context.Context, t *Message) error

@@ -6,11 +6,14 @@ import (
 	"google.golang.org/api/iterator"
 
 	"github.com/hiconvo/api/clients/magic"
+	"github.com/hiconvo/api/db"
 	"github.com/hiconvo/api/errors"
 	"github.com/hiconvo/api/log"
 	"github.com/hiconvo/api/mail"
 	"github.com/hiconvo/api/model"
 )
+
+var NothingToDigestErr = errors.Str("Nothing to digest")
 
 type Digester interface {
 	Digest(ctx context.Context) error
@@ -66,31 +69,29 @@ func (d *digesterImpl) Digest(ctx context.Context) error {
 }
 
 func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
-	// TODO: Optimize these queries
+	op := errors.Opf("sendDigest(user=%s)", u.Email)
+
 	events, err := d.EventStore.GetEventsByUser(ctx, u, &model.Pagination{})
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	threads, err := d.ThreadStore.GetThreadsByUser(ctx, u, &model.Pagination{})
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	var (
-		// Convert the events into Digestables and filter out read items
-		digestables []model.Digestable
+		// Filter out already read events and threads
+		cleanEvents  []*model.Event
+		cleanThreads []*model.Thread
 		// Save the upcoming events to a slice at the same time
 		upcoming []*model.Event
-		//
-		toMarkEvents  []*model.Event
-		toMarkThreads []*model.Thread
 	)
 
 	for i := range events {
 		if !model.IsRead(events[i], u.Key) {
-			digestables = append(digestables, events[i])
-			toMarkEvents = append(toMarkEvents, events[i])
+			cleanEvents = append(cleanEvents, events[i])
 		}
 
 		if events[i].IsUpcoming() {
@@ -100,33 +101,28 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 
 	for i := range threads {
 		if !model.IsRead(threads[i], u.Key) {
-			digestables = append(digestables, threads[i])
-			toMarkThreads = append(toMarkThreads, threads[i])
+			cleanThreads = append(cleanThreads, threads[i])
 		}
 	}
 
-	digestList, err := generateDigestList(ctx, d.MessageStore, digestables, u)
+	digestList, err := generateDigestList(ctx, d.MessageStore, cleanThreads, cleanEvents, u)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	if len(digestList) > 0 || len(upcoming) > 0 {
 		if err := d.Mail.SendDigest(d.Magic, digestList, upcoming, u); err != nil {
-			return err
-		}
-
-		if err := markDigestedMessagesAsRead(ctx, d.MessageStore, digestList, u); err != nil {
-			return err
+			return errors.E(op, err)
 		}
 
 		// The following two calls are bad because they're exposed to a race condition
 		// so all this will have to change if there are ever a decent amount of real users
-		if err := markThreadsAsRead(ctx, d.ThreadStore, toMarkThreads, u); err != nil {
-			return err
+		if err := markThreadsAsRead(ctx, d.ThreadStore, cleanThreads, u); err != nil {
+			return errors.E(op, err)
 		}
 
-		if err := markEventsAsRead(ctx, d.EventStore, toMarkEvents, u); err != nil {
-			return err
+		if err := markEventsAsRead(ctx, d.EventStore, cleanEvents, u); err != nil {
+			return errors.E(op, err)
 		}
 	}
 
@@ -139,20 +135,34 @@ func (d *digesterImpl) sendDigest(ctx context.Context, u *model.User) error {
 func generateDigestList(
 	ctx context.Context,
 	ms model.MessageStore,
-	digestables []model.Digestable,
+	threads []*model.Thread,
+	events []*model.Event,
 	u *model.User,
-) ([]model.DigestItem, error) {
-	var digest []model.DigestItem
+) ([]*model.DigestItem, error) {
+	var op = errors.Opf("generateDigestList(user=%s)", u.Email)
+	var digest []*model.DigestItem
 
-	for i := range digestables {
-		item, err := generateDigestItem(ctx, ms, digestables[i], u)
+	for i := range events {
+		item, err := generateDigestItemFromEvent(ctx, ms, events[i], u)
 		if err != nil {
-			switch err.(type) {
-			case *DigestError:
+			if errors.Is(err, NothingToDigestErr) {
 				continue
-			default:
-				return digest, err
 			}
+
+			return nil, errors.E(op, err)
+		}
+
+		digest = append(digest, item)
+	}
+
+	for i := range threads {
+		item, err := generateDigestItemFromThread(ctx, ms, threads[i], u)
+		if err != nil {
+			if errors.Is(err, NothingToDigestErr) {
+				continue
+			}
+
+			return nil, errors.E(op, err)
 		}
 
 		digest = append(digest, item)
@@ -161,57 +171,74 @@ func generateDigestList(
 	return digest, nil
 }
 
-func generateDigestItem(
+func generateDigestItemFromEvent(
 	ctx context.Context,
 	ms model.MessageStore,
-	d model.Digestable,
+	e *model.Event,
 	u *model.User,
-) (model.DigestItem, error) {
-	messages, err := ms.GetMessagesByKey(ctx, d.GetKey(), &model.Pagination{})
+) (*model.DigestItem, error) {
+	op := errors.Opf("generateDigestItemFromEvent(event=%d)", e.Key.ID)
+
+	messages, err := ms.GetMessagesByKey(
+		ctx, e.Key, &model.Pagination{Size: 5},
+		db.MessagesOrderBy(db.CreatedAtNewestFirst))
 	if err != nil {
-		return model.DigestItem{}, err
+		return nil, errors.E(op, err)
 	}
 
-	var unread []*model.Message
-
-	for j := range messages {
-		if !model.IsRead(messages[j], u.Key) {
-			unread = append(unread, messages[j])
-		}
-	}
-
-	if len(unread) > 0 {
-		return model.DigestItem{
-			ParentID: d.GetKey(),
-			Name:     d.GetName(),
-			Messages: unread,
+	if len(messages) > 0 {
+		return &model.DigestItem{
+			ParentID: e.Key,
+			Name:     e.Name,
+			Messages: messages,
 		}, nil
 	}
 
-	return model.DigestItem{}, &DigestError{}
+	return nil, NothingToDigestErr
 }
 
-func markDigestedMessagesAsRead(
+func generateDigestItemFromThread(
 	ctx context.Context,
 	ms model.MessageStore,
-	digestList []model.DigestItem,
-	user *model.User,
-) error {
-	var messages []*model.Message
+	t *model.Thread,
+	u *model.User,
+) (*model.DigestItem, error) {
+	op := errors.Opf("generateDigestItemFromThread(thread=%d)", t.Key.ID)
 
-	for i := range digestList {
-		for j := range digestList[i].Messages {
-			model.MarkAsRead(digestList[i].Messages[j], user.Key)
-			messages = append(messages, digestList[i].Messages[j])
-		}
-	}
-
-	err := ms.CommitMulti(ctx, messages)
+	// Get the most recent five messages
+	messages, err := ms.GetMessagesByKey(
+		ctx, t.Key, &model.Pagination{Size: 5},
+		db.MessagesOrderBy(db.CreatedAtNewestFirst))
 	if err != nil {
-		return err
+		return nil, errors.E(op, err)
 	}
 
-	return nil
+	cleanMessages := make([]*model.Message, 0)
+
+	// If there are fewer than five messages, include the info in the thread by
+	// creating a pseudo-message that can be used in DigestItem
+	if len(messages) < 5 {
+		firstMessage := &model.Message{
+			Body:      t.Body,
+			PhotoKeys: t.Photos,
+			Link:      t.Link,
+			User:      t.Owner,
+			UserKey:   t.OwnerKey,
+			ParentKey: t.Key,
+			ParentID:  t.Key.Encode(),
+			CreatedAt: t.CreatedAt,
+		}
+		cleanMessages = append(cleanMessages, firstMessage)
+		cleanMessages = append(cleanMessages, messages...)
+	} else {
+		cleanMessages = messages
+	}
+
+	return &model.DigestItem{
+		ParentID: t.Key,
+		Name:     t.Subject,
+		Messages: cleanMessages,
+	}, nil
 }
 
 func markThreadsAsRead(
@@ -248,10 +275,4 @@ func markEventsAsRead(
 	}
 
 	return nil
-}
-
-type DigestError struct{}
-
-func (e *DigestError) Error() string {
-	return "Nothing to digest"
 }

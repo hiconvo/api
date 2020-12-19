@@ -11,6 +11,13 @@ import (
 	"github.com/hiconvo/api/model"
 )
 
+type OrderBy string
+
+const (
+	CreatedAtNewestFirst OrderBy = "-CreatedAt"
+	CreatedAtOldestFirst OrderBy = "CreatedAt"
+)
+
 var _ model.MessageStore = (*MessageStore)(nil)
 
 type MessageStore struct {
@@ -44,15 +51,30 @@ func (s *MessageStore) GetMessagesByKey(
 	ctx context.Context,
 	k *datastore.Key,
 	p *model.Pagination,
+	opts ...model.GetMessagesOption,
 ) ([]*model.Message, error) {
 	op := errors.Opf("MessageStore.GetMessagesByKey(key=%d)", k.ID)
 	messages := make([]*model.Message, 0)
 
+	m := map[string]interface{}{}
+	for _, opt := range opts {
+		opt(m)
+	}
+
 	q := datastore.NewQuery("Message").
 		Filter("ParentKey =", k).
-		Order("CreatedAt").
 		Offset(p.Offset()).
 		Limit(p.Limit())
+
+	if val, ok := m["order"]; ok {
+		if orderBy, ok := val.(string); ok {
+			q = q.Order(orderBy)
+		} else {
+			return nil, errors.E(op, http.StatusBadRequest)
+		}
+	} else {
+		q = q.Order("CreatedAt")
+	}
 
 	if _, err := s.DB.GetAll(ctx, q, &messages); err != nil {
 		return messages, errors.E(op, err)
@@ -79,6 +101,7 @@ func (s *MessageStore) GetMessagesByThread(
 	ctx context.Context,
 	t *model.Thread,
 	p *model.Pagination,
+	ops ...model.GetMessagesOption,
 ) ([]*model.Message, error) {
 	return s.GetMessagesByKey(ctx, t.Key, p)
 }
@@ -87,6 +110,7 @@ func (s *MessageStore) GetMessagesByEvent(
 	ctx context.Context,
 	e *model.Event,
 	p *model.Pagination,
+	ops ...model.GetMessagesOption,
 ) ([]*model.Message, error) {
 	return s.GetMessagesByKey(ctx, e.Key, p)
 }
@@ -95,6 +119,7 @@ func (s *MessageStore) GetUnhydratedMessagesByUser(
 	ctx context.Context,
 	u *model.User,
 	p *model.Pagination,
+	ops ...model.GetMessagesOption,
 ) ([]*model.Message, error) {
 	var messages []*model.Message
 
@@ -138,4 +163,10 @@ func (s *MessageStore) Delete(ctx context.Context, m *model.Message) error {
 	}
 
 	return nil
+}
+
+func MessagesOrderBy(by OrderBy) model.GetMessagesOption {
+	return func(m map[string]interface{}) {
+		m["order"] = string(by)
+	}
 }
