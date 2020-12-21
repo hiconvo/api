@@ -116,21 +116,11 @@ func (c *Client) SendThread(
 	thread *model.Thread,
 	messages []*model.Message,
 ) error {
-	if len(messages) == 0 {
-		return errors.E(errors.Op("mail.SendThread"), errors.Str("no messages to send"))
-	}
-
 	// From is the most recent message sender: messages[0].User.
 	sender, err := model.MapUserPartialToUser(messages[0].User, thread.Users)
 	if err != nil {
 		return err
 	}
-
-	// Loop through all participants and generate emails.
-	//
-	emailMessages := make([]mail.EmailMessage, len(thread.Users))
-	// Get the last five messages to be included in the email.
-	lastFive := getLastFive(messages)
 
 	// Filter out registered users
 	var users []*model.User
@@ -140,6 +130,12 @@ func (c *Client) SendThread(
 		}
 	}
 
+	// Loop through all participants and generate emails.
+	//
+	emailMessages := make([]mail.EmailMessage, len(users))
+	// Get the last five messages to be included in the email.
+	lastFive := getLastFive(messages)
+
 	for i, curUser := range users {
 		// Don't send an email to the sender.
 		if curUser.Key.Equal(sender.Key) || !curUser.SendThreads {
@@ -147,8 +143,29 @@ func (c *Client) SendThread(
 		}
 
 		// Generate messages
-		tplMessages := make([]template.Message, len(lastFive))
-		for j, m := range lastFive {
+		cleanMessages := make([]*model.Message, 0)
+
+		// If there are fewer than five messages, include the info in the thread by
+		// creating a pseudo-message
+		if len(messages) < 5 {
+			firstMessage := &model.Message{
+				Body:      thread.Body,
+				PhotoKeys: thread.Photos,
+				Link:      thread.Link,
+				User:      thread.Owner,
+				UserKey:   thread.OwnerKey,
+				ParentKey: thread.Key,
+				ParentID:  thread.Key.Encode(),
+				CreatedAt: thread.CreatedAt,
+			}
+			cleanMessages = append(cleanMessages, lastFive...)
+			cleanMessages = append(cleanMessages, firstMessage)
+		} else {
+			cleanMessages = lastFive
+		}
+
+		tplMessages := make([]template.Message, len(cleanMessages))
+		for j, m := range cleanMessages {
 			tplMessages[j] = template.Message{
 				Body:     m.Body,
 				Name:     m.User.FirstName,
