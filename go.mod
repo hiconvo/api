@@ -28,18 +28,18 @@ require (
 	github.com/mitchellh/mapstructure v1.3.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/olivere/elastic/v7 v7.0.15
-	github.com/otiai10/opengraph v1.1.1
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/sendgrid/rest v2.4.1+incompatible // indirect
 	github.com/sendgrid/sendgrid-go v3.5.0+incompatible
 	github.com/sergi/go-diff v1.1.0 // indirect
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/steinfletcher/apitest v1.4.6
 	github.com/steinfletcher/apitest-jsonpath v1.5.0
-	github.com/stretchr/testify v1.5.1
-	go.mongodb.org/mongo-driver v1.4.0
+	github.com/stretchr/testify v1.6.1
+	go.mongodb.org/mongo-driver v1.5.1
 	gocloud.dev v0.19.0
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
 	google.golang.org/api v0.17.0
 	google.golang.org/genproto v0.0.0-20200212174721-66ed5ce911ce
 	googlemaps.github.io/maps v1.1.2
